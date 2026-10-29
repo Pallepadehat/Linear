@@ -1,0 +1,14 @@
+import { meRouter } from '../modules/me/me.router'
+import { teamsRouter } from '../modules/teams/teams.router'
+import { uploadsRouter } from '../modules/uploads/uploads.router'
+import { workspacesRouter } from '../modules/workspaces/workspaces.router'
+import { os } from './base'
+
+export const router = os.router({
+  me: meRouter,
+  workspaces: workspacesRouter,
+  teams: teamsRouter,
+  uploads: uploadsRouter,
+})
+
+export type Router = typeof router
