@@ -9,24 +9,24 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 
 | ID     | Status | Task                                                                                   | Depends on   |
 | ------ | ------ | -------------------------------------------------------------------------------------- | ------------ |
-| M1-01  | [ ]    | Turborepo + Bun workspaces, root scripts, `turbo.json`, `packages/tsconfig`            | —            |
-| M1-02  | [ ]    | ESLint (flat) + Prettier shared config, `lint` / `typecheck` / `format` tasks           | M1-01        |
-| M1-03  | [ ]    | `docker-compose.yml`: Postgres 16, Redis 7, MinIO + bucket init; `.env.example`         | M1-01        |
-| M1-04  | [ ]    | `packages/env`: Zod env loaders for api, worker, app                                    | M1-01        |
-| M1-05  | [ ]    | `packages/db`: Drizzle client, drizzle-kit config, `db:*` scripts, first migration      | M1-03, M1-04 |
-| M1-06  | [ ]    | `apps/api`: Fastify `buildApp()`, CORS, pino, `/health`                                 | M1-04        |
-| M1-07  | [ ]    | Better Auth: Drizzle adapter, auth tables, mounted at `/api/auth/*`                     | M1-05, M1-06 |
-| M1-08  | [ ]    | `packages/contract` + oRPC mounted at `/rpc/*`, context, `requireAuth`, `me.get`        | M1-07        |
-| M1-09  | [ ]    | `apps/app`: Vite + Vue 3 + vue-router + Tailwind v4 + shadcn-vue init, dev proxy        | M1-01        |
-| M1-10  | [ ]    | Design tokens in `globals.css` (light + dark), Inter / JetBrains Mono, `useTheme`, no-flash script | M1-09 |
-| M1-11  | [ ]    | oRPC client + TanStack Query + Better Auth client in app                                | M1-08, M1-09 |
-| M1-12  | [ ]    | Auth pages (login, register), route guards, `AuthLayout`                               | M1-10, M1-11 |
-| M1-13  | [ ]    | Schema + procedures: workspaces, members, teams (+ default statuses)                    | M1-08        |
-| M1-14  | [ ]    | Workspace setup flow (create workspace + first team), `WorkspaceLayout` with sidebar    | M1-12, M1-13 |
-| M1-15  | [ ]    | `packages/queue` + `apps/worker` skeleton with graceful shutdown                        | M1-03, M1-04 |
-| M1-16  | [ ]    | `packages/storage` + uploads procedures + `media` job; avatar upload end to end         | M1-13, M1-15 |
-| M1-17  | [ ]    | Vitest setup for packages + API integration test harness (test DB)                      | M1-05, M1-06 |
-| M1-18  | [ ]    | Seed script: demo user, workspace `Tip`, team `TIP`                                     | M1-13        |
+| M1-01  | [x]    | Turborepo + Bun workspaces, root scripts, `turbo.json`, `packages/tsconfig`            | —            |
+| M1-02  | [x]    | ESLint (flat) + Prettier shared config, `lint` / `typecheck` / `format` tasks           | M1-01        |
+| M1-03  | [x]    | `docker-compose.yml`: Postgres 16, Redis 7, MinIO + bucket init; `.env.example`         | M1-01        |
+| M1-04  | [x]    | `packages/env`: Zod env loaders for api, worker, app                                    | M1-01        |
+| M1-05  | [x]    | `packages/db`: Drizzle client, drizzle-kit config, `db:*` scripts, first migration      | M1-03, M1-04 |
+| M1-06  | [x]    | `apps/api`: Fastify `buildApp()`, CORS, pino, `/health`                                 | M1-04        |
+| M1-07  | [x]    | Better Auth: Drizzle adapter, auth tables, mounted at `/api/auth/*`                     | M1-05, M1-06 |
+| M1-08  | [x]    | `packages/contract` + oRPC mounted at `/rpc/*`, context, `requireAuth`, `me.get`        | M1-07        |
+| M1-09  | [x]    | `apps/app`: Vite + Vue 3 + vue-router + Tailwind v4 + shadcn-vue init, dev proxy        | M1-01        |
+| M1-10  | [x]    | Design tokens in `globals.css` (light + dark), Inter / JetBrains Mono, `useTheme`, no-flash script | M1-09 |
+| M1-11  | [x]    | oRPC client + TanStack Query + Better Auth client in app                                | M1-08, M1-09 |
+| M1-12  | [x]    | Auth pages (login, register), route guards, `AuthLayout`                               | M1-10, M1-11 |
+| M1-13  | [x]    | Schema + procedures: workspaces, members, teams (+ default statuses)                    | M1-08        |
+| M1-14  | [x]    | Workspace setup flow (create workspace + first team), `WorkspaceLayout` with sidebar    | M1-12, M1-13 |
+| M1-15  | [x]    | `packages/queue` + `apps/worker` skeleton with graceful shutdown                        | M1-03, M1-04 |
+| M1-16  | [x]    | `packages/storage` + uploads procedures + `media` job; avatar upload end to end         | M1-13, M1-15 |
+| M1-17  | [x]    | Vitest setup for packages + API integration test harness (test DB)                      | M1-05, M1-06 |
+| M1-18  | [x]    | Seed script: demo user, workspace `Tip`, team `TIP`                                     | M1-13        |
 
 ## M2 — Issue management
 
@@ -80,3 +80,22 @@ Keyboard shortcuts · command menu · rich-text editor · notifications · due d
 ## Log
 
 Append one line per finished task: `YYYY-MM-DD · ID · short note`.
+
+2026-10-29 · M1-01 · Turborepo + Bun workspaces, shared tsconfig bases
+2026-10-29 · M1-02 · root ESLint flat config (enforces app/core import boundaries) + Prettier; format check in CI
+2026-10-29 · M1-03 · compose with Postgres 16, Redis 7, RustFS (MinIO images unavailable, ADR 0008), overridable host ports
+2026-10-29 · M1-04 · Zod env loaders; root .env loaded from any package dir
+2026-10-29 · M1-05 · Drizzle client, snake_case casing, 0000_init migration, migrate script
+2026-10-29 · M1-06 · buildApp() with injected deps, CORS, pino with redaction, /health (DB + Redis)
+2026-10-29 · M1-07 · Better Auth email/password, UUIDv7 ids, mounted at /api/auth/*
+2026-10-29 · M1-08 · contract + RPCHandler at /rpc/*, requireAuth/requireWorkspace, DomainError mapping, me.get
+2026-10-29 · M1-09 · Vite + Vue 3 + router + Tailwind v4 + shadcn-vue, /api and /rpc dev proxy
+2026-10-29 · M1-10 · light/dark tokens mapped to shadcn vars, Inter/JetBrains Mono (self-hosted), useTheme, no-flash script
+2026-10-29 · M1-11 · oRPC TanStack utils, QueryClient defaults, Better Auth Vue client
+2026-10-29 · M1-12 · login/register with vee-validate (zod 4 adapter), guards, AuthLayout
+2026-10-29 · M1-13 · workspaces/members/teams/statuses schema + procedures; reserved slugs
+2026-10-29 · M1-14 · setup flow with slug/key suggestions, WorkspaceLayout sidebar, teams + settings pages
+2026-10-29 · M1-15 · queue names/payload schemas, worker with media + maintenance, hourly cleanup, graceful shutdown
+2026-10-29 · M1-16 · presign → PUT → confirm, sharp variants with metadata stripped, avatar in sidebar/members
+2026-10-29 · M1-17 · Vitest per package, API inject harness on linear_test, worker job tests, CI services
+2026-10-29 · M1-18 · idempotent seed: demo@tip.dev, workspace Tip, team TIP

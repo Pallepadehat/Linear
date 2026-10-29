@@ -50,7 +50,7 @@ packages/tsconfig  Shared tsconfig bases
 Allowed imports:
 
 ```
-app    → contract
+app    → contract   (vite.config.ts may also use @linear/env/app)
 api    → contract, core, db, queue, storage, env
 worker → core, db, queue, storage, env
 core   → db
@@ -81,7 +81,9 @@ bun run db:seed           # demo workspace "Tip", team "TIP"
 
 Scope to one package with `bun run --filter <name> <script>` or `turbo run <task> --filter=<name>`.
 
-Ports: app 5173, api 3000, Postgres 5432, Redis 6379, MinIO 9000 (console 9001).
+Ports: app 5173, api 3000, Postgres 5432, Redis 6379, S3 storage 9000 (console 9001; RustFS locally, see ADR 0008). Docker host ports can be overridden in `.env` (`POSTGRES_PORT`, `REDIS_PORT`, `STORAGE_PORT`, `STORAGE_CONSOLE_PORT`); update the URLs to match.
+
+Demo login after `bun run db:seed`: `demo@tip.dev` / `password123` → `/tip`.
 
 ## Working on a task
 
@@ -115,9 +117,11 @@ Follow [`docs/workflow.md`](docs/workflow.md): pick a ready task from `docs/road
 - `buildApp()` has no side effects at import time (no listening, no eager connections) so tests can build it.
 - Throw typed `ORPCError`s (`UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `BAD_REQUEST`). Don't leak internal errors.
 - Issue numbers are allocated atomically in the create transaction (`issue_counter + 1 RETURNING`). Never compute `max(number) + 1`.
-- List procedures use cursor pagination.
+- List procedures over unbounded data (issues, comments, activity) use cursor pagination. Small bounded lists (a user's workspaces, teams, members, statuses) return plain arrays.
 - Request handlers must stay fast. Webhook processing, image processing, and cleanup go to BullMQ.
 - Use Drizzle's query builder; no raw SQL string concatenation.
+- Map expected failures in `packages/core` to `DomainError(code)`; the oRPC base middleware turns them into typed errors and logs anything unexpected.
+- Name composite unique constraints explicitly in snake_case (`unique('teams_workspace_id_key_unique')`) so `isUniqueViolation` can match them.
 - DB naming: tables `snake_case` plural, TS `camelCase`; every table has `id` (UUIDv7), `createdAt`, `updatedAt`. Express invariants as DB constraints. Never edit an applied migration.
 
 ### Worker / jobs

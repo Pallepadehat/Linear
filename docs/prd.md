@@ -1107,6 +1107,8 @@ List procedures use cursor pagination. Errors use oRPC typed errors (`UNAUTHORIZ
 | `GITHUB_APP_PRIVATE_KEY`    | api, worker   | PEM                                       |
 | `GITHUB_WEBHOOK_SECRET`     | api           |                                           |
 | `VITE_API_URL`              | app           | empty in dev (uses proxy)                 |
+| `TEST_DATABASE_URL`         | tests         | defaults to `DATABASE_URL` with db `linear_test` |
+| `PORT`, `LOG_LEVEL`         | api (+ worker log level) | `3000`, `info`                 |
 
 All server env is validated with Zod at startup (`packages/env`); the process exits on invalid configuration. Only `VITE_`-prefixed variables reach the browser.
 

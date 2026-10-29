@@ -23,12 +23,14 @@
 ## Commands
 
 ```bash
-bun run test                          # all
+bun run test                          # all (packages run one at a time: DB suites share linear_test)
 bun run --filter @linear/core test    # one package
 bun run test -- --watch               # watch mode
 bun run test:e2e                      # Playwright (needs dev stack running)
 ```
 
 ## Test data
+
+API tests use `setupTestApp()` / `signUp()` / `rpcClient()` from `apps/api/test/harness.ts`: the real app via `app.inject()`, Redis queues under a `test` prefix, and the in-memory storage from `@linear/storage/testing`.
 
 Factories live in `packages/db/src/testing/` (`createUser`, `createWorkspace`, `createTeam`, `createIssue`, …) and return inserted rows. Prefer factories over hand-written inserts.
