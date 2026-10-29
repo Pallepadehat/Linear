@@ -1,0 +1,51 @@
+import { createDb } from '@linear/db'
+import { loadWorkerEnv } from '@linear/env'
+import { createRedisConnection } from '@linear/queue'
+import { createStorage } from '@linear/storage'
+import type { Worker } from 'bullmq'
+import { pino } from 'pino'
+import { createMaintenanceWorker, scheduleMaintenance } from './workers/maintenance.worker'
+import { createMediaWorker } from './workers/media.worker'
+
+const env = loadWorkerEnv()
+const logger = pino({ level: env.LOG_LEVEL })
+const { db, close: closeDb } = createDb(env.DATABASE_URL)
+const connection = createRedisConnection(env.REDIS_URL)
+const storage = createStorage({
+  endpoint: env.S3_ENDPOINT,
+  region: env.S3_REGION,
+  accessKeyId: env.S3_ACCESS_KEY,
+  secretAccessKey: env.S3_SECRET_KEY,
+  bucket: env.S3_BUCKET,
+})
+const deps = { db, storage, logger }
+
+const workers: Worker[] = [
+  createMediaWorker(deps, connection),
+  createMaintenanceWorker(deps, connection),
+]
+for (const worker of workers) {
+  worker.on('failed', (job, err) =>
+    logger.error(
+      { queue: worker.name, jobId: job?.id, job: job?.name, attempt: job?.attemptsMade, err },
+      'job failed',
+    ),
+  )
+  worker.on('error', (err) => logger.error({ queue: worker.name, err }, 'worker error'))
+}
+await scheduleMaintenance(connection)
+logger.info({ queues: workers.map((w) => w.name) }, 'worker started')
+
+let shuttingDown = false
+async function shutdown(signal: string) {
+  if (shuttingDown) return
+  shuttingDown = true
+  logger.info({ signal }, 'shutting down; waiting for active jobs')
+  // close() lets in-flight jobs finish; unfinished ones are retried by the next worker.
+  await Promise.all(workers.map((w) => w.close()))
+  connection.disconnect()
+  await closeDb()
+  process.exit(0)
+}
+process.once('SIGTERM', () => void shutdown('SIGTERM'))
+process.once('SIGINT', () => void shutdown('SIGINT'))
