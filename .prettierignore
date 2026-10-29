@@ -1,0 +1,10 @@
+node_modules
+dist
+.turbo
+coverage
+bun.lock
+packages/db/drizzle
+apps/app/src/components/ui
+playwright-report
+test-results
+*.md

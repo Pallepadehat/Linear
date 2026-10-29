@@ -1,0 +1,24 @@
+{
+  "name": "@linear/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@linear/db": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "uuidv7": "^1.2.1"
+  },
+  "devDependencies": {
+    "@linear/tsconfig": "workspace:*",
+    "@types/node": "^26.6.6",
+    "vitest": "^5.0.5"
+  }
+}

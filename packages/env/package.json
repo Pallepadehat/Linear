@@ -1,0 +1,23 @@
+{
+  "name": "@linear/env",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app": "./src/app.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@linear/tsconfig": "workspace:*",
+    "@types/node": "^26.6.6",
+    "vitest": "^5.0.5"
+  }
+}

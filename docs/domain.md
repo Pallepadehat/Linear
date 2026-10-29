@@ -35,7 +35,8 @@ A workspace always has at least one owner. The last owner cannot leave or be dem
 
 ## Identifiers
 
-- Workspace slug: `^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$`, globally unique, lowercase.
+- Workspace slug: `^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$` (2–40 chars, no leading/trailing dash), globally unique, lowercase. Reserved (collide with routes): `api`, `rpc`, `webhooks`, `health`, `login`, `register`, `setup`, `settings`.
+- Workspaces are addressed by slug in URLs and in every workspace-scoped procedure input (`workspaceSlug`). Non-members get `NOT_FOUND`.
 - Team key: `^[A-Z][A-Z0-9]{1,9}$` (2–10 chars), unique per workspace, stored uppercase. Changing a key is not supported in the MVP.
 - Issue number: per-team counter, starts at 1, allocated atomically in the create transaction. Numbers are never reused, even after deletion.
 - Identifier lookups are case-insensitive (`tip-200` → `TIP-200`).
@@ -122,6 +123,8 @@ Only `pull_request` events are handled in the MVP; others are stored and marked 
 | `project_icon`     | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
 | `attachment` (P1)  | workspace  | images, pdf, txt, zip            | 25 MB |
 
+SVG icons are rejected until server-side sanitization exists; until then icons accept png, jpeg, webp only.
+
 Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processing enqueued) → `deleted` (object removal enqueued). Pending uploads older than 24 h are deleted by the maintenance job. Image variants: `original`, `256` (avatars/icons also `64`).
 
 ## Isolation invariants
@@ -130,3 +133,9 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - An issue's `workspaceId` equals its team's `workspaceId`.
 - A project, label, or assignee attached to an issue must belong to the same workspace (assignee must be a member).
 - A GitHub repository belongs to exactly one workspace at a time.
+
+## Users
+
+- New teams add their creator as the first team member.
+- Avatars are user-owned uploads; they are visible to the user and to anyone who shares a workspace with them. Replacing or removing an avatar marks the old upload `deleted` and enqueues object removal.
+- A user with no workspace is sent to workspace setup after sign-in.
