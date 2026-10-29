@@ -1,0 +1,132 @@
+# Domain
+
+Exact rules behind PRD FR-02 – FR-14. If code and this doc disagree, one of them is a bug.
+
+## Glossary
+
+| Term              | Meaning                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| Workspace         | Tenant boundary. Owns teams, projects, labels, members, GitHub installations, uploads.       |
+| Member            | A user in a workspace with role `owner` or `member`.                                         |
+| Team              | Group inside a workspace that owns issues and has a unique **key** (e.g. `TIP`).             |
+| Issue             | Unit of work. Belongs to exactly one team (and therefore one workspace).                     |
+| Identifier        | Human-readable issue ID: `{teamKey}-{number}`, e.g. `TIP-200`.                               |
+| Workflow status   | A team's status (Backlog, Todo, …). Each status has a **category**.                          |
+| Project           | Optional grouping of issues across a workspace.                                              |
+| Installation      | A GitHub App installation connected to one workspace.                                        |
+| Connected repo    | A GitHub repository from an installation, enabled for a workspace.                           |
+| PR link           | Relationship between an issue and a pull request, of type `closing` or `reference`.          |
+| Delivery          | One GitHub webhook delivery, identified by the `X-GitHub-Delivery` header.                   |
+| Upload            | A file in MinIO with a DB record (`pending` → `ready` → `deleted`).                          |
+
+## Roles
+
+| Action                                              | Owner | Member |
+| --------------------------------------------------- | :---: | :----: |
+| Update workspace settings, icon                     |  ✅   |   ❌   |
+| Invite / remove members, change roles               |  ✅   |   ❌   |
+| Connect / disconnect GitHub installations and repos |  ✅   |   ❌   |
+| Create / edit teams                                 |  ✅   |   ✅   |
+| Create / edit / delete issues, projects, labels     |  ✅   |   ✅   |
+| Comment; edit/delete own comments                   |  ✅   |   ✅   |
+| Delete others' comments                             |  ✅   |   ❌   |
+
+A workspace always has at least one owner. The last owner cannot leave or be demoted.
+
+## Identifiers
+
+- Workspace slug: `^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$`, globally unique, lowercase.
+- Team key: `^[A-Z][A-Z0-9]{1,9}$` (2–10 chars), unique per workspace, stored uppercase. Changing a key is not supported in the MVP.
+- Issue number: per-team counter, starts at 1, allocated atomically in the create transaction. Numbers are never reused, even after deletion.
+- Identifier lookups are case-insensitive (`tip-200` → `TIP-200`).
+
+## Statuses
+
+Each team gets these defaults on creation:
+
+| Status      | Category    | Default order |
+| ----------- | ----------- | ------------- |
+| Backlog     | `backlog`   | 0             |
+| Todo        | `unstarted` | 1             |
+| In Progress | `started`   | 2             |
+| Done        | `completed` | 3             |
+| Canceled    | `canceled`  | 4             |
+
+- Logic (automation, filters, `completedAt`) uses **categories**, never status names.
+- Entering `completed` sets `completedAt`; leaving it clears `completedAt`.
+- New issues default to `Todo` unless another status is given.
+
+## Priorities
+
+Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medium, `4` Low. Sorting by priority puts Urgent first and No priority last.
+
+## GitHub PR linking
+
+### Detection sources and link types
+
+| Source                      | Example                          | Link type   |
+| --------------------------- | -------------------------------- | ----------- |
+| Branch name                 | `tip-200-fix-login`, `feat/tip-200` | `closing` |
+| PR title                    | `TIP-200 Fix login validation`   | `closing`   |
+| Body: `fixes`, `closes`, `resolves` (+ `fix`, `close`, `resolve`, `fixed`, `closed`, `resolved`) | `Fixes TIP-200` | `closing` |
+| Body: `refs`, `ref`, `related to`, `part of` | `Refs TIP-200`     | `reference` |
+| Body: bare identifier       | `see TIP-200`                    | `reference` |
+
+- Matching is case-insensitive. Pattern: `\b([A-Za-z][A-Za-z0-9]{1,9})-(\d+)\b`.
+- Branch matching uses each `/`-separated segment: `^([a-z][a-z0-9]{1,9})-(\d+)(?:-|$)`.
+- If the same issue is detected as both `closing` and `reference`, `closing` wins.
+- A candidate is linked only if the team key exists **in the workspace that owns the repository** and the issue number exists. Everything else is ignored silently.
+- On `edited` / `synchronize`, links are recomputed: new ones added, ones that no longer appear removed (unless the PR is already merged — merged links are frozen).
+- Unique: one link per `(issueId, pullRequestId)`.
+
+### PR state
+
+Stored state is one of `open`, `draft`, `closed`, `merged`. `merged` is terminal: no later event may move it back. "Merged" is determined by GitHub's `merged` flag, never by `closed` alone.
+
+## Automation
+
+Automation only moves issues **forward** and never touches `completed` or `canceled` issues. Every automated change writes an `ActivityLog` entry with actor `github` and the PR reference.
+
+| Trigger                                    | Condition on issue                       | Result                         | PRD rule |
+| ------------------------------------------ | ---------------------------------------- | ------------------------------ | -------- |
+| Closing link created on an `open`/`draft` PR | Category `backlog` or `unstarted`      | → first `started` status (In Progress) | A |
+| PR merged                                  | Category not `completed`/`canceled` and **all required PRs merged** | → first `completed` status (Done) | B, C |
+| PR closed without merge                    | any                                      | No status change               | E |
+| Reference link created / PR merged         | any                                      | No status change               | D |
+| User changes status manually               | any                                      | Manual value wins; automation never reverts it | F |
+
+**Required PRs** for an issue = its `closing` links whose PR is not `closed` (closed-without-merge PRs stop being required). The issue completes when the required set is non-empty and every PR in it is `merged`.
+
+Automation is a pure function in `packages/core/src/automation`:
+
+```ts
+evaluate(issue: { category: StatusCategory }, links: { type: LinkType; prState: PRState }[], event: AutomationEvent)
+  → { to: 'started' | 'completed' } | null
+```
+
+## Webhook processing
+
+1. Verify `X-Hub-Signature-256` (HMAC-SHA256 of the raw body). Invalid → `401`, nothing stored.
+2. Insert `WebhookDelivery` (unique delivery ID). Already exists → `200`, nothing enqueued.
+3. Enqueue `github-webhooks` job with `jobId = deliveryId` → `202`.
+4. Worker: upsert PR, recompute links, reconcile current PR state from GitHub when in doubt, run automation in one transaction, mark delivery `processed` (or `failed` with error).
+
+Only `pull_request` events are handled in the MVP; others are stored and marked `ignored`.
+
+## Uploads
+
+| Kind               | Owner      | Formats                          | Max   |
+| ------------------ | ---------- | -------------------------------- | ----- |
+| `avatar`           | user       | png, jpeg, webp                  | 2 MB  |
+| `workspace_icon`   | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
+| `project_icon`     | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
+| `attachment` (P1)  | workspace  | images, pdf, txt, zip            | 25 MB |
+
+Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processing enqueued) → `deleted` (object removal enqueued). Pending uploads older than 24 h are deleted by the maintenance job. Image variants: `original`, `256` (avatars/icons also `64`).
+
+## Isolation invariants
+
+- Every workspace-owned row has `workspaceId`; every query filters on it.
+- An issue's `workspaceId` equals its team's `workspaceId`.
+- A project, label, or assignee attached to an issue must belong to the same workspace (assignee must be a member).
+- A GitHub repository belongs to exactly one workspace at a time.
