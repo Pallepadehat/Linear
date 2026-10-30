@@ -100,6 +100,7 @@ The repo is connected to Linear through Linear's GitHub integration. A PR is lin
 - An issue split over several PRs moves to Done only when the last linked PR merges. Use `Part of` on all but the final PR.
 - Magic words in PR comments don't link anything; edit the title or description of an open PR instead.
 - Don't put closing magic words in commit messages: the PR is what drives status.
+- A GitHub autolink turns `LIN-<n>` in PRs and comments into a link to `https://linear.app/linearschoolclone/issue/LIN-<n>`.
 
 ## Writing an ADR
 
