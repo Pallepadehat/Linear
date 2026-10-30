@@ -150,7 +150,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Any member may create, edit and delete issues. Deleting is permanent (labels and PR links cascade).
 - An update only changes the fields it sends; `labelIds` replaces the whole label set. Every update bumps `updatedAt`, including labels-only changes.
 - Status, assignee, labels and project are validated against the issue's team / workspace: a status from another team, a non-member assignee, or a label or project outside the workspace is `BAD_REQUEST`. An issue id from another workspace is `NOT_FOUND`.
-- Until projects exist (M3-01), any non-null `projectId` is `BAD_REQUEST`.
+- Projects default to `planned`; team links are optional and restricted to the same workspace. Updates replace team links only when `teamIds` is supplied. Icons must be ready `project_icon` uploads in the same workspace. Project progress counts all linked issues, with only the `completed` status category in the numerator (canceled issues remain in the total). Deleting a project clears issue project references.
 - `issues.list` returns newest first, optionally filtered by team, as `{ items, nextCursor }`. The cursor is the last issue's id: UUIDv7 ids are time-ordered, so issues created later never shift the pages after a cursor. Page size defaults to 50 (max 100).
 
 ## Labels

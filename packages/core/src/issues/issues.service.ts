@@ -1,6 +1,7 @@
 import {
   issueLabels,
   issues,
+  projects,
   labels,
   teams,
   workflowStatuses,
@@ -72,7 +73,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
 
   const status = await resolveStatus(db, input.workspaceId, input.teamId, input.statusId)
   if (input.assigneeId) await assertWorkspaceMember(db, input.workspaceId, input.assigneeId)
-  if (input.projectId) assertProject(input.projectId)
+  if (input.projectId) await assertProject(db, input.workspaceId, input.projectId)
   const labelIds = await resolveLabelIds(db, input.workspaceId, input.labelIds ?? [])
 
   return db.transaction(async (tx) => {
@@ -180,7 +181,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       changes.assigneeId = input.assigneeId
     }
     if (input.projectId !== undefined) {
-      if (input.projectId) assertProject(input.projectId)
+      if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
       changes.projectId = input.projectId
     }
 
@@ -267,9 +268,12 @@ async function setIssueLabels(
     .values(labelIds.map((labelId) => ({ workspaceId, issueId, labelId })))
 }
 
-// Projects arrive with M3-01; until then no project can belong to the workspace.
-function assertProject(_projectId: string): never {
-  throw new DomainError('BAD_REQUEST', 'Project not found')
+async function assertProject(db: DbOrTx, workspaceId: string, projectId: string) {
+  const [project] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, projectId)))
+  if (!project) throw new DomainError('BAD_REQUEST', 'Project not found')
 }
 
 async function resolveStatus(
