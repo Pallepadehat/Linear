@@ -37,7 +37,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M2-03  | [ ]    | Labels schema + procedures                                              | M1-13      |
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
 | M2-05  | [ ]    | ActivityLog writes for issue changes                                    | M2-02      |
-| M2-06  | [ ]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
+| M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
 | M2-07  | [ ]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
 | M2-08  | [ ]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
 | M2-09  | [ ]    | Optimistic updates for status, priority, assignee, labels               | M2-07      |
@@ -102,3 +102,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M2-01 · issues table, createIssue allocates numbers via teams.issue_counter UPDATE … RETURNING; 20-way concurrency test
 2026-10-30 · M4-03 · pure automation evaluate(), exported event/domain types, 29 tests covering A–F and multi-PR cases; full suite blocked by API/worker Vite startup error
 2026-10-30 · M4-02 · parsePrIdentifiers (branch/title/body → closing/reference, closing wins, deduped) + unit tests
+2026-10-30 · M2-06 · StatusIcon/PriorityIcon (status/priority/floating tokens), Status/Priority/Assignee/Label pickers on shadcn popover + command; UserAvatar already existed; design.md "Product UI (App)" makes Linear's product UI the reference
