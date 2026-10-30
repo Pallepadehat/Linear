@@ -4,6 +4,7 @@ import { createRedisConnection } from '@linear/queue'
 import { createStorage } from '@linear/storage'
 import type { Worker } from 'bullmq'
 import { pino } from 'pino'
+import { createGithubWorker } from './workers/github.worker'
 import { createMaintenanceWorker, scheduleMaintenance } from './workers/maintenance.worker'
 import { createMediaWorker } from './workers/media.worker'
 
@@ -23,6 +24,7 @@ const deps = { db, storage, logger }
 const workers: Worker[] = [
   createMediaWorker(deps, connection),
   createMaintenanceWorker(deps, connection),
+  createGithubWorker(deps, connection),
 ]
 for (const worker of workers) {
   worker.on('failed', (job, err) =>

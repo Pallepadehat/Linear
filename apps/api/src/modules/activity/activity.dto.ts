@@ -7,6 +7,7 @@ export function toActivityDto(record: ActivityRecord): Activity {
     issueId: record.issueId,
     actorType: record.actorType,
     actorId: record.actorId,
+    pullRequestId: record.pullRequestId,
     kind: record.kind,
     from: record.from,
     to: record.to,

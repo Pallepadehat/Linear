@@ -60,7 +60,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M4-02  | [x]    | Identifier parser (branch/title/body, link types) + unit tests                | —          |
 | M4-03  | [x]    | Automation rules `evaluate()` + unit tests for rules A–F                      | —          |
 | M4-04  | [x]    | Webhook route: signature check, delivery persist, enqueue                     | M4-01, M1-15 |
-| M4-05  | [ ]    | Worker: process `pull_request`, link, reconcile, automate (one transaction)   | M4-02, M4-03, M4-04 |
+| M4-05  | [x]    | Worker: process `pull_request`, link, reconcile, automate (one transaction)   | M4-02, M4-03, M4-04 |
 | M4-06  | [x]    | GitHub App install flow + connect/disconnect repos (settings UI)              | M4-01      |
 | M4-07  | [ ]    | Linked PRs on issue detail                                                    | M4-05, M2-08 |
 
@@ -112,3 +112,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M4-06 · github.installUrl/completeInstall (signed state + OAuth installation check, ADR 0009), owner-only repositories list/connect/disconnect with CONFLICT across workspaces, settings GitHub section + /setup/github callback; integration tests on a fake GitHub client
 2026-10-30 · M2-05 · activity_log table; one entry per changed field written in the create/update transaction; activity.list (oldest first, cursor)
 2026-10-30 · LIN-34 / M3-01 · merged activity-log updates from develop; preserved activity migration 0004 and sequenced unchanged projects SQL as 0005 with regenerated snapshot. Full tests (77 API tests), lint, typecheck and build pass; fresh migration and reapplication verified using Podman PostgreSQL.
+2026-10-30 · M4-05 · github-webhooks worker: one transaction per delivery (upsert PR, merged terminal, reconcile links in the repo's workspace, evaluate(), github activity with PR reference); job tests for PRD tests 3–9 + out-of-order

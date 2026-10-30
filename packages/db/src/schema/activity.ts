@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { check, index, jsonb, pgEnum, pgTable, uuid } from 'drizzle-orm/pg-core'
 import { users } from './auth'
 import { id, timestamps } from './columns'
+import { pullRequests } from './github'
 import { issues } from './issues'
 import { workspaces } from './workspaces'
 
@@ -34,6 +35,8 @@ export const activityLog = pgTable(
     actorType: activityActorType().notNull(),
     // Null for GitHub, and for users that were deleted later.
     actorId: uuid().references(() => users.id, { onDelete: 'set null' }),
+    // The PR whose event caused an automated change; kept null for user changes.
+    pullRequestId: uuid().references(() => pullRequests.id, { onDelete: 'set null' }),
     kind: activityKind().notNull(),
     from: jsonb().$type<ActivityValue>(),
     to: jsonb().$type<ActivityValue>(),

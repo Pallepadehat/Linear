@@ -27,6 +27,8 @@ export const activitySchema = z.object({
   actorType: activityActorTypeSchema,
   /** Null for GitHub, or when the user was deleted. */
   actorId: z.uuid().nullable(),
+  /** The PR that triggered a GitHub change; null for user changes or if the PR was removed. */
+  pullRequestId: z.uuid().nullable(),
   kind: activityKindSchema,
   from: activityValueSchema,
   to: activityValueSchema,

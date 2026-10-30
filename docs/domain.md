@@ -140,6 +140,14 @@ with that closed PR excluded from the required set.
 3. Enqueue `github-webhooks` job with `jobId = deliveryId` → `202`.
 4. Worker: upsert PR, recompute links, reconcile current PR state from GitHub when in doubt, run automation in one transaction, mark delivery `processed` (or `failed` with error).
 
+Worker details (`processPullRequestDelivery` in `packages/core/src/github`):
+
+- Handled actions: `opened`, `edited`, `synchronize`, `reopened`, `ready_for_review`, `converted_to_draft`, `closed`. Other actions and repositories that aren't connected mark the delivery `ignored`. A payload missing the fields we need is marked `failed` and not retried.
+- Deliveries already `processed` or `ignored` are skipped, so a retry or redelivery has one effect. An unexpected error rolls the transaction back, marks the delivery `failed` and rethrows so BullMQ retries.
+- Once a PR is `merged`, later events change nothing about it (state, metadata, links).
+- Events per linked issue: each new link → `link_created` (a `reference` link upgraded to `closing` counts as a new closing link); the PR becoming merged in this delivery → `pr_merged` for every link. Closing without merge isn't evaluated (rule E never moves an issue). Results move the issue to the team's first status (by position) of that category, through `updateIssue` with actor `github`, so the activity entry carries `pullRequestId`.
+- Late out-of-order events between non-merged states (e.g. a stale `opened` after `closed`) still overwrite the stored state; reconciling against GitHub's API is a follow-up.
+
 Only `pull_request` events are handled in the MVP; others are stored and marked `ignored` (HTTP `200`, no job). The endpoint fails closed (`401`) when no webhook secret is configured. After signature verification, malformed JSON, non-object payloads, or missing/invalid delivery UUID or event headers return `400` without persistence.
 
 ## Uploads
@@ -166,7 +174,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 ## Activity
 
 - Every issue change is logged in `activity_log`, in the same transaction as the change: `created` on create, then one entry per field whose value actually changed. Setting a field to the value it already had (including the same label set in another order, or a title that trims to the current one) writes nothing.
-- Actor is `user` (with `actorId`) for changes made through the API, `github` (no `actorId`) for automation. A deleted user's entries keep `actorType: user` with `actorId` null.
+- Actor is `user` (with `actorId`) for changes made through the API, `github` (no `actorId`, with `pullRequestId` of the triggering PR) for automation. A deleted user's entries keep `actorType: user` with `actorId` null.
 - `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` number; `labels` sorted label-id arrays. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
 - `activity.list` returns one issue's entries **oldest first** as `{ items, nextCursor }`, cursor = last entry id (UUIDv7), page size 50 (max 100). An issue outside the workspace is `NOT_FOUND`.
 
