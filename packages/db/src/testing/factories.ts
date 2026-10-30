@@ -1,7 +1,9 @@
+import { and, eq, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import type { DbOrTx } from '../client'
 import { DEFAULT_WORKFLOW_STATUSES } from '../defaults'
 import {
+  issues,
   teamMembers,
   teams,
   users,
@@ -85,4 +87,31 @@ export async function createTeam(
       )
   }
   return team!
+}
+
+/** Inserts an issue in the team's first status, bumping the team counter for its number. */
+export async function createIssue(
+  db: DbOrTx,
+  input: { teamId: string; creatorId: string } & Partial<typeof issues.$inferInsert>,
+) {
+  const [team] = await db
+    .update(teams)
+    .set({ issueCounter: sql`${teams.issueCounter} + 1` })
+    .where(eq(teams.id, input.teamId))
+    .returning()
+  const [status] = await db
+    .select()
+    .from(workflowStatuses)
+    .where(and(eq(workflowStatuses.teamId, team!.id), eq(workflowStatuses.position, 0)))
+  const [issue] = await db
+    .insert(issues)
+    .values({
+      workspaceId: team!.workspaceId,
+      number: team!.issueCounter,
+      title: `Issue ${next()}`,
+      statusId: status!.id,
+      ...input,
+    })
+    .returning()
+  return issue!
 }
