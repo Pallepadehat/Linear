@@ -3,6 +3,7 @@ import type {
   InferContractRouterInputs,
   InferContractRouterOutputs,
 } from '@orpc/contract'
+import { projectsContract } from './routers/projects'
 import { activityContract } from './routers/activity'
 import { githubContract } from './routers/github'
 import { issuesContract } from './routers/issues'
@@ -19,6 +20,7 @@ export const contract = {
   uploads: uploadsContract,
   labels: labelsContract,
   issues: issuesContract,
+  projects: projectsContract,
   github: githubContract,
   activity: activityContract,
 }
@@ -31,6 +33,7 @@ export type ContractOutputs = InferContractRouterOutputs<Contract>
 export * from './schemas/common'
 export * from './schemas/github'
 export * from './schemas/issues'
+export * from './schemas/projects'
 export * from './schemas/labels'
 export * from './schemas/teams'
 export * from './schemas/uploads'

@@ -1,3 +1,4 @@
+import { projectsRouter } from '../modules/projects/projects.router'
 import { activityRouter } from '../modules/activity/activity.router'
 import { githubRouter } from '../modules/github/github.router'
 import { issuesRouter } from '../modules/issues/issues.router'
@@ -15,6 +16,7 @@ export const router = os.router({
   uploads: uploadsRouter,
   labels: labelsRouter,
   issues: issuesRouter,
+  projects: projectsRouter,
   github: githubRouter,
   activity: activityRouter,
 })

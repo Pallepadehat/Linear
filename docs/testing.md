@@ -29,6 +29,19 @@ bun run test -- --watch               # watch mode
 bun run test:e2e                      # Playwright (needs dev stack running)
 ```
 
+For Podman installations, the same infrastructure runs with `podman compose up -d postgres redis`.
+Set `DATABASE_URL` (or `TEST_DATABASE_URL`) and `REDIS_URL` to the published host ports,
+either in the root `.env` or the command environment. With the default local credentials:
+
+```bash
+DATABASE_URL=postgres://linear:linear@localhost:5432/linear bun run test
+```
+
+Tests need access to the local PostgreSQL and Redis services. In a restricted agent sandbox,
+run the checks with local service access enabled. The Vite source-map error
+`code.charCodeAt is not a function` can mask a global-setup failure: check database
+configuration and connectivity before changing test dependencies.
+
 ## Test data
 
 API tests use `setupTestApp()` / `signUp()` / `rpcClient()` from `apps/api/test/harness.ts`: the real app via `app.inject()`, Redis queues under a `test` prefix, and the in-memory storage from `@linear/storage/testing`.
