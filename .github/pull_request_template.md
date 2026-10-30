@@ -2,7 +2,17 @@
 
 <!-- One or two sentences. -->
 
+Fixes LIN-<!-- number -->
 Roadmap: <!-- e.g. M2-01 -->
+
+<!--
+Linear links this PR through the issue ID (docs/workflow.md → Linear).
+Placeholders below are not real IDs on purpose: Linear may parse IDs inside comments.
+- Fixes / Closes / Resolves LIN-<n>  → In Progress on open, Done on merge
+- Part of / Refs LIN-<n>             → linked, never moves to Done
+- Several issues: "Fixes LIN-<a>, LIN-<b>"
+- Stop a branch-name link: "skip LIN-<n>"
+-->
 
 ## Why
 
