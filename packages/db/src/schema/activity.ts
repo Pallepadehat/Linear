@@ -5,6 +5,9 @@ import { id, timestamps } from './columns'
 import { issues } from './issues'
 import { workspaces } from './workspaces'
 
+/** Shape depends on `kind`; see activitySchema in packages/contract. */
+export type ActivityValue = string | number | string[] | null
+
 export const activityActorType = pgEnum('activity_actor_type', ['user', 'github'])
 export const activityKind = pgEnum('activity_kind', [
   'created',
@@ -32,8 +35,8 @@ export const activityLog = pgTable(
     // Null for GitHub, and for users that were deleted later.
     actorId: uuid().references(() => users.id, { onDelete: 'set null' }),
     kind: activityKind().notNull(),
-    from: jsonb(),
-    to: jsonb(),
+    from: jsonb().$type<ActivityValue>(),
+    to: jsonb().$type<ActivityValue>(),
     ...timestamps,
   },
   (t) => [

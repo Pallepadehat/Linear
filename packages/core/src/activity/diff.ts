@@ -1,7 +1,6 @@
-import type { activityKind } from '@linear/db'
+import type { activityKind, ActivityValue } from '@linear/db'
 
 export type ActivityKind = (typeof activityKind.enumValues)[number]
-export type ActivityValue = string | number | string[] | null
 
 export type ActivityChange = { kind: ActivityKind; from: ActivityValue; to: ActivityValue }
 
