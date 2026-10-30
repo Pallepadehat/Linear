@@ -10,5 +10,6 @@
 | 0006 | [MinIO with presigned uploads](0006-minio-presigned-uploads.md) | Accepted |
 | 0007 | [Vue 3 + shadcn-vue with token-based light/dark theming](0007-vue-shadcn-theming.md) | Accepted |
 | 0008 | [RustFS as the local S3 server](0008-rustfs-local-object-storage.md) | Accepted |
+| 0009 | [Verify GitHub installations with OAuth during install](0009-github-install-oauth-verification.md) | Accepted |
 
 New ADR: copy `0000-template.md` to the next number and add a row here.

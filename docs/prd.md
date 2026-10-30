@@ -1078,7 +1078,7 @@ All procedures live in `packages/contract`, grouped by router:
 | `comments`   | `create`, `list`, `update`, `delete`                                       |
 | `labels`     | `create`, `list`, `update`, `delete`                                       |
 | `uploads`    | `createPresignedUpload`, `confirm`, `getUrl`, `delete`                     |
-| `github`     | `connectInstallation`, `listRepositories`, `connectRepository`, `disconnectRepository`, `listPullRequestsForIssue` |
+| `github`     | `installUrl`, `completeInstall`, `repositories.list`, `repositories.connect`, `repositories.disconnect`, `listPullRequestsForIssue` |
 
 Non-oRPC HTTP routes:
 
