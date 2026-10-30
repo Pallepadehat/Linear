@@ -80,6 +80,12 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 - On `edited` / `synchronize`, links are recomputed: new ones added, ones that no longer appear removed (unless the PR is already merged — merged links are frozen).
 - Unique: one link per `(issueId, pullRequestId)`.
 
+### Persistence
+
+- GitHub numeric IDs are stored as PostgreSQL `bigint`; internal relationships use UUIDs. A repository's `installationId` references `github_installations.id`, not the external GitHub installation ID.
+- Issue–PR links carry `workspaceId` like other workspace-owned rows. Callers must validate that the issue, PR, repository, and installation belong to the same workspace.
+- Webhook deliveries are global ingress records, including ignored events from unconnected installations; they do not have a workspace owner.
+
 ### PR state
 
 Stored state is one of `open`, `draft`, `closed`, `merged`. `merged` is terminal: no later event may move it back. "Merged" is determined by GitHub's `merged` flag, never by `closed` alone.
