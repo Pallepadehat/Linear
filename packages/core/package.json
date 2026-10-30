@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@linear/db": "workspace:*",
+    "@octokit/app": "^16.1.4",
     "drizzle-orm": "^0.45.4",
     "uuidv7": "^1.2.1"
   },

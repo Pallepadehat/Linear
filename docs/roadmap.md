@@ -61,7 +61,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M4-03  | [x]    | Automation rules `evaluate()` + unit tests for rules A–F                      | —          |
 | M4-04  | [x]    | Webhook route: signature check, delivery persist, enqueue                     | M4-01, M1-15 |
 | M4-05  | [ ]    | Worker: process `pull_request`, link, reconcile, automate (one transaction)   | M4-02, M4-03, M4-04 |
-| M4-06  | [ ]    | GitHub App install flow + connect/disconnect repos (settings UI)              | M4-01      |
+| M4-06  | [x]    | GitHub App install flow + connect/disconnect repos (settings UI)              | M4-01      |
 | M4-07  | [ ]    | Linked PRs on issue detail                                                    | M4-05, M2-08 |
 
 ## M5 — Testing and finalization
@@ -109,3 +109,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M4-04 · raw-body GitHub webhook signature verification, delivery deduplication/persistence, ignored events, ID-only queue jobs; real Postgres/Redis integration coverage; lint, typecheck, full tests and build pass.
 
 2026-10-30 · LIN-34 / M3-01 · projects schema, CRUD, category progress, workspace validation and icon binding; row locking serializes team replacements. All 201 tests pass (60 API tests), lint/typecheck/build pass. Fresh migration and reapplication verified on disposable Podman PostgreSQL database; issue project FK uses ON DELETE SET NULL.
+2026-10-30 · M4-06 · github.installUrl/completeInstall (signed state + OAuth installation check, ADR 0009), owner-only repositories list/connect/disconnect with CONFLICT across workspaces, settings GitHub section + /setup/github callback; integration tests on a fake GitHub client

@@ -1,3 +1,4 @@
+import type { GitHubAppClient } from '@linear/core'
 import type { Db } from '@linear/db'
 import type { Queues } from '@linear/queue'
 import type { Storage } from '@linear/storage'
@@ -10,6 +11,10 @@ export type InitialContext = {
   auth: Auth
   queues: Queues
   storage: Storage
+  /** Null when the GitHub App isn't configured. */
+  github: GitHubAppClient | null
+  /** Signs the GitHub install `state`. */
+  installStateSecret: string
   logger: FastifyBaseLogger
   headers: Headers
 }

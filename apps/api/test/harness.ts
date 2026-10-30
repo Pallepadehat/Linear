@@ -1,4 +1,5 @@
 import type { ContractClient } from '@linear/contract'
+import type { GitHubAppClient } from '@linear/core'
 import { createDb } from '@linear/db'
 import { loadRootEnvFile } from '@linear/env'
 import { testDatabaseUrl, truncateAll } from '@linear/db/testing'
@@ -13,13 +14,15 @@ import { buildApp } from '../src/app'
 loadRootEnvFile()
 
 const APP_URL = 'http://localhost:5173'
+export const TEST_AUTH_SECRET = 'test-secret-test-secret-test-secret'
 
 /**
  * Builds the real app against the test database and Redis (under a `test`
  * prefix, so a running dev worker never picks jobs up). Storage is faked.
- * Truncates all tables before each test in the calling file.
+ * Truncates all tables before each test in the calling file. GitHub is off unless a
+ * (fake) client is passed.
  */
-export async function setupTestApp() {
+export async function setupTestApp(options: { github?: GitHubAppClient } = {}) {
   const { db, close } = createDb(testDatabaseUrl(), { max: 5 })
   const redis = createRedisConnection(process.env.REDIS_URL ?? 'redis://localhost:6379')
   const queues = createQueues(redis, { prefix: 'test' })
@@ -30,12 +33,13 @@ export async function setupTestApp() {
       GITHUB_WEBHOOK_SECRET: 'test-webhook-secret',
       APP_URL,
       BETTER_AUTH_URL: APP_URL,
-      BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret',
+      BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
     },
     db,
     redis,
     queues,
     storage: fake.storage,
+    github: options.github,
   })
 
   beforeEach(async () => {

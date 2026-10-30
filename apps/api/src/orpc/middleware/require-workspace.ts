@@ -1,4 +1,4 @@
-import { findMembershipBySlug, type WorkspaceRole } from '@linear/core'
+import { findMembershipById, findMembershipBySlug, type WorkspaceRole } from '@linear/core'
 import type { DbOrTx } from '@linear/db'
 import { ORPCError, os } from '@orpc/server'
 import type { InitialContext, Session } from '../context'
@@ -15,7 +15,23 @@ export async function resolveWorkspace(
   userId: string,
   role?: WorkspaceRole,
 ) {
-  const membership = await findMembershipBySlug(db, slug, userId)
+  return checkMembership(await findMembershipBySlug(db, slug, userId), role)
+}
+
+/** `resolveWorkspace` for flows that carry the workspace id instead of the slug. */
+export async function resolveWorkspaceById(
+  db: DbOrTx,
+  workspaceId: string,
+  userId: string,
+  role?: WorkspaceRole,
+) {
+  return checkMembership(await findMembershipById(db, workspaceId, userId), role)
+}
+
+function checkMembership<T extends { role: WorkspaceRole }>(
+  membership: T | null,
+  role: WorkspaceRole | undefined,
+) {
   if (!membership) throw new ORPCError('NOT_FOUND', { message: 'Workspace not found' })
   if (role === 'owner' && membership.role !== 'owner') {
     throw new ORPCError('FORBIDDEN', { message: 'Only workspace owners can do this' })
