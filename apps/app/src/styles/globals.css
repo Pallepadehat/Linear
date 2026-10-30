@@ -281,6 +281,65 @@
     @apply pointer-events-none float-left h-0 text-ink-tertiary;
     content: attr(data-placeholder);
   }
+  /* Collapsible section (+++): chevron toggle, summary line, indented content. */
+  .markdown-body [data-type='details'] {
+    @apply flex items-start gap-1;
+  }
+  .markdown-body [data-type='details'] > button {
+    @apply mt-[3px] flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-xs text-ink-subtle hover:bg-surface-2 hover:text-ink;
+  }
+  .markdown-body [data-type='details'] > button::before {
+    content: '';
+    @apply size-3 bg-current transition-transform;
+    mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 4l4 4-4 4' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+  .markdown-body [data-type='details'][open] > button::before {
+    @apply rotate-90;
+  }
+  .markdown-body [data-type='details'] > div {
+    @apply min-w-0 flex-1;
+  }
+  .markdown-body [data-type='details'] summary {
+    @apply list-none font-medium;
+  }
+  .markdown-body [data-type='details'] summary::-webkit-details-marker {
+    display: none;
+  }
+  /* Visibility follows the section's `open` attribute (kept in sync in collapsible.ts),
+     not Tiptap's toggled `hidden` attribute, which can go stale. */
+  .markdown-body [data-type='details'] > div > [data-type='detailsContent'] {
+    display: none;
+  }
+  .markdown-body [data-type='details'][open] > div > [data-type='detailsContent'] {
+    display: block;
+  }
+  .markdown-body [data-type='detailsContent'] > * + * {
+    @apply mt-2;
+  }
+  .markdown-body .is-empty::before {
+    @apply pointer-events-none float-left h-0 text-ink-tertiary;
+    content: attr(data-placeholder);
+  }
+
+  /* Uploaded files: a chip with a paperclip, opened through a presigned URL. */
+  .markdown-body a[href^='attachment:'] {
+    @apply inline-flex items-center gap-1 rounded-md border border-hairline bg-surface-1 px-1.5 py-px align-baseline text-[13px] text-ink no-underline hover:bg-surface-2;
+  }
+  .markdown-body a[href^='attachment:']::before {
+    content: '';
+    @apply size-3.5 shrink-0 bg-ink-subtle;
+    mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+  .markdown-body a[href^='attachment:pending-'] {
+    @apply animate-pulse text-ink-subtle;
+  }
+
+  .markdown-body .katex {
+    @apply text-[1.05em];
+  }
+
   .markdown-body ::selection {
     background: color-mix(in srgb, var(--primary-color) 25%, transparent);
   }

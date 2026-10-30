@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom'
 import { onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
-import type { SlashCommand } from './slash-commands'
+import { formatShortcut, type SlashCommand } from './slash-commands'
 
 // Presentational `/` menu; MarkdownEditor owns the state and the keyboard handling.
 const props = defineProps<{
@@ -48,25 +48,33 @@ watch(
     ref="menu"
     role="listbox"
     aria-label="Insert block"
-    class="fixed z-50 max-h-72 w-60 overflow-y-auto rounded-lg border border-hairline-strong bg-floating p-1.5 shadow-floating"
+    class="fixed z-50 max-h-[min(30rem,70vh)] w-64 overflow-y-auto rounded-lg border border-hairline-strong bg-floating p-1 shadow-floating"
     :style="style"
     @mousedown.prevent
   >
     <p v-if="items.length === 0" class="px-2.5 py-2 text-ink-subtle">No results</p>
-    <button
-      v-for="(item, i) in items"
-      :key="item.id"
-      type="button"
-      role="option"
-      :data-index="i"
-      :aria-selected="i === active"
-      class="flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] text-ink aria-selected:bg-floating-hover"
-      @mouseenter="emit('hover', i)"
-      @click="emit('select', item)"
-    >
-      <component :is="item.icon" class="size-4 shrink-0 text-ink-subtle" aria-hidden="true" />
-      <span class="flex-1 truncate">{{ item.label }}</span>
-      <kbd class="font-mono text-xs text-ink-tertiary">{{ item.hint }}</kbd>
-    </button>
+    <template v-for="(item, i) in items" :key="item.id">
+      <!-- A hairline between groups, like Linear's menu. -->
+      <div
+        v-if="i > 0 && items[i - 1]?.group !== item.group"
+        class="-mx-1 my-1 h-px bg-hairline"
+        role="separator"
+      />
+      <button
+        type="button"
+        role="option"
+        :data-index="i"
+        :aria-selected="i === active"
+        class="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] text-ink aria-selected:bg-floating-hover"
+        @mouseenter="emit('hover', i)"
+        @click="emit('select', item)"
+      >
+        <component :is="item.icon" class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
+        <span class="flex-1 truncate">{{ item.label }}</span>
+        <kbd v-if="item.shortcut" class="flex gap-1 font-sans text-xs text-ink-subtle">
+          <span v-for="key in formatShortcut(item.shortcut)" :key="key">{{ key }}</span>
+        </kbd>
+      </button>
+    </template>
   </div>
 </template>

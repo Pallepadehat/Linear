@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Bold, Code, Italic, Link, Strikethrough, TextQuote } from '@lucide/vue'
 import type { Editor } from '@tiptap/core'
+import { NodeSelection } from '@tiptap/pm/state'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 import { nextTick, ref, useTemplateRef, type Component } from 'vue'
 
@@ -84,7 +85,11 @@ function cancelLink(event: KeyboardEvent) {
     :append-to="appendTo"
     :options="{ strategy: 'fixed', placement: 'top-start', offset: 8 }"
     :should-show="
-      ({ editor: e, from, to }) => from !== to && !e.isActive('codeBlock') && e.isEditable
+      ({ editor: e, state, from, to }) =>
+        from !== to &&
+        e.isEditable &&
+        !e.isActive('codeBlock') &&
+        !(state.selection instanceof NodeSelection)
     "
   >
     <div

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { createIssueInputSchema } from '@linear/contract'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { Maximize2, Minimize2, X } from '@lucide/vue'
+import { Loader2, Maximize2, Minimize2, Paperclip, X } from '@lucide/vue'
 import { useForm } from 'vee-validate'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -158,8 +158,15 @@ watch(statuses, ensureStatus)
 
 const create = useMutation(createIssueMutationOptions())
 
+const pendingUploads = computed(() => descriptionEditor.value?.pendingUploads ?? 0)
+
 const onSubmit = handleSubmit(async (form) => {
   formError.value = null
+  // Placeholders aren't real attachment references until their uploads finish.
+  if (pendingUploads.value > 0) {
+    formError.value = 'Wait for attachments to finish uploading'
+    return
+  }
   try {
     const issue = await create.mutateAsync({
       ...form,
@@ -256,6 +263,7 @@ function onKeydown(event: KeyboardEvent) {
           <MarkdownEditor
             ref="descriptionEditor"
             v-model="description"
+            :workspace-slug="slug"
             label="Description"
             placeholder="Add description..."
             class="overflow-y-auto py-1"
@@ -270,8 +278,28 @@ function onKeydown(event: KeyboardEvent) {
           <AssigneePicker v-model="assigneeId" :users="assignees" />
           <LabelPicker v-model="labelIds" :labels="labels ?? []" />
         </div>
-        <DialogFooter class="flex-row items-center gap-4 px-4 pt-1 pb-3.5">
-          <p v-if="formError || errors.teamId" class="mr-auto text-[13px] text-danger" role="alert">
+        <DialogFooter class="flex-row items-center gap-3 px-4 pt-1 pb-3.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            class="border border-hairline"
+            aria-label="Attach files"
+            aria-keyshortcuts="Meta+Shift+U"
+            title="Attach files (⌘⇧U)"
+            @click="descriptionEditor?.pickFiles('files')"
+          >
+            <Paperclip aria-hidden="true" />
+          </Button>
+          <p
+            v-if="pendingUploads > 0 && !formError"
+            class="flex items-center gap-1.5 text-[13px] text-ink-subtle"
+            role="status"
+          >
+            <Loader2 class="size-3.5 animate-spin" aria-hidden="true" />
+            Uploading {{ pendingUploads }} {{ pendingUploads === 1 ? 'file' : 'files' }}…
+          </p>
+          <p v-if="formError || errors.teamId" class="text-[13px] text-danger" role="alert">
             {{ formError ?? 'Pick a team' }}
           </p>
           <label class="ml-auto flex items-center gap-2 text-[13px] text-ink-subtle">
