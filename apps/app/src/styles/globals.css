@@ -201,3 +201,87 @@
     outline-offset: 2px;
   }
 }
+
+/* Markdown editor content (components/common/editor). Tokens only, so both themes work. */
+@layer components {
+  .markdown-body {
+    @apply text-[15px] leading-relaxed text-ink caret-primary;
+  }
+  .markdown-body > * + * {
+    @apply mt-2;
+  }
+  .markdown-body h1 {
+    @apply mt-5 text-2xl font-semibold tracking-tight;
+  }
+  .markdown-body h2 {
+    @apply mt-4 text-xl font-semibold tracking-tight;
+  }
+  .markdown-body h3 {
+    @apply mt-3 text-base font-semibold;
+  }
+  .markdown-body > :first-child {
+    @apply mt-0;
+  }
+  .markdown-body ul {
+    @apply list-disc pl-6;
+  }
+  .markdown-body ol {
+    @apply list-decimal pl-6;
+  }
+  .markdown-body li > p {
+    @apply my-0.5;
+  }
+  .markdown-body li::marker {
+    @apply text-ink-subtle;
+  }
+  .markdown-body ul[data-type='taskList'] {
+    @apply list-none pl-0.5;
+  }
+  .markdown-body ul[data-type='taskList'] li {
+    @apply flex items-start gap-2;
+  }
+  .markdown-body ul[data-type='taskList'] li > label {
+    @apply mt-[5px] flex shrink-0 select-none;
+  }
+  .markdown-body ul[data-type='taskList'] li > div {
+    @apply min-w-0 flex-1;
+  }
+  .markdown-body ul[data-type='taskList'] input[type='checkbox'] {
+    @apply size-4 cursor-pointer appearance-none rounded-xs border border-hairline-tertiary bg-transparent;
+  }
+  .markdown-body ul[data-type='taskList'] input[type='checkbox']:checked {
+    @apply border-primary bg-primary;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 8.5 6.5 11 12 5' stroke='white' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .markdown-body li[data-checked='true'] > div {
+    @apply text-ink-subtle line-through;
+  }
+  .markdown-body blockquote {
+    @apply border-l-2 border-hairline-strong pl-3 text-ink-muted;
+  }
+  .markdown-body code {
+    @apply rounded-xs border border-hairline bg-surface-2 px-1 py-px font-mono text-[0.85em];
+  }
+  .markdown-body pre {
+    @apply overflow-x-auto rounded-md border border-hairline bg-surface-1 px-3.5 py-3 font-mono text-[13px] leading-normal;
+  }
+  .markdown-body pre code {
+    @apply border-0 bg-transparent p-0 text-inherit;
+  }
+  .markdown-body a {
+    @apply cursor-pointer text-primary underline decoration-primary/40 underline-offset-2;
+  }
+  .markdown-body hr {
+    @apply my-4 border-hairline;
+  }
+  .markdown-body strong {
+    @apply font-semibold;
+  }
+  .markdown-body p.is-editor-empty:first-child::before {
+    @apply pointer-events-none float-left h-0 text-ink-tertiary;
+    content: attr(data-placeholder);
+  }
+  .markdown-body ::selection {
+    background: color-mix(in srgb, var(--primary-color) 25%, transparent);
+  }
+}

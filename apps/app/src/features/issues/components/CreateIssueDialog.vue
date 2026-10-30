@@ -7,6 +7,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
+import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
@@ -39,6 +40,7 @@ const expanded = ref(false)
 // Keep the dialog open after creating, for filing several issues in a row.
 const createMore = ref(false)
 const titleInput = useTemplateRef<HTMLInputElement>('titleInput')
+const descriptionEditor = useTemplateRef<InstanceType<typeof MarkdownEditor>>('descriptionEditor')
 
 const { handleSubmit, isSubmitting, values, errors, setFieldValue, resetForm, defineField } =
   useForm({
@@ -54,7 +56,6 @@ const { handleSubmit, isSubmitting, values, errors, setFieldValue, resetForm, de
     },
   })
 const [title, titleAttrs] = defineField('title')
-const [description] = defineField('description')
 
 const { data: teams } = useQuery(
   computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
@@ -99,6 +100,10 @@ const priority = computed({
 const assigneeId = computed({
   get: () => values.assigneeId ?? null,
   set: (id: string | null) => setFieldValue('assigneeId', id),
+})
+const description = computed({
+  get: () => values.description ?? '',
+  set: (value: string) => setFieldValue('description', value),
 })
 const labelIds = computed({
   get: () => values.labelIds ?? [],
@@ -169,7 +174,7 @@ function onKeydown(event: KeyboardEvent) {
   <Dialog v-model:open="ui.createIssueOpen">
     <DialogContent
       :show-close-button="false"
-      class="top-[12%] translate-y-0 gap-0 overflow-hidden rounded-xl border-hairline bg-floating p-0 shadow-floating transition-[max-width] sm:max-w-3xl"
+      class="top-[12%] translate-y-0 gap-0 rounded-xl border-hairline bg-floating p-0 shadow-floating transition-[max-width] sm:max-w-3xl"
       :class="{ 'sm:max-w-5xl': expanded }"
       @keydown="onKeydown"
       @open-auto-focus.prevent="titleInput?.focus()"
@@ -214,6 +219,7 @@ function onKeydown(event: KeyboardEvent) {
             :aria-invalid="Boolean(errors.title)"
             :aria-describedby="errors.title ? 'new-issue-title-error' : undefined"
             class="w-full bg-transparent text-xl font-semibold tracking-tight text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
+            @keydown.enter.exact.prevent="descriptionEditor?.focus()"
           />
           <p
             v-if="errors.title"
@@ -223,13 +229,13 @@ function onKeydown(event: KeyboardEvent) {
           >
             {{ errors.title }}
           </p>
-          <label for="new-issue-description" class="sr-only">Description</label>
-          <textarea
-            id="new-issue-description"
+          <MarkdownEditor
+            ref="descriptionEditor"
             v-model="description"
+            label="Description"
             placeholder="Add description..."
-            class="field-sizing-content w-full resize-none bg-transparent py-1 text-[15px] text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
-            :class="expanded ? 'max-h-[60vh] min-h-[50vh]' : 'max-h-80 min-h-24'"
+            class="overflow-y-auto py-1"
+            :class="expanded ? 'h-[55vh]' : 'max-h-80 min-h-24'"
           />
         </div>
         <div
