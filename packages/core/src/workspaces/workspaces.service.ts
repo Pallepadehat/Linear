@@ -62,6 +62,19 @@ export async function findMembershipBySlug(db: DbOrTx, slug: string, userId: str
   return row ?? null
 }
 
+/** Same as `findMembershipBySlug`, for flows that carry the workspace id (e.g. signed state). */
+export async function findMembershipById(db: DbOrTx, workspaceId: string, userId: string) {
+  const [row] = await db
+    .select({ workspace: workspaces, role: workspaceMembers.role })
+    .from(workspaces)
+    .innerJoin(
+      workspaceMembers,
+      and(eq(workspaceMembers.workspaceId, workspaces.id), eq(workspaceMembers.userId, userId)),
+    )
+    .where(eq(workspaces.id, workspaceId))
+  return row ?? null
+}
+
 export async function listWorkspacesForUser(db: DbOrTx, userId: string) {
   return db
     .select({ workspace: workspaces, role: workspaceMembers.role })
