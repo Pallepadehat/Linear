@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { CircleUserRound } from '@lucide/vue'
 import PickerItem from './PickerItem.vue'
 import PickerPopover from './PickerPopover.vue'
+import UnassignedIcon from './UnassignedIcon.vue'
 import UserAvatar from './UserAvatar.vue'
 
 export type AssigneeOption = { id: string; name: string; avatarUrl: string | null }
@@ -21,21 +21,28 @@ function choose(id: string | null) {
 </script>
 
 <template>
-  <PickerPopover v-model:open="open" label="Assign to" placeholder="Assign to…">
+  <PickerPopover
+    v-model:open="open"
+    label="Assign to"
+    placeholder="Assign to..."
+    hotkey="A"
+    :current="model ?? 'unassigned'"
+  >
     <template #trigger>
       <UserAvatar v-if="current" :name="current.name" :src="current.avatarUrl" size="xs" />
-      <CircleUserRound v-else class="size-4 text-ink-tertiary" aria-hidden="true" />
+      <UnassignedIcon v-else />
       <span>{{ current?.name ?? 'Unassigned' }}</span>
     </template>
-    <PickerItem value="unassigned" :selected="model === null" @select="choose(null)">
-      <CircleUserRound class="size-4 text-ink-tertiary" aria-hidden="true" />
+    <PickerItem value="unassigned" :selected="model === null" shortcut="0" @select="choose(null)">
+      <UnassignedIcon />
       No assignee
     </PickerItem>
     <PickerItem
-      v-for="user in users"
+      v-for="(user, i) in users"
       :key="user.id"
       :value="user.id"
       :selected="user.id === model"
+      :shortcut="i < 9 ? String(i + 1) : undefined"
       @select="choose(user.id)"
     >
       <UserAvatar :name="user.name" :src="user.avatarUrl" size="xs" />

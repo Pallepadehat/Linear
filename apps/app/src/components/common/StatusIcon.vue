@@ -16,8 +16,8 @@ defineProps<{ category: StatusCategory; class?: string }>()
         category === 'started'
           ? 'text-status-started'
           : category === 'completed'
-            ? 'text-success'
-            : 'text-ink-subtle',
+            ? 'text-status-completed'
+            : 'text-status-neutral',
         $props.class,
       )
     "

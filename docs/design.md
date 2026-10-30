@@ -271,10 +271,18 @@ The product app ships **dark and light themes**. Dark is the reference theme des
 | `{colors.on-primary}`          | #ffffff   |                                              |
 | `{colors.semantic-success}`    | #1f8a3a   | Slightly darker for contrast on light        |
 | `{colors.semantic-overlay}`    | rgba(15,16,17,0.4) | Modal scrim                         |
-| `{colors.status-started}`      | #a87b00   | In-progress status icon (dark: #f2c94c)      |
+| `{colors.status-neutral}`      | #959ba5   | Backlog / Todo / Canceled icons (dark: #8a8f98) |
+| `{colors.status-started}`      | #e8b10e   | In-progress status icon (dark: #f2c94c)      |
+| `{colors.status-completed}`    | #5e6ad2   | Done status icon (dark: #6c78e6)             |
 | `{colors.priority-urgent}`     | #d24a12   | Urgent priority icon (dark: #fc7840)         |
+| `{colors.floating}`            | #fefefe   | Popovers and menus (dark: #1c1d1f)           |
+| `{colors.floating-hover}`      | #f0f0f2   | Highlighted row inside a popover (dark: #28292d) |
 
-Status icons map by category: `backlog` dashed circle and `unstarted` empty circle in `ink-subtle`, `started` half-filled circle in `status-started`, `completed` filled check in `success`, `canceled` filled cross in `ink-subtle`. Priority icons: Urgent is a filled square with `!` in `priority-urgent`; High / Medium / Low are 3 bars with 3 / 2 / 1 filled in `ink-muted`; No priority is three dashes in `ink-tertiary`.
+Status icons map by category: `backlog` dashed circle, `unstarted` empty circle and `canceled` filled cross in `status-neutral`; `started` half-filled circle in `status-started`; `completed` filled check in `status-completed`. Priority icons: Urgent is a filled square with `!` in `priority-urgent`; High / Medium / Low are 3 bars with 3 / 2 / 1 filled in `ink-muted`; No priority is three dashes in `ink-tertiary`.
+
+Status icon hues follow Linear's product UI (yellow in progress, lavender done) rather than the ≥ 3:1 rule; the icon always sits next to its text label.
+
+Property pickers (status, priority, assignee, labels) follow Linear's popover: `floating` surface, `rounded-lg`, hairline border, plain filter input with a hotkey hint, 32px rows in `ink`, a check on the current value and a number shortcut on the right (pressing the number picks it while the filter is empty).
 
 ### Theme Rules
 

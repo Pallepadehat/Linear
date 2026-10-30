@@ -19,16 +19,23 @@ function choose(id: string) {
 </script>
 
 <template>
-  <PickerPopover v-model:open="open" label="Change status" placeholder="Change status…">
+  <PickerPopover
+    v-model:open="open"
+    label="Change status"
+    placeholder="Change status..."
+    hotkey="S"
+    :current="model"
+  >
     <template #trigger>
       <StatusIcon v-if="current" :category="current.category" />
       <span>{{ current?.name ?? 'Status' }}</span>
     </template>
     <PickerItem
-      v-for="status in sorted"
+      v-for="(status, i) in sorted"
       :key="status.id"
       :value="status.id"
       :selected="status.id === model"
+      :shortcut="i < 9 ? String(i + 1) : undefined"
       @select="choose(status.id)"
     >
       <StatusIcon :category="status.category" />

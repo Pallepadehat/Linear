@@ -15,7 +15,13 @@ function choose(priority: Priority) {
 </script>
 
 <template>
-  <PickerPopover v-model:open="open" label="Change priority" placeholder="Set priority…">
+  <PickerPopover
+    v-model:open="open"
+    label="Change priority"
+    placeholder="Set priority..."
+    hotkey="P"
+    :current="String(model)"
+  >
     <template #trigger>
       <PriorityIcon :priority="model" />
       <span>{{ priorityLabel(model) }}</span>
@@ -25,6 +31,7 @@ function choose(priority: Priority) {
       :key="priority.value"
       :value="String(priority.value)"
       :selected="priority.value === model"
+      :shortcut="String(priority.value)"
       @select="choose(priority.value)"
     >
       <PriorityIcon :priority="priority.value" />
