@@ -145,6 +145,13 @@ SVG icons are rejected until server-side sanitization exists; until then icons a
 
 Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processing enqueued) → `deleted` (object removal enqueued). Pending uploads older than 24 h are deleted by the maintenance job. Image variants: `original`, `256` (avatars/icons also `64`).
 
+## Labels
+
+- Labels are workspace-wide (shared by all teams). Any member may create, rename, recolor or delete them.
+- Names are trimmed, 1–80 characters, and unique per workspace (exact match, so `Bug` and `bug` can coexist); a duplicate is `CONFLICT`.
+- Colors are stored as lowercase `#rrggbb`. They are user data rendered as-is, not design tokens.
+- Deleting a label removes it from every issue (`issue_labels` cascades).
+
 ## Isolation invariants
 
 - Every workspace-owned row has `workspaceId`; every query filters on it.
