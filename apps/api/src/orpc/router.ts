@@ -1,3 +1,4 @@
+import { githubRouter } from '../modules/github/github.router'
 import { labelsRouter } from '../modules/labels/labels.router'
 import { meRouter } from '../modules/me/me.router'
 import { teamsRouter } from '../modules/teams/teams.router'
@@ -11,6 +12,7 @@ export const router = os.router({
   teams: teamsRouter,
   uploads: uploadsRouter,
   labels: labelsRouter,
+  github: githubRouter,
 })
 
 export type Router = typeof router

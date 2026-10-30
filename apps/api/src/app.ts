@@ -1,3 +1,4 @@
+import type { GitHubAppClient } from '@linear/core'
 import type { Db } from '@linear/db'
 import type { Queues } from '@linear/queue'
 import type { Storage } from '@linear/storage'
@@ -16,6 +17,8 @@ export type AppDeps = {
   redis: Redis
   queues: Queues
   storage: Storage
+  /** Omit (or null) to run without the GitHub integration. */
+  github?: GitHubAppClient | null
 }
 
 /**
@@ -40,7 +43,14 @@ export async function buildApp(deps: AppDeps) {
 
   await registerCors(app, deps.env.APP_URL)
   await registerAuth(app, auth)
-  await registerORPC(app, { db: deps.db, auth, queues: deps.queues, storage: deps.storage })
+  await registerORPC(app, {
+    db: deps.db,
+    auth,
+    queues: deps.queues,
+    storage: deps.storage,
+    github: deps.github ?? null,
+    installStateSecret: deps.env.BETTER_AUTH_SECRET,
+  })
 
   app.get('/health', async (_request, reply) => {
     const [database, redis] = await Promise.allSettled([
