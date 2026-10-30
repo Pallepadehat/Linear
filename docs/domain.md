@@ -130,7 +130,7 @@ with that closed PR excluded from the required set.
 3. Enqueue `github-webhooks` job with `jobId = deliveryId` → `202`.
 4. Worker: upsert PR, recompute links, reconcile current PR state from GitHub when in doubt, run automation in one transaction, mark delivery `processed` (or `failed` with error).
 
-Only `pull_request` events are handled in the MVP; others are stored and marked `ignored`.
+Only `pull_request` events are handled in the MVP; others are stored and marked `ignored` (HTTP `200`, no job). The endpoint fails closed (`401`) when no webhook secret is configured. After signature verification, malformed JSON, non-object payloads, or missing/invalid delivery UUID or event headers return `400` without persistence.
 
 ## Uploads
 

@@ -11,7 +11,7 @@ export const jobSchemas = {
     'cleanup-pending': z.object({}),
   },
   githubWebhooks: {
-    // Filled in by M4 (pull_request, reconcile-pull-request).
+    pull_request: z.object({ deliveryId: z.uuid() }),
   },
 } as const satisfies Record<QueueKey, Record<string, z.ZodType>>
 
