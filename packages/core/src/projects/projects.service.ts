@@ -67,8 +67,22 @@ export async function getProject(db: DbOrTx, workspaceId: string, id: string) {
 
 async function saveProject(db: DbOrTx, workspaceId: string, input: Changes, id?: string) {
   return db.transaction(async (tx) => {
-    if (id) await getProject(tx, workspaceId, id)
-    const { teamIds, ...changes } = input
+    if (id) {
+      // Serialize team-set replacements so concurrent edits cannot combine their links.
+      const [current] = await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)))
+        .for('update')
+      if (!current) throw new DomainError('NOT_FOUND', 'Project not found')
+    }
+    const { teamIds } = input
+    const changes = {
+      name: input.name,
+      description: input.description,
+      status: input.status,
+      iconUploadId: input.iconUploadId,
+    }
     if (changes.name !== undefined) {
       changes.name = changes.name.trim()
       if (!changes.name) throw new DomainError('BAD_REQUEST', 'Project name is required')

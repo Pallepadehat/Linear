@@ -46,7 +46,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 
 | ID     | Status | Task                                                   | Depends on |
 | ------ | ------ | ------------------------------------------------------ | ---------- |
-| M3-01  | [~]    | Projects schema + procedures, project icon upload      | M2-02, M1-16 |
+| M3-01  | [x]    | Projects schema + procedures, project icon upload      | M2-02, M1-16 |
 | M3-02  | [ ]    | Projects list + project detail pages                   | M3-01      |
 | M3-03  | [ ]    | My Issues view                                         | M2-07      |
 | M3-04  | [ ]    | Board view with drag-and-drop status changes           | M2-09      |
@@ -108,4 +108,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M2-02 · issues create/get/getByIdentifier/update/delete/list (any member), id-cursor pagination newest first, labelIds replace set, completedAt follows category; cross-workspace NOT_FOUND tests
 2026-10-30 · M4-04 · raw-body GitHub webhook signature verification, delivery deduplication/persistence, ignored events, ID-only queue jobs; real Postgres/Redis integration coverage; lint, typecheck, full tests and build pass.
 
-- 2026-10-30 · LIN-34 / M3-01: implemented projects schema, CRUD, category progress, workspace validation, icon binding, and integration coverage. Migration generated. Lint, typecheck and build pass; verification pending: Vitest/Vite startup fails (`code.charCodeAt is not a function`), Docker is unavailable and no database URL is configured. Task remains in progress until integration tests and fresh-database migration pass.
+2026-10-30 · LIN-34 / M3-01 · projects schema, CRUD, category progress, workspace validation and icon binding; row locking serializes team replacements. All 201 tests pass (60 API tests), lint/typecheck/build pass. Fresh migration and reapplication verified on disposable Podman PostgreSQL database; issue project FK uses ON DELETE SET NULL.

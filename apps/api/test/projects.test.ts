@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { rpcClient, setupTestApp, signUp } from './harness'
 
-const { app, db } = await setupTestApp()
+const { app, db, objects } = await setupTestApp()
 async function arrange() {
   const owner = await signUp(app, 'Owner')
   const { workspace } = await owner.client.workspaces.create({ name: 'Tip', slug: 'tip' })
@@ -12,6 +12,56 @@ async function arrange() {
   return { owner, workspace, team }
 }
 describe('projects', () => {
+  it('uploads and confirms a project icon through the existing upload flow', async () => {
+    const { owner, workspace } = await arrange()
+    const member = await signUp(app, 'Member')
+    await addMember(db, workspace.id, member.userId)
+    const input = {
+      workspaceSlug: 'tip',
+      kind: 'project_icon' as const,
+      contentType: 'image/webp',
+      size: 100,
+    }
+    for (const invalid of [
+      { ...input, size: 1024 * 1024 + 1 },
+      { ...input, contentType: 'image/svg+xml' },
+    ]) {
+      await expect(member.client.uploads.createPresignedUpload(invalid)).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+      })
+    }
+    const presigned = await member.client.uploads.createPresignedUpload(input)
+    const [row] = await db.select().from(uploads).where(eq(uploads.id, presigned.uploadId))
+    objects.set(row!.objectKey, {
+      body: new Uint8Array(input.size),
+      contentType: input.contentType,
+    })
+    await member.client.uploads.confirm({ uploadId: presigned.uploadId })
+    expect(
+      await member.client.projects.create({
+        workspaceSlug: 'tip',
+        name: 'Icon',
+        iconUploadId: presigned.uploadId,
+      }),
+    ).toMatchObject({ iconUploadId: presigned.uploadId })
+    expect(await owner.client.projects.list({ workspaceSlug: 'tip' })).toHaveLength(1)
+  })
+
+  it('serializes concurrent team-set replacements', async () => {
+    const { owner, workspace, team } = await arrange()
+    const second = await createTeam(db, { workspaceId: workspace.id, key: 'SECOND' })
+    const scope = { workspaceSlug: 'tip' }
+    const project = await owner.client.projects.create({ ...scope, name: 'Concurrent' })
+    await Promise.all(
+      [team.id, second.id].map((teamId) =>
+        owner.client.projects.update({ ...scope, id: project.id, teamIds: [teamId] }),
+      ),
+    )
+    const result = await owner.client.projects.get({ ...scope, id: project.id })
+    expect(result.teamIds).toHaveLength(1)
+    expect([team.id, second.id]).toContain(result.teamIds[0])
+  })
+
   it('supports member CRUD, team replacement, category progress and clearing deleted projects', async () => {
     const { workspace, team } = await arrange()
     const member = await signUp(app, 'Member')
