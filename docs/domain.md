@@ -55,7 +55,7 @@ Each team gets these defaults on creation:
 
 - Logic (automation, filters, `completedAt`) uses **categories**, never status names.
 - Entering `completed` sets `completedAt`; leaving it clears `completedAt`.
-- New issues default to `Todo` unless another status is given.
+- New issues default to `Todo` unless another status is given. If the team has no status named `Todo`, the first `unstarted` status (by order) is used.
 
 ## Priorities
 

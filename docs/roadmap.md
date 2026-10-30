@@ -32,7 +32,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 
 | ID     | Status | Task                                                                    | Depends on |
 | ------ | ------ | ----------------------------------------------------------------------- | ---------- |
-| M2-01  | [ ]    | Issue schema + atomic identifier allocation (+ concurrency test)        | M1-13      |
+| M2-01  | [x]    | Issue schema + atomic identifier allocation (+ concurrency test)        | M1-13      |
 | M2-02  | [ ]    | Issue procedures: create, get, getByIdentifier, update, delete, list    | M2-01      |
 | M2-03  | [ ]    | Labels schema + procedures                                              | M1-13      |
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
@@ -99,3 +99,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-29 · M1-16 · presign → PUT → confirm, sharp variants with metadata stripped, avatar in sidebar/members
 2026-10-29 · M1-17 · Vitest per package, API inject harness on linear_test, worker job tests, CI services
 2026-10-29 · M1-18 · idempotent seed: demo@tip.dev, workspace Tip, team TIP
+2026-10-30 · M2-01 · issues table, createIssue allocates numbers via teams.issue_counter UPDATE … RETURNING; 20-way concurrency test
