@@ -30,6 +30,13 @@ export const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'Create workspace' },
         component: () => import('@/features/workspaces/pages/WorkspaceSetupPage.vue'),
       },
+      {
+        // GitHub App callback URL. Under the reserved `setup` slug so it can't shadow a workspace.
+        path: 'setup/github',
+        name: 'github-callback',
+        meta: { requiresAuth: true, title: 'Connect GitHub' },
+        component: () => import('@/features/github/pages/GitHubCallbackPage.vue'),
+      },
     ],
   },
   {
