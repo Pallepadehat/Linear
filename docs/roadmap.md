@@ -38,7 +38,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
 | M2-05  | [ ]    | ActivityLog writes for issue changes                                    | M2-02      |
 | M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
-| M2-07  | [ ]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
+| M2-07  | [x]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
 | M2-08  | [ ]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
 | M2-09  | [ ]    | Optimistic updates for status, priority, assignee, labels               | M2-07      |
 
@@ -107,3 +107,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M2-03 · labels + issue_labels tables, labels list/create/update/delete (any member), CONFLICT on duplicate name, cross-workspace NOT_FOUND tests
 2026-10-30 · M2-02 · issues create/get/getByIdentifier/update/delete/list (any member), id-cursor pagination newest first, labelIds replace set, completedAt follows category; cross-workspace NOT_FOUND tests
 2026-10-30 · M4-04 · raw-body GitHub webhook signature verification, delivery deduplication/persistence, ignored events, ID-only queue jobs; real Postgres/Redis integration coverage; lint, typecheck, full tests and build pass.
+2026-10-30 · M2-07 · virtualized issue list grouped by status (collapsible, scroll-paged, scroll-anchored), create issue dialog with Tiptap markdown editor (slash menu, selection toolbar), Create more, `C` hotkey; inset app shell; new issues default to Backlog; `db:seed:issues` for 1 000+ issue checks

@@ -77,6 +77,7 @@ bun run test
 bun run db:generate       # drizzle-kit generate after schema changes
 bun run db:migrate
 bun run db:seed           # demo workspace "Tip", team "TIP"
+bun run db:seed:issues -- 1200   # bulk demo issues in TIP (list performance checks)
 ```
 
 Scope to one package with `bun run --filter <name> <script>` or `turbo run <task> --filter=<name>`.
@@ -154,9 +155,9 @@ Follow [`docs/workflow.md`](docs/workflow.md): pick a ready task from `docs/road
 - Lavender `primary` (#5e6ad2) only for primary actions, focus rings, brand mark, link emphasis, and the in-app uses in `docs/design.md` → "Product UI (App)" (e.g. the Done status icon) — never as a fill for sections or cards.
 - Status, priority and label colors come from the semantic tokens (`status-*`, `priority-urgent`, label color); no other chromatic colors.
 - Hierarchy through the surface ladder + 1px hairlines, not shadows. Menus and popovers use the `floating` surface.
-- Radii: buttons/inputs `rounded-md` (8px), cards and popovers `rounded-lg` (12px), badges `rounded-xs` (4px), avatars `rounded-full`. Property chips and status pills are `rounded-full`; don't pill-round other buttons.
+- Radii: buttons, property chips and status pills `rounded-full` (icon-only buttons are circles); inputs and sidebar/list rows `rounded-md` (8px); cards, popovers and panels `rounded-lg` (12px); dialogs `rounded-xl` (16px); badges `rounded-xs` (4px); avatars `rounded-full`.
 - Fonts: Inter (UI), JetBrains Mono (issue identifiers, code).
-- Dense, compact layouts: 4px spacing base, 14px body in the app UI.
+- Dense, compact layouts: 4px spacing base, 13px body in the app UI, 28px controls (`size="sm"`), 36px list rows (see "Density" in `docs/design.md`).
 
 ### TypeScript & code style
 

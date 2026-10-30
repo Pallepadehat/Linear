@@ -55,7 +55,7 @@ Each team gets these defaults on creation:
 
 - Logic (automation, filters, `completedAt`) uses **categories**, never status names.
 - Entering `completed` sets `completedAt`; leaving it clears `completedAt`.
-- New issues default to `Todo` unless another status is given. If the team has no status named `Todo`, the first `unstarted` status (by order) is used.
+- New issues default to `Backlog` unless another status is given. If the team has no status named `Backlog`, the first `backlog` status (by order) is used, then the first `unstarted` one. The create dialog preselects the same status (`features/issues/default-status.ts`). Per-team defaults are planned in LIN-49.
 
 ## Priorities
 
@@ -152,6 +152,8 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Status, assignee, labels and project are validated against the issue's team / workspace: a status from another team, a non-member assignee, or a label or project outside the workspace is `BAD_REQUEST`. An issue id from another workspace is `NOT_FOUND`.
 - Until projects exist (M3-01), any non-null `projectId` is `BAD_REQUEST`.
 - `issues.list` returns newest first, optionally filtered by team, as `{ items, nextCursor }`. The cursor is the last issue's id: UUIDv7 ids are time-ordered, so issues created later never shift the pages after a cursor. Page size defaults to 50 (max 100).
+- Descriptions are stored as **markdown** (CommonMark + GFM task lists). The editor reads and writes markdown; an empty editor saves no description (`null`).
+- The issue list groups loaded issues by status, keyed by category + name so the workspace-wide list merges each team's `Todo` into one group. Groups are ordered `started`, `unstarted`, `backlog`, `completed`, `canceled`, then by status position; issues keep the newest-first order within a group. Group counts show loaded issues until every page is fetched (the next page loads on scroll).
 
 ## Labels
 

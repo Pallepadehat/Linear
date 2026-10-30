@@ -42,20 +42,35 @@ const createMore = ref(false)
 const titleInput = useTemplateRef<HTMLInputElement>('titleInput')
 const descriptionEditor = useTemplateRef<InstanceType<typeof MarkdownEditor>>('descriptionEditor')
 
-const { handleSubmit, isSubmitting, values, errors, setFieldValue, resetForm, defineField } =
-  useForm({
-    validationSchema: toTypedSchema(createIssueInputSchema.omit({ workspaceSlug: true })),
-    initialValues: {
-      teamId: '',
-      title: '',
-      description: '',
-      statusId: undefined,
-      priority: 0,
-      assigneeId: null,
-      labelIds: [],
-    },
-  })
-const [title, titleAttrs] = defineField('title')
+const {
+  handleSubmit,
+  isSubmitting,
+  values,
+  errors,
+  setFieldValue,
+  setFieldError,
+  resetForm,
+  defineField,
+} = useForm({
+  validationSchema: toTypedSchema(createIssueInputSchema.omit({ workspaceSlug: true })),
+  initialValues: {
+    teamId: '',
+    title: '',
+    description: '',
+    statusId: undefined,
+    priority: 0,
+    assigneeId: null,
+    labelIds: [],
+  },
+})
+// Like Linear, errors show only after pressing Create issue, then clear once fixed.
+const [title, titleAttrs] = defineField('title', {
+  validateOnBlur: false,
+  validateOnModelUpdate: false,
+})
+watch(title, (value) => {
+  if (errors.value.title && value?.trim()) setFieldError('title', undefined)
+})
 
 const { data: teams } = useQuery(
   computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
@@ -87,27 +102,27 @@ const { data: labels } = useQuery(
 // The pickers want concrete values; the form keeps the contract's optional shape.
 const teamId = computed({
   get: () => values.teamId ?? '',
-  set: (id: string) => setFieldValue('teamId', id),
+  set: (id: string) => setFieldValue('teamId', id, false),
 })
 const statusId = computed({
   get: () => values.statusId ?? '',
-  set: (id: string) => setFieldValue('statusId', id),
+  set: (id: string) => setFieldValue('statusId', id, false),
 })
 const priority = computed({
   get: () => toPriority(values.priority),
-  set: (value: Priority) => setFieldValue('priority', value),
+  set: (value: Priority) => setFieldValue('priority', value, false),
 })
 const assigneeId = computed({
   get: () => values.assigneeId ?? null,
-  set: (id: string | null) => setFieldValue('assigneeId', id),
+  set: (id: string | null) => setFieldValue('assigneeId', id, false),
 })
 const description = computed({
   get: () => values.description ?? '',
-  set: (value: string) => setFieldValue('description', value),
+  set: (value: string) => setFieldValue('description', value, false),
 })
 const labelIds = computed({
   get: () => values.labelIds ?? [],
-  set: (ids: string[]) => setFieldValue('labelIds', ids),
+  set: (ids: string[]) => setFieldValue('labelIds', ids, false),
 })
 
 // The requested team, else the team page being viewed, else the first team.
@@ -123,19 +138,23 @@ watch(
     if (!open) return
     formError.value = null
     resetForm()
-    setFieldValue('teamId', initialTeamId())
-    setFieldValue('statusId', ui.createIssueDefaults.statusId)
+    setFieldValue('teamId', initialTeamId(), false)
+    setFieldValue('statusId', ui.createIssueDefaults.statusId, false)
+    ensureStatus()
   },
   { immediate: true },
 )
 watch(teams, () => {
-  if (ui.createIssueOpen && !values.teamId) setFieldValue('teamId', initialTeamId())
+  if (ui.createIssueOpen && !values.teamId) setFieldValue('teamId', initialTeamId(), false)
 })
-// Statuses belong to a team, so a team change resets the status to that team's default.
-watch(statuses, (list) => {
+// Statuses belong to a team, so a team change (or a reset) falls back to that team's default.
+// Runs on open too: reopening for the same team doesn't change `statuses`.
+function ensureStatus() {
+  const list = statuses.value
   if (!list.some((s) => s.id === values.statusId))
-    setFieldValue('statusId', defaultStatus(list)?.id)
-})
+    setFieldValue('statusId', defaultStatus(list)?.id, false)
+}
+watch(statuses, ensureStatus)
 
 const create = useMutation(createIssueMutationOptions())
 
@@ -174,12 +193,17 @@ function onKeydown(event: KeyboardEvent) {
   <Dialog v-model:open="ui.createIssueOpen">
     <DialogContent
       :show-close-button="false"
-      class="top-[12%] translate-y-0 gap-0 rounded-xl border-hairline bg-floating p-0 shadow-floating transition-[max-width] sm:max-w-3xl"
-      :class="{ 'sm:max-w-5xl': expanded }"
+      class="top-[12%] translate-y-0 gap-0 rounded-xl border-hairline bg-floating p-0 shadow-floating sm:max-w-3xl"
+      :class="{ 'top-[6%]': expanded }"
       @keydown="onKeydown"
       @open-auto-focus.prevent="titleInput?.focus()"
     >
-      <form novalidate class="flex flex-col" @submit="onSubmit">
+      <form
+        novalidate
+        class="flex flex-col transition-[height]"
+        :class="expanded ? 'h-[88vh]' : 'h-auto'"
+        @submit="onSubmit"
+      >
         <div class="flex items-center gap-1.5 px-4 pt-3.5">
           <div class="[&_button]:border [&_button]:border-hairline">
             <TeamPicker v-if="teams" v-model="teamId" :teams="teams" />
@@ -207,7 +231,7 @@ function onKeydown(event: KeyboardEvent) {
         <DialogDescription class="sr-only">
           Create an issue. Press Cmd+Enter to submit.
         </DialogDescription>
-        <div class="grid gap-1 px-5 pt-3">
+        <div class="flex min-h-0 flex-1 flex-col gap-1 px-5 pt-3">
           <label for="new-issue-title" class="sr-only">Issue title</label>
           <input
             id="new-issue-title"
@@ -235,7 +259,7 @@ function onKeydown(event: KeyboardEvent) {
             label="Description"
             placeholder="Add description..."
             class="overflow-y-auto py-1"
-            :class="expanded ? 'h-[55vh]' : 'max-h-80 min-h-24'"
+            :class="expanded ? 'min-h-0 flex-1' : 'max-h-80 min-h-24'"
           />
         </div>
         <div

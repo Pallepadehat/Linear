@@ -159,7 +159,12 @@ defineExpose({ focus: () => editor.value?.view.focus() })
 </script>
 
 <template>
-  <div ref="root" :class="cn('relative', props.class)">
+  <!-- Clicking the empty area below the text (a tall, expanded editor) focuses the end. -->
+  <div
+    ref="root"
+    :class="cn('relative cursor-text', props.class)"
+    @mousedown.self.prevent="editor?.commands.focus('end')"
+  >
     <EditorContent :editor="editor" />
     <EditorBubbleMenu v-if="editor" :editor="editor" :append-to="appendTo" />
     <SlashMenu

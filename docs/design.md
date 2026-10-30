@@ -279,12 +279,16 @@ The product app ships **dark and light themes**. Dark is the reference theme des
 | `{colors.priority-urgent}`     | #d24a12   | Urgent priority icon (dark: #fc7840)         |
 | `{colors.floating}`            | #fefefe   | Popovers and menus (dark: #1c1d1f)           |
 | `{colors.floating-hover}`      | #f0f0f2   | Highlighted row inside a popover (dark: #28292d) |
+| `{colors.app-base}`            | #f3f3f5   | App shell base under the sidebar (dark: #010102) |
+| `{colors.panel}`               | #fcfcfd   | Raised content panel (dark: #0f1011)         |
+| `{colors.group-band}`          | #f1f1f3   | Group header band in lists (dark: #18191b)   |
 
 Status icons map by category: `backlog` dashed circle, `unstarted` empty circle and `canceled` filled cross in `status-neutral`; `started` half-filled circle in `status-started`; `completed` filled check in `status-completed`. Priority icons: Urgent is a filled square with `!` in `priority-urgent`; High / Medium / Low are 3 bars with 3 / 2 / 1 filled in `ink-muted`; No priority is three dashes in `ink-tertiary`.
 
 
 ### Theme Rules
 
+- Dialog scrims use `{colors.semantic-overlay}` (the `overlay` token), never a raw black.
 - Hierarchy works the same way in both themes: canvas → surface-1 → … → surface-4, separated by hairlines. In light mode a lift is a step *darker*.
 - Floating layers (menus, popovers, dialogs) sit on `{colors.floating}`, one step *lighter* than the page in light mode and lifted in dark, with a hairline border. Light mode adds a very soft shadow: `0 4px 16px rgba(15,16,17,0.08)`. Cards and panels stay shadow-free.
 - Status, priority and label colors use Linear's product hues and keep them across themes (tuned per theme). Text stays ≥ 4.5:1; a colored icon may fall below 3:1 (e.g. yellow In Progress on light) as long as its text label sits next to it.
@@ -312,13 +316,13 @@ Lavender in the app is allowed for: primary actions, focus rings, the brand mark
 
 ### Components
 
-**Property chip** (issue properties: status, priority, assignee, labels, project). Icon + value in `ink`, 14px, `h-8`, `px-2`, `{rounded.pill}`. Transparent at rest; `surface-2` on hover and while its menu is open. Empty values read in `ink-subtle` ("Unassigned", "Labels").
+**Property chip** (issue properties: status, priority, assignee, labels, project). Icon + value in `ink`, 13px, `h-7`, `px-2`, `{rounded.pill}`. Transparent at rest; `surface-2` on hover and while its menu is open. Empty values read in `ink-subtle` ("Unassigned", "Labels").
 
 **Picker popover** (opened from a property chip).
 
 - `floating` surface, `{rounded.lg}`, 1px `hairline` border, light-mode floating shadow. Width 240px, opens aligned to the chip's start edge.
 - Header: plain filter input (no search icon), 40px tall, `px-3.5`, placeholder in `ink-tertiary` ending in "..." ("Change status...", "Assign to..."), lavender caret, and the picker's hotkey on the right as a 20px `{rounded.xs}` key cap with a `hairline-strong` border. A hairline divides header and list.
-- Rows: 32px, `px-2.5`, `{rounded.md}`, 14px `ink`, 16px icon or avatar, 10px gap. Highlighted row on `floating-hover`. On the right: a check on the current value, then the row's number shortcut in `ink-subtle`.
+- Rows: 32px, `px-2.5`, `{rounded.md}`, 13px `ink`, 16px icon or avatar, 10px gap. Highlighted row on `floating-hover`. On the right: a check on the current value, then the row's number shortcut in `ink-subtle`.
 - Keyboard: arrows move, Enter picks, Escape closes and returns focus to the chip. A number key picks that row while the filter is empty (`0` = "No priority" / "No assignee", then `1…9`). The current value is highlighted when the menu opens. Multi-select pickers (labels) stay open while toggling.
 - Optional group headings (e.g. "Team members") in 13px `ink-subtle`, no divider.
 
@@ -326,9 +330,19 @@ Lavender in the app is allowed for: primary actions, focus rings, the brand mark
 
 **Menus** (dropdowns, context menus) use the same `floating` surface, row height and highlight as the picker popover.
 
+**App shell (inset).** Like Linear, the window is a `app-base` canvas: the 224px sidebar sits directly on it (no border, no fill), and the content is a raised `panel` inset 8px from the top, right and bottom, `{rounded.lg}`, 1px `hairline` border, light-mode `panel` shadow (`0 1px 2px rgba(15,16,17,0.04)`; none in dark). The panel header is 44px with a hairline below: breadcrumb on the left (parents in `ink-muted`, `›` separators in `ink-tertiary`, current page in `ink`) and a ghost "New issue" button on the right. Sidebar rows hover on `surface-3` and the active row is `surface-4`. The compose button beside the workspace menu is a 28px circle on `panel`.
+
+**Issue list.** Rows 36px, inset 8px from the panel edges with `{rounded.md}` hover on `surface-2`; left padding 20px. Order: priority icon, identifier (JetBrains Mono 12px `ink-subtle`, fixed 64px column), status icon, title (13px medium `ink`, truncates), label chips (22px, `{rounded.pill}`, hairline border, 8px color dot, 12px `ink-muted`), assignee avatar (16px; dashed unassigned icon), created date (12px `ink-subtle`, tabular). Group headers are a 32px `group-band` band, `{rounded.md}`, inset like rows: collapse chevron, status icon, status name (medium), count in `ink-subtle`, and a ghost `+` on team lists that opens the create dialog in that status. Loading shows pulsing skeleton rows; empty shows the empty state with a primary "New issue" button.
+
+**Create issue dialog.** `floating` surface, `{rounded.xl}`, 768px wide, 12% from the top. Expand grows it vertically (88vh, same width): the description fills the space and the property chips and footer stay pinned to the bottom. Header: team chip (property chip with hairline border, JetBrains Mono key) `›` "New issue", expand and close icon buttons on the right. Title input 18px semibold, no border; description is the markdown editor (14px), placeholder "Add description...". Property chips (status, priority, assignee, labels) sit in a row with hairline borders. Footer (no divider): "Create more" switch and the primary 28px "Create issue" button. Validation errors ("Required" under the title) appear only after pressing Create issue and clear as soon as the field is fixed. Keys: `C` opens it anywhere outside a text field; `S` / `P` / `A` / `L` open the status, priority, assignee and labels pickers when focus isn't in a text field (only the topmost dialog's pickers respond); Enter in the title moves to the description, ⌘/Ctrl+Enter submits, Esc closes.
+
+**Markdown editor** (`components/common/editor`). Markdown shortcuts as you type (`#`–`###`, `-`, `1.`, `[]`, `>`, ```` ``` ````, `---`, `**bold**`, `` `code` ``). Typing `/` at the start of a word opens the block menu (floating picker look: 32px rows, icon, label, markdown hint in mono `ink-tertiary`; arrows/Enter/Tab/Esc). Selecting text shows a 32px pill toolbar on `floating` with a `hairline-strong` border and 24px circular buttons: bold, italic, strikethrough, inline code, quote, link (inline URL field). Content styles: headings 20/17/15px semibold, list markers `ink-subtle`, checkboxes 14px `{rounded.xs}` turning `primary` when checked (checked text struck through in `ink-subtle`), blockquote 2px `hairline-strong` left rule in `ink-muted`, inline code mono on `surface-2` with a hairline, code blocks on `surface-1` `{rounded.md}`, links `primary`, selection `primary` at 25%.
+
 ### Density
 
-- 14px body, 13px meta, 12px captions. Rows 32px; list rows 36–40px.
+- 13px body (UI text, menus, inputs, buttons), 12px meta (identifiers, dates, label chips, captions), 14px editor text, 18px dialog titles. Linear's app is a step smaller than its marketing site; don't use the 14–16px marketing sizes in the app.
+- Controls 28px (`Button size="sm"`, property chips, sidebar rows); primary page CTAs 32px. Menu rows 32px. List rows 36px; group headers a 32px band in a 40px slot. Panel header 44px. Sidebar 224px.
+- Avatars 16px in rows and chips, 20px in member lists.
 - Icons 14–16px. Spacing on a 4px grid.
 
 ## Do's and Don'ts
@@ -350,7 +364,7 @@ Lavender in the app is allowed for: primary actions, focus rings, the brand mark
 - Don't use lavender as a section background or card fill.
 - Don't introduce a second chromatic accent on marketing or app chrome. The product's semantic palette (status, priority, labels) is the only exception.
 - Don't add atmospheric gradients or spotlight cards.
-- Don't pill-round CTAs or form buttons. Property chips and status pills are the pill exceptions.
+- In the app, buttons are pills (`{rounded.pill}`) and icon-only buttons are circles, like Linear's product UI; inputs stay `{rounded.md}`. The `{rounded.md}` button specs above describe the marketing site only.
 - Don't use `#000000` true black as the canvas.
 - Don't combine multiple bright accents in product screenshot mockups.
 
