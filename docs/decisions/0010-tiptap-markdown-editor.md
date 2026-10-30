@@ -1,4 +1,4 @@
-# 0009 — Tiptap for markdown issue descriptions
+# 0010 — Tiptap for markdown issue descriptions
 
 - **Status:** Accepted
 - **Date:** 2026-10-30

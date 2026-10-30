@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import GitHubSettings from '@/features/github/components/GitHubSettings.vue'
 import MembersList from '../components/MembersList.vue'
 import ProfileSettings from '../components/ProfileSettings.vue'
 import ThemeSettings from '../components/ThemeSettings.vue'
@@ -27,6 +28,13 @@ const { workspace } = useCurrentWorkspace()
         >
       </h2>
       <MembersList />
+    </section>
+    <section id="github" aria-labelledby="github-heading" class="grid gap-4">
+      <h2 id="github-heading" class="text-base font-semibold text-ink">GitHub</h2>
+      <GitHubSettings v-if="workspace?.role === 'owner'" />
+      <p v-else-if="workspace" class="text-ink-subtle">
+        Only workspace owners can connect GitHub repositories.
+      </p>
     </section>
   </div>
 </template>
