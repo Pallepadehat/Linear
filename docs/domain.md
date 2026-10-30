@@ -105,6 +105,15 @@ evaluate(issue: { category: StatusCategory }, links: { type: LinkType; prState: 
   → { to: 'started' | 'completed' } | null
 ```
 
+`AutomationEvent` identifies the triggering relationship with `linkType` (`closing` or
+`reference`). Events are `{ type: 'link_created', linkType, prState }`,
+`{ type: 'pr_merged', linkType }`, or `{ type: 'pr_closed', linkType }` (closed
+without merge). The worker supplies the current issue category and all links
+**after** reconciling PR state and link changes. A reference event never moves an
+issue, even if existing closing links are all merged. Closing a PR without merge
+does not trigger completion; a subsequent closing-PR merge may complete the issue
+with that closed PR excluded from the required set.
+
 ## Webhook processing
 
 1. Verify `X-Hub-Signature-256` (HMAC-SHA256 of the raw body). Invalid → `401`, nothing stored.

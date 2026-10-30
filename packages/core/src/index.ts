@@ -1,3 +1,4 @@
+export * from './automation/evaluate'
 export * from './errors'
 export * from './identifiers'
 export * from './issues'
