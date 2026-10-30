@@ -6,12 +6,16 @@ import Fastify from 'fastify'
 import type { Redis } from 'ioredis'
 import { createAuth } from './auth/auth'
 import type { ApiEnv } from './env'
+import { registerGithubWebhook } from './modules/github/github-webhook'
 import { registerAuth } from './plugins/auth'
 import { registerCors } from './plugins/cors'
 import { registerORPC } from './plugins/orpc'
 
 export type AppDeps = {
-  env: Pick<ApiEnv, 'LOG_LEVEL' | 'APP_URL' | 'BETTER_AUTH_SECRET' | 'BETTER_AUTH_URL'>
+  env: Pick<
+    ApiEnv,
+    'LOG_LEVEL' | 'APP_URL' | 'BETTER_AUTH_SECRET' | 'BETTER_AUTH_URL' | 'GITHUB_WEBHOOK_SECRET'
+  >
   db: Db
   redis: Redis
   queues: Queues
@@ -26,7 +30,12 @@ export async function buildApp(deps: AppDeps) {
   const app = Fastify({
     logger: {
       level: deps.env.LOG_LEVEL,
-      redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
+      redact: [
+        'req.headers.cookie',
+        'req.headers.authorization',
+        'req.headers["x-hub-signature-256"]',
+        'res.headers["set-cookie"]',
+      ],
     },
     trustProxy: true,
   })
@@ -38,6 +47,7 @@ export async function buildApp(deps: AppDeps) {
     trustedOrigins: [deps.env.APP_URL],
   })
 
+  await registerGithubWebhook(app, deps)
   await registerCors(app, deps.env.APP_URL)
   await registerAuth(app, auth)
   await registerORPC(app, { db: deps.db, auth, queues: deps.queues, storage: deps.storage })
