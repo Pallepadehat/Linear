@@ -12,8 +12,7 @@ const CATEGORY_ORDER: Record<StatusCategory, number> = {
 export type IssueGroup = { key: string; status: WorkflowStatus; issues: Issue[] }
 
 export type IssueListRow =
-  | { type: 'group'; key: string; group: IssueGroup }
-  | { type: 'issue'; key: string; issue: Issue }
+  { type: 'group'; key: string; group: IssueGroup } | { type: 'issue'; key: string; issue: Issue }
 
 /**
  * Groups issues by status. Keyed by category + name rather than status id so the

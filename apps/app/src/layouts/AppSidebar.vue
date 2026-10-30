@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { CircleUser, FolderKanban, Layers, Settings, Users } from '@lucide/vue'
+import { CircleUser, FolderKanban, Layers, Settings, SquarePen, Users } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
+import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import UserMenu from '@/features/settings/components/UserMenu.vue'
 import WorkspaceMenu from '@/features/workspaces/components/WorkspaceMenu.vue'
 import { orpc } from '@/lib/orpc'
+import { useUiStore } from '@/stores/ui'
 
+const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const { data: teams } = useQuery(
   computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
@@ -29,7 +32,20 @@ const itemClass =
     class="flex w-60 shrink-0 flex-col gap-4 border-r border-hairline bg-surface-1 p-2"
     aria-label="Sidebar"
   >
-    <WorkspaceMenu />
+    <div class="flex items-center justify-between gap-1">
+      <WorkspaceMenu />
+      <Button
+        variant="secondary"
+        size="icon"
+        class="shrink-0 rounded-md"
+        aria-label="New issue"
+        aria-keyshortcuts="C"
+        title="New issue (C)"
+        @click="ui.openCreateIssue()"
+      >
+        <SquarePen class="size-4" aria-hidden="true" />
+      </Button>
+    </div>
     <nav aria-label="Main" class="grid gap-px">
       <RouterLink
         v-for="item in nav"

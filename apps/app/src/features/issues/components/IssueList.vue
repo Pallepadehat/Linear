@@ -20,9 +20,7 @@ const ROW_HEIGHT = 40
 const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
-const query = useInfiniteQuery(
-  computed(() => issueListOptions(props.workspaceSlug, props.teamId)),
-)
+const query = useInfiniteQuery(computed(() => issueListOptions(props.workspaceSlug, props.teamId)))
 const { data: members } = useQuery(
   computed(() =>
     orpc.workspaces.listMembers.queryOptions({ input: { workspaceSlug: props.workspaceSlug } }),
@@ -101,7 +99,9 @@ watchEffect(() => {
         >
           <StatusIcon :category="row.group.status.category" />
           <span class="font-medium text-ink">{{ row.group.status.name }}</span>
-          <span class="text-[13px] text-ink-subtle tabular-nums">{{ row.group.issues.length }}</span>
+          <span class="text-[13px] text-ink-subtle tabular-nums">{{
+            row.group.issues.length
+          }}</span>
         </div>
         <IssueRow
           v-else

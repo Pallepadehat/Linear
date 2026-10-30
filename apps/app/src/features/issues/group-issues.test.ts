@@ -45,7 +45,7 @@ describe('groupIssuesByStatus', () => {
     expect(groups[1]?.issues.map((i) => i.id)).toEqual(['b', 'd'])
   })
 
-  it("merges same-named statuses from different teams", () => {
+  it('merges same-named statuses from different teams', () => {
     const otherTodo = status('Todo', 'unstarted', 1)
     const groups = groupIssuesByStatus([issue('a', todo), issue('b', otherTodo)])
     expect(groups).toHaveLength(1)

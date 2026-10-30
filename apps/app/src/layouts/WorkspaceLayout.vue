@@ -1,11 +1,41 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { onKeyStroke } from '@vueuse/core'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUiStore } from '@/stores/ui'
 import AppSidebar from './AppSidebar.vue'
+
+const CreateIssueDialog = defineAsyncComponent(
+  () => import('@/features/issues/components/CreateIssueDialog.vue'),
+)
 
 const route = useRoute()
 const title = computed(
   () => [...route.matched].reverse().find((r) => r.meta.title)?.meta.title ?? '',
+)
+
+const ui = useUiStore()
+
+// `C` opens the create issue dialog, like Linear; ignored while typing.
+onKeyStroke('c', (event) => {
+  const target = event.target
+  if (event.metaKey || event.ctrlKey || event.altKey || ui.createIssueOpen) return
+  if (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.closest('input, textarea, select'))
+  )
+    return
+  event.preventDefault()
+  ui.openCreateIssue()
+})
+
+// Load the dialog on first use, then keep it mounted so it can animate closed.
+const createIssueLoaded = ref(false)
+watch(
+  () => ui.createIssueOpen,
+  (open) => {
+    if (open) createIssueLoaded.value = true
+  },
 )
 </script>
 
@@ -20,5 +50,6 @@ const title = computed(
         <RouterView />
       </main>
     </div>
+    <CreateIssueDialog v-if="createIssueLoaded" />
   </div>
 </template>
