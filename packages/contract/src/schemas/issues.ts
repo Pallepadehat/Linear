@@ -43,7 +43,7 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   teamId: z.uuid(),
   title: issueTitleSchema,
   description: issueDescriptionSchema.optional(),
-  /** Defaults to the team's `Todo` status. */
+  /** Defaults to the team's `Backlog` status. */
   statusId: z.uuid().optional(),
   priority: issuePrioritySchema.optional(),
   assigneeId: z.uuid().nullable().optional(),

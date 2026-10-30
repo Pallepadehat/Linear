@@ -74,9 +74,9 @@ describe('createIssue', () => {
     expect(issue.number).toBe(1)
   })
 
-  it('defaults to Todo with no priority and no completedAt', async () => {
+  it('defaults to Backlog with no priority and no completedAt', async () => {
     const { user, workspace, team } = await arrange()
-    const todo = await statusNamed(team.id, 'Todo')
+    const backlog = await statusNamed(team.id, 'Backlog')
 
     const issue = await createIssue(db, {
       workspaceId: workspace.id,
@@ -86,7 +86,7 @@ describe('createIssue', () => {
     })
     expect(issue).toMatchObject({
       title: 'Fix login',
-      statusId: todo.id,
+      statusId: backlog.id,
       priority: 0,
       completedAt: null,
     })
@@ -186,7 +186,7 @@ describe('issues procedures', () => {
       teamId: team.id,
       title: 'Fix login',
       description: null,
-      status: status('Todo'),
+      status: status('Backlog'),
       priority: 0,
       assigneeId: null,
       creatorId: owner.userId,

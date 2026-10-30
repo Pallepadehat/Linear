@@ -15,7 +15,7 @@ import { nextCompletedAt } from './completed-at'
 export const ISSUE_PRIORITIES = [0, 1, 2, 3, 4] as const
 export type IssuePriority = (typeof ISSUE_PRIORITIES)[number]
 
-const DEFAULT_STATUS_NAME = 'Todo'
+const DEFAULT_STATUS_NAME = 'Backlog'
 
 export type CreateIssueInput = {
   workspaceId: string
@@ -23,7 +23,7 @@ export type CreateIssueInput = {
   creatorId: string
   title: string
   description?: string | null
-  /** Defaults to the team's `Todo` status (or its first `unstarted` one). */
+  /** Defaults to the team's `Backlog` status (domain.md → Statuses). */
   statusId?: string
   priority?: number
   assigneeId?: string | null
@@ -292,13 +292,16 @@ async function resolveStatus(
     return status
   }
 
-  // Prefer `Todo` by name; fall back to the first `unstarted` status if it was renamed.
+  // Prefer `Backlog` by name; if it was renamed, the first `backlog` status, then the first `unstarted` one.
   const candidates = await db
     .select()
     .from(workflowStatuses)
-    .where(and(scope, eq(workflowStatuses.category, 'unstarted')))
+    .where(and(scope, inArray(workflowStatuses.category, ['backlog', 'unstarted'])))
     .orderBy(asc(workflowStatuses.position))
-  const status = candidates.find((s) => s.name === DEFAULT_STATUS_NAME) ?? candidates[0]
+  const status =
+    candidates.find((s) => s.name === DEFAULT_STATUS_NAME) ??
+    candidates.find((s) => s.category === 'backlog') ??
+    candidates[0]
   if (!status) throw new DomainError('NOT_FOUND', 'Team not found')
   return status
 }
