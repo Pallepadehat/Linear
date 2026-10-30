@@ -27,6 +27,9 @@
   --success: #1f8a3a;
   /* Form errors; not in the marketing spec (design.md → Known gaps). */
   --danger: #c52828;
+  /* Status / priority hues, tuned per theme for >= 3:1 icon contrast (design.md → Theme Rules). */
+  --status-started: #a87b00;
+  --priority-urgent: #d24a12;
   --overlay: rgb(15 16 17 / 0.4);
   --floating-shadow: 0 4px 16px rgb(15 16 17 / 0.08);
 }
@@ -50,6 +53,8 @@
   --on-primary: #ffffff;
   --success: #27a644;
   --danger: #eb5757;
+  --status-started: #f2c94c;
+  --priority-urgent: #fc7840;
   --overlay: rgb(0 0 0 / 0.6);
   /* Dark relies on the surface ladder, not shadows. */
   --floating-shadow: none;
@@ -108,6 +113,8 @@
   --color-on-primary: var(--on-primary);
   --color-success: var(--success);
   --color-danger: var(--danger);
+  --color-status-started: var(--status-started);
+  --color-priority-urgent: var(--priority-urgent);
   --color-overlay: var(--overlay);
 
   --color-background: var(--background);

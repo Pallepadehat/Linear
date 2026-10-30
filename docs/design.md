@@ -271,6 +271,10 @@ The product app ships **dark and light themes**. Dark is the reference theme des
 | `{colors.on-primary}`          | #ffffff   |                                              |
 | `{colors.semantic-success}`    | #1f8a3a   | Slightly darker for contrast on light        |
 | `{colors.semantic-overlay}`    | rgba(15,16,17,0.4) | Modal scrim                         |
+| `{colors.status-started}`      | #a87b00   | In-progress status icon (dark: #f2c94c)      |
+| `{colors.priority-urgent}`     | #d24a12   | Urgent priority icon (dark: #fc7840)         |
+
+Status icons map by category: `backlog` dashed circle and `unstarted` empty circle in `ink-subtle`, `started` half-filled circle in `status-started`, `completed` filled check in `success`, `canceled` filled cross in `ink-subtle`. Priority icons: Urgent is a filled square with `!` in `priority-urgent`; High / Medium / Low are 3 bars with 3 / 2 / 1 filled in `ink-muted`; No priority is three dashes in `ink-tertiary`.
 
 ### Theme Rules
 
