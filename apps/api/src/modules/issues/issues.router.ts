@@ -45,7 +45,11 @@ export const issuesRouter = {
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
       const { workspaceSlug: _, ...fields } = input
-      const issue = await updateIssue(context.db, { ...fields, workspaceId: context.workspace.id })
+      const issue = await updateIssue(context.db, {
+        ...fields,
+        workspaceId: context.workspace.id,
+        actor: { type: 'user', id: context.user.id },
+      })
       return toIssueDto(issue)
     }),
 

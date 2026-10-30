@@ -36,7 +36,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M2-02  | [x]    | Issue procedures: create, get, getByIdentifier, update, delete, list    | M2-01      |
 | M2-03  | [x]    | Labels schema + procedures                                              | M1-13      |
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
-| M2-05  | [ ]    | ActivityLog writes for issue changes                                    | M2-02      |
+| M2-05  | [x]    | ActivityLog writes for issue changes                                    | M2-02      |
 | M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
 | M2-07  | [ ]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
 | M2-08  | [ ]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
@@ -108,3 +108,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M2-02 · issues create/get/getByIdentifier/update/delete/list (any member), id-cursor pagination newest first, labelIds replace set, completedAt follows category; cross-workspace NOT_FOUND tests
 2026-10-30 · M4-04 · raw-body GitHub webhook signature verification, delivery deduplication/persistence, ignored events, ID-only queue jobs; real Postgres/Redis integration coverage; lint, typecheck, full tests and build pass.
 2026-10-30 · M4-06 · github.installUrl/completeInstall (signed state + OAuth installation check, ADR 0009), owner-only repositories list/connect/disconnect with CONFLICT across workspaces, settings GitHub section + /setup/github callback; integration tests on a fake GitHub client
+2026-10-30 · M2-05 · activity_log table; one entry per changed field written in the create/update transaction; activity.list (oldest first, cursor)
