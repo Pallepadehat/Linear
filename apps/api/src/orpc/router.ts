@@ -1,3 +1,4 @@
+import { labelsRouter } from '../modules/labels/labels.router'
 import { meRouter } from '../modules/me/me.router'
 import { teamsRouter } from '../modules/teams/teams.router'
 import { uploadsRouter } from '../modules/uploads/uploads.router'
@@ -9,6 +10,7 @@ export const router = os.router({
   workspaces: workspacesRouter,
   teams: teamsRouter,
   uploads: uploadsRouter,
+  labels: labelsRouter,
 })
 
 export type Router = typeof router

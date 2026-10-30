@@ -34,7 +34,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | ------ | ------ | ----------------------------------------------------------------------- | ---------- |
 | M2-01  | [x]    | Issue schema + atomic identifier allocation (+ concurrency test)        | M1-13      |
 | M2-02  | [ ]    | Issue procedures: create, get, getByIdentifier, update, delete, list    | M2-01      |
-| M2-03  | [ ]    | Labels schema + procedures                                              | M1-13      |
+| M2-03  | [x]    | Labels schema + procedures                                              | M1-13      |
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
 | M2-05  | [ ]    | ActivityLog writes for issue changes                                    | M2-02      |
 | M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
@@ -104,3 +104,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M4-01 · GitHub tables, enums, indexes, migration and uniqueness integration tests; PR #6 CI and local checks pass lint, typecheck, all tests (including three schema constraints), and build; fresh migration verified on Podman PostgreSQL.
 2026-10-30 · M4-02 · parsePrIdentifiers (branch/title/body → closing/reference, closing wins, deduped) + unit tests
 2026-10-30 · M2-06 · StatusIcon/PriorityIcon (status/priority/floating tokens), Status/Priority/Assignee/Label pickers on shadcn popover + command; UserAvatar already existed; design.md "Product UI (App)" makes Linear's product UI the reference
+2026-10-30 · M2-03 · labels + issue_labels tables, labels list/create/update/delete (any member), CONFLICT on duplicate name, cross-workspace NOT_FOUND tests
