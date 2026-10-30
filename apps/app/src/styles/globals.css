@@ -37,6 +37,11 @@
   --floating-hover: #f0f0f2;
   --overlay: rgb(15 16 17 / 0.4);
   --floating-shadow: 0 4px 16px rgb(15 16 17 / 0.08);
+  /* Inset app shell (design.md → App shell): the sidebar sits on the base, content on a raised panel. */
+  --app-base: #f3f3f5;
+  --panel: #fcfcfd;
+  --panel-shadow: 0 1px 2px rgb(15 16 17 / 0.04);
+  --group-band: #f1f1f3;
 }
 
 .dark {
@@ -67,6 +72,10 @@
   --overlay: rgb(0 0 0 / 0.6);
   /* Dark relies on the surface ladder, not shadows. */
   --floating-shadow: none;
+  --app-base: #010102;
+  --panel: #0f1011;
+  --panel-shadow: none;
+  --group-band: #18191b;
 }
 
 /* shadcn-vue variables mapped onto the design tokens so generated components theme automatically. */
@@ -129,6 +138,9 @@
   --color-floating-hover: var(--floating-hover);
   --color-priority-urgent: var(--priority-urgent);
   --color-overlay: var(--overlay);
+  --color-app-base: var(--app-base);
+  --color-panel: var(--panel);
+  --color-group-band: var(--group-band);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -166,6 +178,7 @@
   --radius-2xl: 24px;
 
   --shadow-floating: var(--floating-shadow);
+  --shadow-panel: var(--panel-shadow);
 }
 
 @layer base {

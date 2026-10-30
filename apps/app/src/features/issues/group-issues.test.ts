@@ -58,4 +58,10 @@ describe('toListRows', () => {
     const rows = toListRows(groupIssuesByStatus([issue('a', todo), issue('b', done)]))
     expect(rows.map((r) => r.type)).toEqual(['group', 'issue', 'group', 'issue'])
   })
+
+  it('hides the issues of collapsed groups', () => {
+    const groups = groupIssuesByStatus([issue('a', todo), issue('b', done)])
+    const rows = toListRows(groups, new Set([groups[0]!.key]))
+    expect(rows.map((r) => r.type)).toEqual(['group', 'group', 'issue'])
+  })
 })

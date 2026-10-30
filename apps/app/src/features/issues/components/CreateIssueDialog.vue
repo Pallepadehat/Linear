@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { createIssueInputSchema } from '@linear/contract'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { Maximize2, Minimize2, X } from '@lucide/vue'
 import { useForm } from 'vee-validate'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
@@ -12,11 +13,13 @@ import StatusPicker from '@/components/common/StatusPicker.vue'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { errorMessage } from '@/lib/errors'
 import { toTypedSchema } from '@/lib/form-schema'
@@ -32,6 +35,10 @@ const route = useRoute()
 const queryClient = useQueryClient()
 const { slug } = useCurrentWorkspace()
 const formError = ref<string | null>(null)
+const expanded = ref(false)
+// Keep the dialog open after creating, for filing several issues in a row.
+const createMore = ref(false)
+const titleInput = useTemplateRef<HTMLInputElement>('titleInput')
 
 const { handleSubmit, isSubmitting, values, errors, setFieldValue, resetForm, defineField } =
   useForm({
@@ -102,7 +109,7 @@ const labelIds = computed({
 function initialTeamId() {
   const list = teams.value ?? []
   const fromRoute = list.find((t) => t.key === route.params.teamKey)
-  return ui.createIssueTeamId ?? fromRoute?.id ?? list[0]?.id ?? ''
+  return ui.createIssueDefaults.teamId ?? fromRoute?.id ?? list[0]?.id ?? ''
 }
 
 watch(
@@ -112,6 +119,7 @@ watch(
     formError.value = null
     resetForm()
     setFieldValue('teamId', initialTeamId())
+    setFieldValue('statusId', ui.createIssueDefaults.statusId)
   },
   { immediate: true },
 )
@@ -135,8 +143,15 @@ const onSubmit = handleSubmit(async (form) => {
       description: form.description?.trim() ? form.description : undefined,
     })
     await queryClient.invalidateQueries({ queryKey: issueListKey() })
-    ui.createIssueOpen = false
     toast.success(`${issue.identifier} created`, { description: issue.title })
+    if (!createMore.value) {
+      ui.createIssueOpen = false
+      return
+    }
+    // Keep team, status and the other properties; start a fresh title.
+    resetForm({ values: { ...form, title: '', description: '', labelIds: [] } })
+    await nextTick()
+    titleInput.value?.focus()
   } catch (error) {
     formError.value = errorMessage(error)
   }
@@ -153,30 +168,52 @@ function onKeydown(event: KeyboardEvent) {
 <template>
   <Dialog v-model:open="ui.createIssueOpen">
     <DialogContent
-      class="top-[15%] translate-y-0 gap-0 overflow-hidden border-hairline bg-floating p-0 shadow-floating sm:max-w-2xl"
+      :show-close-button="false"
+      class="top-[12%] translate-y-0 gap-0 overflow-hidden rounded-xl border-hairline bg-floating p-0 shadow-floating transition-[max-width] sm:max-w-3xl"
+      :class="{ 'sm:max-w-5xl': expanded }"
       @keydown="onKeydown"
+      @open-auto-focus.prevent="titleInput?.focus()"
     >
-      <form novalidate @submit="onSubmit">
-        <div class="flex items-center gap-1 px-4 pt-3 pr-12">
-          <TeamPicker v-if="teams" v-model="teamId" :teams="teams" />
+      <form novalidate class="flex flex-col" @submit="onSubmit">
+        <div class="flex items-center gap-1.5 px-4 pt-4">
+          <div class="[&_button]:border [&_button]:border-hairline">
+            <TeamPicker v-if="teams" v-model="teamId" :teams="teams" />
+          </div>
           <span class="text-ink-tertiary" aria-hidden="true">›</span>
           <DialogTitle class="text-sm font-normal text-ink">New issue</DialogTitle>
+          <div class="ml-auto flex items-center gap-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="expanded ? 'Collapse dialog' : 'Expand dialog'"
+              @click="expanded = !expanded"
+            >
+              <Minimize2 v-if="expanded" class="size-4" aria-hidden="true" />
+              <Maximize2 v-else class="size-4" aria-hidden="true" />
+            </Button>
+            <DialogClose as-child>
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Close">
+                <X class="size-4" aria-hidden="true" />
+              </Button>
+            </DialogClose>
+          </div>
         </div>
         <DialogDescription class="sr-only">
           Create an issue. Press Cmd+Enter to submit.
         </DialogDescription>
-        <div class="grid gap-1 px-5 pt-3">
+        <div class="grid gap-1 px-5 pt-4">
           <label for="new-issue-title" class="sr-only">Issue title</label>
           <input
             id="new-issue-title"
+            ref="titleInput"
             v-model="title"
             v-bind="titleAttrs"
-            autofocus
             autocomplete="off"
             placeholder="Issue title"
             :aria-invalid="Boolean(errors.title)"
             :aria-describedby="errors.title ? 'new-issue-title-error' : undefined"
-            class="w-full bg-transparent text-lg font-medium text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
+            class="w-full bg-transparent text-xl font-semibold tracking-tight text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
           />
           <p
             v-if="errors.title"
@@ -191,20 +228,27 @@ function onKeydown(event: KeyboardEvent) {
             id="new-issue-description"
             v-model="description"
             placeholder="Add description..."
-            class="field-sizing-content max-h-80 min-h-20 w-full resize-none bg-transparent py-1 text-sm text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
+            class="field-sizing-content w-full resize-none bg-transparent py-1 text-[15px] text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
+            :class="expanded ? 'max-h-[60vh] min-h-[50vh]' : 'max-h-80 min-h-24'"
           />
         </div>
-        <div class="flex flex-wrap items-center gap-1 px-4 py-2">
+        <div
+          class="flex flex-wrap items-center gap-1.5 px-4 pt-2 pb-3 [&_button]:border [&_button]:border-hairline"
+        >
           <StatusPicker v-model="statusId" :statuses="statuses" />
           <PriorityPicker v-model="priority" />
           <AssigneePicker v-model="assigneeId" :users="assignees" />
           <LabelPicker v-model="labelIds" :labels="labels ?? []" />
         </div>
-        <DialogFooter class="items-center border-t border-hairline px-4 py-3">
+        <DialogFooter class="flex-row items-center gap-4 border-t border-hairline px-4 py-3">
           <p v-if="formError || errors.teamId" class="mr-auto text-sm text-danger" role="alert">
             {{ formError ?? 'Pick a team' }}
           </p>
-          <Button type="submit" size="sm" :disabled="isSubmitting">Create issue</Button>
+          <label class="ml-auto flex items-center gap-2 text-sm text-ink-subtle">
+            <Switch v-model="createMore" />
+            Create more
+          </label>
+          <Button type="submit" :disabled="isSubmitting">Create issue</Button>
         </DialogFooter>
       </form>
     </DialogContent>

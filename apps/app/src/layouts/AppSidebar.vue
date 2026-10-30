@@ -24,20 +24,17 @@ const nav = [
 ] as const
 
 const itemClass =
-  'flex h-7 items-center gap-2 rounded-md px-2 text-ink-muted hover:bg-surface-2 hover:text-ink aria-[current=page]:bg-surface-3 aria-[current=page]:text-ink'
+  'flex h-7 items-center gap-2 rounded-md px-2 text-ink-muted hover:bg-surface-3 hover:text-ink aria-[current=page]:bg-surface-4 aria-[current=page]:text-ink'
 </script>
 
 <template>
-  <aside
-    class="flex w-60 shrink-0 flex-col gap-4 border-r border-hairline bg-surface-1 p-2"
-    aria-label="Sidebar"
-  >
+  <aside class="flex w-60 shrink-0 flex-col gap-4 px-2 py-3" aria-label="Sidebar">
     <div class="flex items-center justify-between gap-1">
       <WorkspaceMenu />
       <Button
         variant="secondary"
         size="icon"
-        class="shrink-0 rounded-md"
+        class="shrink-0 rounded-full bg-panel shadow-panel"
         aria-label="New issue"
         aria-keyshortcuts="C"
         title="New issue (C)"

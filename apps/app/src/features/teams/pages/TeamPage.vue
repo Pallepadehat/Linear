@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
-import { computed } from 'vue'
+import { computed, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import IssueList from '@/features/issues/components/IssueList.vue'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
+import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
+const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const { data: team, error } = useQuery(
   computed(() =>
@@ -17,6 +19,10 @@ const { data: team, error } = useQuery(
     }),
   ),
 )
+
+watchEffect(() => {
+  if (team.value) ui.breadcrumb = [team.value.name, 'Issues']
+})
 </script>
 
 <template>

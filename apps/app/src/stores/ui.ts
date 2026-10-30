@@ -4,13 +4,16 @@ import { ref } from 'vue'
 /** Transient UI state shared across the layout (never server data). */
 export const useUiStore = defineStore('ui', () => {
   const createIssueOpen = ref(false)
-  /** Team preselected in the create issue dialog, e.g. the team page being viewed. */
-  const createIssueTeamId = ref<string | null>(null)
+  /** Preselected in the create issue dialog, e.g. from a team page or a group's `+`. */
+  const createIssueDefaults = ref<{ teamId?: string; statusId?: string }>({})
 
-  function openCreateIssue(teamId: string | null = null) {
-    createIssueTeamId.value = teamId
+  function openCreateIssue(defaults: { teamId?: string; statusId?: string } = {}) {
+    createIssueDefaults.value = defaults
     createIssueOpen.value = true
   }
 
-  return { createIssueOpen, createIssueTeamId, openCreateIssue }
+  /** Breadcrumb a page puts in the panel header; null falls back to the route title. */
+  const breadcrumb = ref<string[] | null>(null)
+
+  return { createIssueOpen, createIssueDefaults, openCreateIssue, breadcrumb }
 })

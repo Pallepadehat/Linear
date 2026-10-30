@@ -33,10 +33,15 @@ export function groupIssuesByStatus(issues: Issue[]): IssueGroup[] {
   )
 }
 
-/** Flattens groups into header + issue rows for the virtualizer. */
-export function toListRows(groups: IssueGroup[]): IssueListRow[] {
+/** Flattens groups into header + issue rows for the virtualizer; collapsed groups keep only their header. */
+export function toListRows(
+  groups: IssueGroup[],
+  collapsed: ReadonlySet<string> = new Set(),
+): IssueListRow[] {
   return groups.flatMap((group): IssueListRow[] => [
     { type: 'group', key: `group:${group.key}`, group },
-    ...group.issues.map((issue): IssueListRow => ({ type: 'issue', key: issue.id, issue })),
+    ...(collapsed.has(group.key)
+      ? []
+      : group.issues.map((issue): IssueListRow => ({ type: 'issue', key: issue.id, issue }))),
   ])
 }
