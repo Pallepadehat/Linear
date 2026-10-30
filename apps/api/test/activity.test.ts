@@ -31,6 +31,7 @@ describe('activity.list', () => {
         issueId: issue.id,
         actorType: 'user',
         actorId: owner.userId,
+        pullRequestId: null,
         kind: 'created',
         from: null,
         to: null,

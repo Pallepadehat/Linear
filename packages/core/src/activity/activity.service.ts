@@ -4,8 +4,8 @@ import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
 import type { ActivityChange } from './diff'
 
-/** Who made a change. GitHub automation has no user behind it. */
-export type ActivityActor = { type: 'user'; id: string } | { type: 'github' }
+/** Who made a change. GitHub automation has no user behind it, only the PR that triggered it. */
+export type ActivityActor = { type: 'user'; id: string } | { type: 'github'; pullRequestId: string }
 
 export type ListActivityInput = {
   workspaceId: string
@@ -22,13 +22,16 @@ export async function recordActivity(
   input: { workspaceId: string; issueId: string; actor: ActivityActor; changes: ActivityChange[] },
 ) {
   if (input.changes.length === 0) return
-  const actorId = input.actor.type === 'user' ? input.actor.id : null
+  const { actor } = input
+  const actorId = actor.type === 'user' ? actor.id : null
+  const pullRequestId = actor.type === 'github' ? actor.pullRequestId : null
   await tx.insert(activityLog).values(
     input.changes.map((change) => ({
       workspaceId: input.workspaceId,
       issueId: input.issueId,
-      actorType: input.actor.type,
+      actorType: actor.type,
       actorId,
+      pullRequestId,
       ...change,
     })),
   )
