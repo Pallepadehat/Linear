@@ -54,7 +54,7 @@ watch(
     <div
       class="my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-hairline bg-panel shadow-panel"
     >
-      <header class="flex h-12 shrink-0 items-center gap-2 border-b border-hairline pr-2 pl-5">
+      <header class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline pr-2 pl-4">
         <h1 class="flex min-w-0 items-center gap-1.5 font-medium">
           <template v-for="(crumb, i) in crumbs" :key="i">
             <span v-if="i > 0" class="text-ink-tertiary" aria-hidden="true">›</span>
@@ -70,7 +70,7 @@ watch(
           aria-keyshortcuts="C"
           @click="ui.openCreateIssue()"
         >
-          <Plus class="size-4" aria-hidden="true" />
+          <Plus aria-hidden="true" />
           New issue
         </Button>
       </header>

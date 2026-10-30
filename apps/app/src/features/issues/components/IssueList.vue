@@ -14,8 +14,8 @@ import IssueRow from './IssueRow.vue'
 
 const props = defineProps<{ workspaceSlug: string; teamId?: string }>()
 
-const GROUP_HEIGHT = 44
-const ROW_HEIGHT = 40
+const GROUP_HEIGHT = 40
+const ROW_HEIGHT = 36
 // Start loading the next page this many rows before the end.
 const PREFETCH_ROWS = 20
 
@@ -91,7 +91,7 @@ watchEffect(() => {
     <div
       v-for="i in 8"
       :key="i"
-      class="mx-2 flex h-10 animate-pulse items-center gap-2.5 pl-6"
+      class="mx-2 flex h-9 animate-pulse items-center gap-2 pl-5"
       aria-hidden="true"
     >
       <span class="size-4 rounded-xs bg-surface-3" />
@@ -126,11 +126,11 @@ watchEffect(() => {
       >
         <div
           v-if="row.type === 'group'"
-          class="mx-2 flex h-9 flex-1 items-center gap-1 rounded-md bg-group-band pr-1.5 pl-1"
+          class="mx-2 flex h-8 flex-1 items-center gap-1 rounded-md bg-group-band pr-1 pl-1"
         >
           <button
             type="button"
-            class="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md pl-1 text-left"
+            class="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md pl-1 text-left"
             :aria-expanded="!collapsed.has(row.group.key)"
             @click="toggleGroup(row.group.key)"
           >

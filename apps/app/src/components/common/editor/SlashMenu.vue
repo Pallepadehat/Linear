@@ -60,7 +60,7 @@ watch(
       role="option"
       :data-index="i"
       :aria-selected="i === active"
-      class="flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-ink aria-selected:bg-floating-hover"
+      class="flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] text-ink aria-selected:bg-floating-hover"
       @mouseenter="emit('hover', i)"
       @click="emit('select', item)"
     >

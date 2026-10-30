@@ -12,10 +12,10 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
 </script>
 
 <template>
-  <div class="mx-2 flex h-full items-center gap-2.5 rounded-md pr-3 pl-6 hover:bg-surface-2">
+  <div class="mx-2 flex h-full items-center gap-2 rounded-md pr-3 pl-5 hover:bg-surface-2">
     <PriorityIcon :priority="toPriority(issue.priority)" />
     <span class="sr-only">Priority: {{ priorityLabel(toPriority(issue.priority)) }}</span>
-    <span class="w-[4.5rem] shrink-0 truncate font-mono text-[13px] text-ink-subtle">
+    <span class="w-16 shrink-0 truncate font-mono text-xs text-ink-subtle">
       {{ issue.identifier }}
     </span>
     <StatusIcon :category="issue.status.category" />
@@ -25,7 +25,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       <li
         v-for="label in issue.labels"
         :key="label.id"
-        class="flex h-6 max-w-32 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-muted"
+        class="flex h-[22px] max-w-32 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-muted"
       >
         <!-- The label's own color is user data, not a design token. -->
         <span
@@ -36,14 +36,14 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
         <span class="truncate">{{ label.name }}</span>
       </li>
     </ul>
-    <span class="flex w-6 shrink-0 justify-center">
-      <UserAvatar v-if="assignee" :name="assignee.name" :src="assignee.avatarUrl" size="sm" />
+    <span class="flex w-5 shrink-0 justify-center">
+      <UserAvatar v-if="assignee" :name="assignee.name" :src="assignee.avatarUrl" size="xs" />
       <UnassignedIcon v-else />
     </span>
     <span class="sr-only">Assignee: {{ assignee?.name ?? 'Unassigned' }}</span>
     <time
       :datetime="issue.createdAt.toISOString()"
-      class="hidden w-14 shrink-0 text-right text-[13px] text-ink-subtle tabular-nums sm:block"
+      class="hidden w-12 shrink-0 text-right text-xs text-ink-subtle tabular-nums sm:block"
     >
       {{ dateFormat.format(issue.createdAt) }}
     </time>

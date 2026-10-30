@@ -88,7 +88,7 @@ function cancelLink(event: KeyboardEvent) {
     "
   >
     <div
-      class="flex h-9 items-center gap-0.5 rounded-lg border border-hairline-strong bg-floating p-1 shadow-floating"
+      class="flex h-8 items-center gap-0.5 rounded-full border border-hairline-strong bg-floating p-1 shadow-floating"
       role="toolbar"
       aria-label="Formatting"
     >
@@ -100,10 +100,10 @@ function cancelLink(event: KeyboardEvent) {
           :title="action.label"
           :aria-label="action.label"
           :aria-pressed="action.active()"
-          class="flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-floating-hover hover:text-ink aria-pressed:bg-floating-hover aria-pressed:text-ink"
+          class="flex size-6 items-center justify-center rounded-full text-ink-muted hover:bg-floating-hover hover:text-ink aria-pressed:bg-floating-hover aria-pressed:text-ink"
           @click="action.run"
         >
-          <component :is="action.icon" class="size-4" aria-hidden="true" />
+          <component :is="action.icon" class="size-3.5" aria-hidden="true" />
         </button>
         <span class="mx-0.5 h-4 w-px bg-hairline" aria-hidden="true" />
         <button
@@ -111,10 +111,10 @@ function cancelLink(event: KeyboardEvent) {
           :title="editor.isActive('link') ? 'Remove link' : 'Link (⌘K)'"
           :aria-label="editor.isActive('link') ? 'Remove link' : 'Add link'"
           :aria-pressed="editor.isActive('link')"
-          class="flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-floating-hover hover:text-ink aria-pressed:text-primary"
+          class="flex size-6 items-center justify-center rounded-full text-ink-muted hover:bg-floating-hover hover:text-ink aria-pressed:text-primary"
           @click="startLink"
         >
-          <Link class="size-4" aria-hidden="true" />
+          <Link class="size-3.5" aria-hidden="true" />
         </button>
       </template>
       <div v-else class="flex items-center">
@@ -125,7 +125,7 @@ function cancelLink(event: KeyboardEvent) {
           v-model="linkUrl"
           type="url"
           placeholder="Paste or type a link..."
-          class="h-7 w-64 bg-transparent px-2 text-sm text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
+          class="h-6 w-64 bg-transparent px-2 text-[13px] text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
           @keydown.enter.prevent.stop="applyLink"
           @keydown.esc="cancelLink"
         />

@@ -180,12 +180,12 @@ function onKeydown(event: KeyboardEvent) {
       @open-auto-focus.prevent="titleInput?.focus()"
     >
       <form novalidate class="flex flex-col" @submit="onSubmit">
-        <div class="flex items-center gap-1.5 px-4 pt-4">
+        <div class="flex items-center gap-1.5 px-4 pt-3.5">
           <div class="[&_button]:border [&_button]:border-hairline">
             <TeamPicker v-if="teams" v-model="teamId" :teams="teams" />
           </div>
           <span class="text-ink-tertiary" aria-hidden="true">›</span>
-          <DialogTitle class="text-sm font-normal text-ink">New issue</DialogTitle>
+          <DialogTitle class="text-[13px] font-normal text-ink">New issue</DialogTitle>
           <div class="ml-auto flex items-center gap-0.5">
             <Button
               type="button"
@@ -194,12 +194,12 @@ function onKeydown(event: KeyboardEvent) {
               :aria-label="expanded ? 'Collapse dialog' : 'Expand dialog'"
               @click="expanded = !expanded"
             >
-              <Minimize2 v-if="expanded" class="size-4" aria-hidden="true" />
-              <Maximize2 v-else class="size-4" aria-hidden="true" />
+              <Minimize2 v-if="expanded" aria-hidden="true" />
+              <Maximize2 v-else aria-hidden="true" />
             </Button>
             <DialogClose as-child>
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Close">
-                <X class="size-4" aria-hidden="true" />
+                <X aria-hidden="true" />
               </Button>
             </DialogClose>
           </div>
@@ -207,7 +207,7 @@ function onKeydown(event: KeyboardEvent) {
         <DialogDescription class="sr-only">
           Create an issue. Press Cmd+Enter to submit.
         </DialogDescription>
-        <div class="grid gap-1 px-5 pt-4">
+        <div class="grid gap-1 px-5 pt-3">
           <label for="new-issue-title" class="sr-only">Issue title</label>
           <input
             id="new-issue-title"
@@ -218,7 +218,7 @@ function onKeydown(event: KeyboardEvent) {
             placeholder="Issue title"
             :aria-invalid="Boolean(errors.title)"
             :aria-describedby="errors.title ? 'new-issue-title-error' : undefined"
-            class="w-full bg-transparent text-xl font-semibold tracking-tight text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
+            class="w-full bg-transparent text-lg font-semibold tracking-tight text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
             @keydown.enter.exact.prevent="descriptionEditor?.focus()"
           />
           <p
@@ -246,15 +246,15 @@ function onKeydown(event: KeyboardEvent) {
           <AssigneePicker v-model="assigneeId" :users="assignees" />
           <LabelPicker v-model="labelIds" :labels="labels ?? []" />
         </div>
-        <DialogFooter class="flex-row items-center gap-4 border-t border-hairline px-4 py-3">
-          <p v-if="formError || errors.teamId" class="mr-auto text-sm text-danger" role="alert">
+        <DialogFooter class="flex-row items-center gap-4 px-4 pt-1 pb-3.5">
+          <p v-if="formError || errors.teamId" class="mr-auto text-[13px] text-danger" role="alert">
             {{ formError ?? 'Pick a team' }}
           </p>
-          <label class="ml-auto flex items-center gap-2 text-sm text-ink-subtle">
+          <label class="ml-auto flex items-center gap-2 text-[13px] text-ink-subtle">
             <Switch v-model="createMore" />
             Create more
           </label>
-          <Button type="submit" :disabled="isSubmitting">Create issue</Button>
+          <Button type="submit" size="sm" :disabled="isSubmitting">Create issue</Button>
         </DialogFooter>
       </form>
     </DialogContent>

@@ -28,19 +28,19 @@ const itemClass =
 </script>
 
 <template>
-  <aside class="flex w-60 shrink-0 flex-col gap-4 px-2 py-3" aria-label="Sidebar">
+  <aside class="flex w-56 shrink-0 flex-col gap-4 px-2 py-2.5" aria-label="Sidebar">
     <div class="flex items-center justify-between gap-1">
       <WorkspaceMenu />
       <Button
         variant="secondary"
-        size="icon"
+        size="icon-sm"
         class="shrink-0 rounded-full bg-panel shadow-panel"
         aria-label="New issue"
         aria-keyshortcuts="C"
         title="New issue (C)"
         @click="ui.openCreateIssue()"
       >
-        <SquarePen class="size-4" aria-hidden="true" />
+        <SquarePen aria-hidden="true" />
       </Button>
     </div>
     <nav aria-label="Main" class="grid gap-px">

@@ -193,7 +193,7 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.5;
   }
   :focus-visible {
@@ -205,19 +205,19 @@
 /* Markdown editor content (components/common/editor). Tokens only, so both themes work. */
 @layer components {
   .markdown-body {
-    @apply text-[15px] leading-relaxed text-ink caret-primary;
+    @apply text-[14px] leading-relaxed text-ink caret-primary;
   }
   .markdown-body > * + * {
     @apply mt-2;
   }
   .markdown-body h1 {
-    @apply mt-5 text-2xl font-semibold tracking-tight;
+    @apply mt-3.5 text-[17px] font-semibold tracking-tight;
   }
   .markdown-body h2 {
-    @apply mt-4 text-xl font-semibold tracking-tight;
+    @apply mt-3.5 text-[17px] font-semibold tracking-tight;
   }
   .markdown-body h3 {
-    @apply mt-3 text-base font-semibold;
+    @apply mt-3 text-[15px] font-semibold;
   }
   .markdown-body > :first-child {
     @apply mt-0;
@@ -241,13 +241,13 @@
     @apply flex items-start gap-2;
   }
   .markdown-body ul[data-type='taskList'] li > label {
-    @apply mt-[5px] flex shrink-0 select-none;
+    @apply mt-[4px] flex shrink-0 select-none;
   }
   .markdown-body ul[data-type='taskList'] li > div {
     @apply min-w-0 flex-1;
   }
   .markdown-body ul[data-type='taskList'] input[type='checkbox'] {
-    @apply size-4 cursor-pointer appearance-none rounded-xs border border-hairline-tertiary bg-transparent;
+    @apply size-3.5 cursor-pointer appearance-none rounded-xs border border-hairline-tertiary bg-transparent;
   }
   .markdown-body ul[data-type='taskList'] input[type='checkbox']:checked {
     @apply border-primary bg-primary;
