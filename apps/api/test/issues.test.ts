@@ -9,9 +9,9 @@ import {
 } from '@linear/db/testing'
 import { and, eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
-import { setupTestApp } from './harness'
+import { rpcClient, setupTestApp, signUp } from './harness'
 
-const { db } = await setupTestApp()
+const { app, db } = await setupTestApp()
 
 async function arrange() {
   const user = await createUser(db)
@@ -154,5 +154,221 @@ describe('createIssue', () => {
         title: 'X',
       }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+})
+
+async function workspaceWithTeam() {
+  const owner = await signUp(app, 'Owner')
+  const { workspace } = await owner.client.workspaces.create({ name: 'Tip', slug: 'tip' })
+  const team = await owner.client.teams.create({ workspaceSlug: 'tip', name: 'Tip', key: 'TIP' })
+  const status = (name: string) => team.statuses.find((s) => s.name === name)!
+  return { owner, workspace, team, status, issues: owner.client.issues }
+}
+
+describe('issues procedures', () => {
+  it('creates an issue and reads it back by id and case-insensitive identifier', async () => {
+    const { owner, team, status, issues } = await workspaceWithTeam()
+    const bug = await owner.client.labels.create({
+      workspaceSlug: 'tip',
+      name: 'Bug',
+      color: '#eb5757',
+    })
+
+    const issue = await issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: '  Fix login  ',
+      labelIds: [bug.id, bug.id],
+    })
+    expect(issue).toMatchObject({
+      identifier: 'TIP-1',
+      number: 1,
+      teamId: team.id,
+      title: 'Fix login',
+      description: null,
+      status: status('Todo'),
+      priority: 0,
+      assigneeId: null,
+      creatorId: owner.userId,
+      projectId: null,
+      labels: [bug],
+      completedAt: null,
+    })
+    expect(issue.createdAt).toBeInstanceOf(Date)
+
+    expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual(issue)
+    expect(await issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'tip-1' })).toEqual(
+      issue,
+    )
+    await expect(
+      issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'TIP-2' }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    await expect(
+      issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'not an id' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+  })
+
+  it('updates properties and keeps completedAt in step with the status category', async () => {
+    const { owner, workspace, team, status, issues } = await workspaceWithTeam()
+    const member = await signUp(app, 'Member')
+    await addMember(db, workspace.id, member.userId)
+    const bug = await owner.client.labels.create({
+      workspaceSlug: 'tip',
+      name: 'Bug',
+      color: '#eb5757',
+    })
+    const ui = await owner.client.labels.create({
+      workspaceSlug: 'tip',
+      name: 'UI',
+      color: '#5e6ad2',
+    })
+    const { id } = await issues.create({ workspaceSlug: 'tip', teamId: team.id, title: 'A' })
+
+    const updated = await member.client.issues.update({
+      workspaceSlug: 'tip',
+      id,
+      title: 'B',
+      description: 'Steps to reproduce',
+      priority: 1,
+      assigneeId: member.userId,
+      labelIds: [ui.id, bug.id],
+    })
+    expect(updated).toMatchObject({
+      title: 'B',
+      description: 'Steps to reproduce',
+      priority: 1,
+      assigneeId: member.userId,
+      labels: [bug, ui],
+    })
+
+    const done = await issues.update({ workspaceSlug: 'tip', id, statusId: status('Done').id })
+    expect(done.status.category).toBe('completed')
+    expect(done.completedAt).toBeInstanceOf(Date)
+    const stillDone = await issues.update({ workspaceSlug: 'tip', id, title: 'C' })
+    expect(stillDone.completedAt).toEqual(done.completedAt)
+
+    const reopened = await issues.update({
+      workspaceSlug: 'tip',
+      id,
+      statusId: status('In Progress').id,
+      assigneeId: null,
+      description: null,
+      labelIds: [],
+    })
+    expect(reopened).toMatchObject({
+      completedAt: null,
+      assigneeId: null,
+      description: null,
+      labels: [],
+      title: 'C',
+      priority: 1,
+    })
+  })
+
+  it('rejects a non-member assignee, foreign labels or statuses, and unknown projects', async () => {
+    const { team, issues } = await workspaceWithTeam()
+    const outsider = await signUp(app, 'Outsider')
+    await outsider.client.workspaces.create({ name: 'Other', slug: 'other' })
+    const foreignLabel = await outsider.client.labels.create({
+      workspaceSlug: 'other',
+      name: 'Bug',
+      color: '#eb5757',
+    })
+    const otherTeam = await outsider.client.teams.create({
+      workspaceSlug: 'other',
+      name: 'Ops',
+      key: 'OPS',
+    })
+    const base = { workspaceSlug: 'tip', teamId: team.id, title: 'X' }
+    const { id } = await issues.create(base)
+
+    for (const change of [
+      { assigneeId: outsider.userId },
+      { labelIds: [foreignLabel.id] },
+      { statusId: otherTeam.statuses[0]!.id },
+      { projectId: crypto.randomUUID() },
+      { priority: 5 },
+    ]) {
+      await expect(issues.create({ ...base, ...change })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+      })
+      await expect(issues.update({ workspaceSlug: 'tip', id, ...change })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+      })
+    }
+  })
+
+  it('deletes an issue', async () => {
+    const { team, issues } = await workspaceWithTeam()
+    const { id } = await issues.create({ workspaceSlug: 'tip', teamId: team.id, title: 'X' })
+
+    await expect(issues.delete({ workspaceSlug: 'tip', id })).resolves.toEqual({ id })
+    await expect(issues.get({ workspaceSlug: 'tip', id })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+    await expect(issues.delete({ workspaceSlug: 'tip', id })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+  })
+
+  it('pages newest first with stable cursors and filters by team', async () => {
+    const { owner, team, issues } = await workspaceWithTeam()
+    const ops = await owner.client.teams.create({ workspaceSlug: 'tip', name: 'Ops', key: 'OPS' })
+    for (let i = 0; i < 5; i++) {
+      await issues.create({ workspaceSlug: 'tip', teamId: team.id, title: `T${i}` })
+    }
+    await issues.create({ workspaceSlug: 'tip', teamId: ops.id, title: 'Ops' })
+    const page = (cursor?: string | null) =>
+      issues.list({ workspaceSlug: 'tip', teamId: team.id, limit: 2, cursor })
+
+    const first = await page()
+    expect(first.items.map((i) => i.identifier)).toEqual(['TIP-5', 'TIP-4'])
+    // A new issue lands before the first page and doesn't shift later pages.
+    await issues.create({ workspaceSlug: 'tip', teamId: team.id, title: 'Late' })
+    const second = await page(first.nextCursor)
+    expect(second.items.map((i) => i.identifier)).toEqual(['TIP-3', 'TIP-2'])
+    expect(await page(first.nextCursor)).toEqual(second)
+    const third = await page(second.nextCursor)
+    expect(third).toMatchObject({ items: [{ identifier: 'TIP-1' }], nextCursor: null })
+
+    const all = await issues.list({ workspaceSlug: 'tip' })
+    expect(all.items).toHaveLength(7)
+    expect(all.nextCursor).toBeNull()
+    await expect(page('not-a-cursor')).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+  })
+
+  it('hides issues from non-members and other workspaces', async () => {
+    const { team, issues } = await workspaceWithTeam()
+    const issue = await issues.create({ workspaceSlug: 'tip', teamId: team.id, title: 'Secret' })
+    const stranger = await signUp(app, 'Stranger')
+    await stranger.client.workspaces.create({ name: 'Mine', slug: 'mine' })
+    const theirs = stranger.client.issues
+    const notFound = { code: 'NOT_FOUND' }
+
+    await expect(rpcClient(app).issues.list({ workspaceSlug: 'tip' })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    })
+    await expect(theirs.list({ workspaceSlug: 'tip' })).rejects.toMatchObject(notFound)
+    await expect(theirs.get({ workspaceSlug: 'tip', id: issue.id })).rejects.toMatchObject(notFound)
+    // Ids from another workspace are invisible through the stranger's own workspace.
+    await expect(theirs.get({ workspaceSlug: 'mine', id: issue.id })).rejects.toMatchObject(
+      notFound,
+    )
+    await expect(
+      theirs.getByIdentifier({ workspaceSlug: 'mine', identifier: 'TIP-1' }),
+    ).rejects.toMatchObject(notFound)
+    await expect(
+      theirs.update({ workspaceSlug: 'mine', id: issue.id, title: 'Hijacked' }),
+    ).rejects.toMatchObject(notFound)
+    await expect(theirs.delete({ workspaceSlug: 'mine', id: issue.id })).rejects.toMatchObject(
+      notFound,
+    )
+    await expect(
+      theirs.create({ workspaceSlug: 'mine', teamId: team.id, title: 'X' }),
+    ).rejects.toMatchObject(notFound)
+    expect((await theirs.list({ workspaceSlug: 'mine' })).items).toEqual([])
+    expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toMatchObject({
+      title: 'Secret',
+    })
   })
 })

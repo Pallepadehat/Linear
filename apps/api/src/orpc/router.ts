@@ -1,4 +1,5 @@
 import { githubRouter } from '../modules/github/github.router'
+import { issuesRouter } from '../modules/issues/issues.router'
 import { labelsRouter } from '../modules/labels/labels.router'
 import { meRouter } from '../modules/me/me.router'
 import { teamsRouter } from '../modules/teams/teams.router'
@@ -12,6 +13,7 @@ export const router = os.router({
   teams: teamsRouter,
   uploads: uploadsRouter,
   labels: labelsRouter,
+  issues: issuesRouter,
   github: githubRouter,
 })
 

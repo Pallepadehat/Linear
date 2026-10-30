@@ -140,7 +140,7 @@ with that closed PR excluded from the required set.
 3. Enqueue `github-webhooks` job with `jobId = deliveryId` → `202`.
 4. Worker: upsert PR, recompute links, reconcile current PR state from GitHub when in doubt, run automation in one transaction, mark delivery `processed` (or `failed` with error).
 
-Only `pull_request` events are handled in the MVP; others are stored and marked `ignored`.
+Only `pull_request` events are handled in the MVP; others are stored and marked `ignored` (HTTP `200`, no job). The endpoint fails closed (`401`) when no webhook secret is configured. After signature verification, malformed JSON, non-object payloads, or missing/invalid delivery UUID or event headers return `400` without persistence.
 
 ## Uploads
 
@@ -154,6 +154,14 @@ Only `pull_request` events are handled in the MVP; others are stored and marked 
 SVG icons are rejected until server-side sanitization exists; until then icons accept png, jpeg, webp only.
 
 Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processing enqueued) → `deleted` (object removal enqueued). Pending uploads older than 24 h are deleted by the maintenance job. Image variants: `original`, `256` (avatars/icons also `64`).
+
+## Issues
+
+- Any member may create, edit and delete issues. Deleting is permanent (labels and PR links cascade).
+- An update only changes the fields it sends; `labelIds` replaces the whole label set. Every update bumps `updatedAt`, including labels-only changes.
+- Status, assignee, labels and project are validated against the issue's team / workspace: a status from another team, a non-member assignee, or a label or project outside the workspace is `BAD_REQUEST`. An issue id from another workspace is `NOT_FOUND`.
+- Until projects exist (M3-01), any non-null `projectId` is `BAD_REQUEST`.
+- `issues.list` returns newest first, optionally filtered by team, as `{ items, nextCursor }`. The cursor is the last issue's id: UUIDv7 ids are time-ordered, so issues created later never shift the pages after a cursor. Page size defaults to 50 (max 100).
 
 ## Labels
 

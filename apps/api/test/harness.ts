@@ -30,6 +30,7 @@ export async function setupTestApp(options: { github?: GitHubAppClient } = {}) {
   const app = await buildApp({
     env: {
       LOG_LEVEL: 'silent',
+      GITHUB_WEBHOOK_SECRET: 'test-webhook-secret',
       APP_URL,
       BETTER_AUTH_URL: APP_URL,
       BETTER_AUTH_SECRET: TEST_AUTH_SECRET,

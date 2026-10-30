@@ -33,7 +33,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | ID     | Status | Task                                                                    | Depends on |
 | ------ | ------ | ----------------------------------------------------------------------- | ---------- |
 | M2-01  | [x]    | Issue schema + atomic identifier allocation (+ concurrency test)        | M1-13      |
-| M2-02  | [ ]    | Issue procedures: create, get, getByIdentifier, update, delete, list    | M2-01      |
+| M2-02  | [x]    | Issue procedures: create, get, getByIdentifier, update, delete, list    | M2-01      |
 | M2-03  | [x]    | Labels schema + procedures                                              | M1-13      |
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
 | M2-05  | [ ]    | ActivityLog writes for issue changes                                    | M2-02      |
@@ -59,7 +59,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M4-01  | [x]    | GitHub schema: installations, repos, PRs, issue-PR links, webhook deliveries  | M2-01      |
 | M4-02  | [x]    | Identifier parser (branch/title/body, link types) + unit tests                | —          |
 | M4-03  | [x]    | Automation rules `evaluate()` + unit tests for rules A–F                      | —          |
-| M4-04  | [ ]    | Webhook route: signature check, delivery persist, enqueue                     | M4-01, M1-15 |
+| M4-04  | [x]    | Webhook route: signature check, delivery persist, enqueue                     | M4-01, M1-15 |
 | M4-05  | [ ]    | Worker: process `pull_request`, link, reconcile, automate (one transaction)   | M4-02, M4-03, M4-04 |
 | M4-06  | [x]    | GitHub App install flow + connect/disconnect repos (settings UI)              | M4-01      |
 | M4-07  | [ ]    | Linked PRs on issue detail                                                    | M4-05, M2-08 |
@@ -105,4 +105,6 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M4-02 · parsePrIdentifiers (branch/title/body → closing/reference, closing wins, deduped) + unit tests
 2026-10-30 · M2-06 · StatusIcon/PriorityIcon (status/priority/floating tokens), Status/Priority/Assignee/Label pickers on shadcn popover + command; UserAvatar already existed; design.md "Product UI (App)" makes Linear's product UI the reference
 2026-10-30 · M2-03 · labels + issue_labels tables, labels list/create/update/delete (any member), CONFLICT on duplicate name, cross-workspace NOT_FOUND tests
+2026-10-30 · M2-02 · issues create/get/getByIdentifier/update/delete/list (any member), id-cursor pagination newest first, labelIds replace set, completedAt follows category; cross-workspace NOT_FOUND tests
+2026-10-30 · M4-04 · raw-body GitHub webhook signature verification, delivery deduplication/persistence, ignored events, ID-only queue jobs; real Postgres/Redis integration coverage; lint, typecheck, full tests and build pass.
 2026-10-30 · M4-06 · github.installUrl/completeInstall (signed state + OAuth installation check, ADR 0009), owner-only repositories list/connect/disconnect with CONFLICT across workspaces, settings GitHub section + /setup/github callback; integration tests on a fake GitHub client
