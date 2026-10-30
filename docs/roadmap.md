@@ -57,7 +57,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | ID     | Status | Task                                                                          | Depends on |
 | ------ | ------ | ----------------------------------------------------------------------------- | ---------- |
 | M4-01  | [ ]    | GitHub schema: installations, repos, PRs, issue-PR links, webhook deliveries  | M2-01      |
-| M4-02  | [ ]    | Identifier parser (branch/title/body, link types) + unit tests                | —          |
+| M4-02  | [x]    | Identifier parser (branch/title/body, link types) + unit tests                | —          |
 | M4-03  | [x]    | Automation rules `evaluate()` + unit tests for rules A–F                      | —          |
 | M4-04  | [ ]    | Webhook route: signature check, delivery persist, enqueue                     | M4-01, M1-15 |
 | M4-05  | [ ]    | Worker: process `pull_request`, link, reconcile, automate (one transaction)   | M4-02, M4-03, M4-04 |
@@ -101,3 +101,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-29 · M1-18 · idempotent seed: demo@tip.dev, workspace Tip, team TIP
 2026-10-30 · M2-01 · issues table, createIssue allocates numbers via teams.issue_counter UPDATE … RETURNING; 20-way concurrency test
 2026-10-30 · M4-03 · pure automation evaluate(), exported event/domain types, 29 tests covering A–F and multi-PR cases; full suite blocked by API/worker Vite startup error
+2026-10-30 · M4-02 · parsePrIdentifiers (branch/title/body → closing/reference, closing wins, deduped) + unit tests

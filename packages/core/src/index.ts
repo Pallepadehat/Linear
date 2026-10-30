@@ -1,5 +1,6 @@
 export * from './automation/evaluate'
 export * from './errors'
+export * from './github'
 export * from './identifiers'
 export * from './issues'
 export * from './teams'
