@@ -1,3 +1,4 @@
+import { createGitHubAppClient } from '@linear/core'
 import { createDb } from '@linear/db'
 import { closeQueues, createQueues, createRedisConnection } from '@linear/queue'
 import { createStorage } from '@linear/storage'
@@ -16,7 +17,23 @@ const storage = createStorage({
   bucket: env.S3_BUCKET,
 })
 
-const app = await buildApp({ env, db, redis, queues, storage })
+// The env schema guarantees these are all set or all unset.
+const github =
+  env.GITHUB_APP_ID &&
+  env.GITHUB_APP_PRIVATE_KEY &&
+  env.GITHUB_APP_SLUG &&
+  env.GITHUB_APP_CLIENT_ID &&
+  env.GITHUB_APP_CLIENT_SECRET
+    ? createGitHubAppClient({
+        appId: env.GITHUB_APP_ID,
+        privateKey: env.GITHUB_APP_PRIVATE_KEY,
+        slug: env.GITHUB_APP_SLUG,
+        clientId: env.GITHUB_APP_CLIENT_ID,
+        clientSecret: env.GITHUB_APP_CLIENT_SECRET,
+      })
+    : null
+
+const app = await buildApp({ env, db, redis, queues, storage, github })
 
 async function shutdown(signal: string) {
   app.log.info({ signal }, 'shutting down')

@@ -1078,7 +1078,7 @@ All procedures live in `packages/contract`, grouped by router:
 | `comments`   | `create`, `list`, `update`, `delete`                                       |
 | `labels`     | `create`, `list`, `update`, `delete`                                       |
 | `uploads`    | `createPresignedUpload`, `confirm`, `getUrl`, `delete`                     |
-| `github`     | `connectInstallation`, `listRepositories`, `connectRepository`, `disconnectRepository`, `listPullRequestsForIssue` |
+| `github`     | `installUrl`, `completeInstall`, `repositories.list`, `repositories.connect`, `repositories.disconnect`, `listPullRequestsForIssue` |
 
 Non-oRPC HTTP routes:
 
@@ -1105,6 +1105,8 @@ List procedures use cursor pagination. Errors use oRPC typed errors (`UNAUTHORIZ
 | `S3_BUCKET`                 | api, worker   | `linear-uploads`                          |
 | `GITHUB_APP_ID`             | api, worker   |                                           |
 | `GITHUB_APP_PRIVATE_KEY`    | api, worker   | PEM                                       |
+| `GITHUB_APP_SLUG`           | api           | App URL name, for the install link        |
+| `GITHUB_APP_CLIENT_ID` / `GITHUB_APP_CLIENT_SECRET` | api | OAuth during install (verifies installation access) |
 | `GITHUB_WEBHOOK_SECRET`     | api           |                                           |
 | `VITE_API_URL`              | app           | empty in dev (uses proxy)                 |
 | `TEST_DATABASE_URL`         | tests         | defaults to `DATABASE_URL` with db `linear_test` |

@@ -34,6 +34,27 @@ describe('loadApiEnv', () => {
   })
 })
 
+describe('loadApiEnv GitHub App', () => {
+  const app = {
+    GITHUB_APP_ID: '1',
+    GITHUB_APP_PRIVATE_KEY: 'pem',
+    GITHUB_APP_SLUG: 'linear-clone',
+    GITHUB_APP_CLIENT_ID: 'Iv1.abc',
+    GITHUB_APP_CLIENT_SECRET: 'client-secret',
+  }
+
+  it('accepts none or all of the App settings', () => {
+    expect(loadApiEnv(validApi).GITHUB_APP_ID).toBeUndefined()
+    expect(loadApiEnv({ ...validApi, ...app }).GITHUB_APP_SLUG).toBe('linear-clone')
+  })
+
+  it('rejects a partial App configuration', () => {
+    expect(() => loadApiEnv({ ...validApi, GITHUB_APP_ID: '1' })).toThrow(
+      /GITHUB_APP_CLIENT_SECRET/,
+    )
+  })
+})
+
 describe('loadAppEnv', () => {
   it('allows an empty API URL for the dev proxy', () => {
     expect(loadAppEnv({}).VITE_API_URL).toBe('')
