@@ -146,13 +146,15 @@ Follow [`docs/workflow.md`](docs/workflow.md): pick a ready task from `docs/road
 
 ### Design
 
+- The app must look like Linear's own product UI, in light and dark. Follow "Product UI (App)" in `docs/design.md` (it wins over the marketing-derived rules) and compare side by side with Linear before calling UI done.
 - Use tokens from `docs/design.md` via Tailwind theme classes (`bg-surface-1`, `border-hairline`, `text-ink-subtle`, …). No hard-coded hex values in components.
 - Dark and light themes are both first-class. Tokens are CSS variables (`:root` = light, `.dark` = dark); see "Themes (App)" in `docs/design.md`. Never use `dark:` overrides with raw colors — use tokens so both themes come for free.
 - Dark canvas `#010102` (never `#000000`); light canvas `#fcfcfd` (never pure `#ffffff`).
 - Check every new or changed UI in both themes.
-- Lavender `primary` (#5e6ad2) only for primary actions, focus rings, brand mark, and link emphasis — never as a fill for sections or cards.
-- Hierarchy through the surface ladder + 1px hairlines, not shadows.
-- Radii: buttons/inputs `rounded-md` (8px), cards `rounded-lg` (12px), badges `rounded-xs` (4px). Don't pill-round buttons.
+- Lavender `primary` (#5e6ad2) only for primary actions, focus rings, brand mark, link emphasis, and the in-app uses in `docs/design.md` → "Product UI (App)" (e.g. the Done status icon) — never as a fill for sections or cards.
+- Status, priority and label colors come from the semantic tokens (`status-*`, `priority-urgent`, label color); no other chromatic colors.
+- Hierarchy through the surface ladder + 1px hairlines, not shadows. Menus and popovers use the `floating` surface.
+- Radii: buttons/inputs `rounded-md` (8px), cards and popovers `rounded-lg` (12px), badges `rounded-xs` (4px), avatars `rounded-full`. Property chips and status pills are `rounded-full`; don't pill-round other buttons.
 - Fonts: Inter (UI), JetBrains Mono (issue identifiers, code).
 - Dense, compact layouts: 4px spacing base, 14px body in the app UI.
 

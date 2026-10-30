@@ -1,5 +1,7 @@
 ## Overview
 
+> **Scope.** This file starts from Linear's marketing site. Inside the product app (`apps/app`), **Linear's product UI is the reference**: where the two differ, "Product UI (App)" below wins. The goal is that the app looks like Linear itself, in light and dark.
+
 Linear's marketing canvas is the deepest dark surface in this collection — `{colors.canvas}` is #010102, essentially pure black with a faint blue tint. On top sits a four-step surface ladder (`{colors.surface-1}` through `{colors.surface-4}`) for cards, panels, and lifted tiles, with hairline borders running from `{colors.hairline}` (#23252a) up through `{colors.hairline-strong}` and `{colors.hairline-tertiary}`. Light gray text (`{colors.ink}` #f7f8f8) carries the body and headlines.
 
 The single chromatic accent is **Linear lavender-blue** `{colors.primary}` (#5e6ad2) — used on the brand mark, focus rings, and the primary CTA button. A lighter hover state (`{colors.primary-hover}` #828fff) and a focus-tinted variant (`{colors.primary-focus}` #5e69d1) extend the same hue. Linear avoids saturated greens, oranges, reds, etc. on the marketing canvas — the only semantic color is `{colors.semantic-success}` (#27a644) for status pills and the rare success indicator.
@@ -145,7 +147,7 @@ Linear's depth is carried by surface ladder + hairline borders. The brand resist
 | `{rounded.lg}`   | 12px   | Pricing cards, feature cards, testimonial cards |
 | `{rounded.xl}`   | 16px   | Product screenshot panels                       |
 | `{rounded.xxl}`  | 24px   | Oversized CTA banners (rare)                    |
-| `{rounded.pill}` | 9999px | Pricing tab toggles, status pills               |
+| `{rounded.pill}` | 9999px | Status pills, property chips in the app         |
 | `{rounded.full}` | 9999px | Avatar circles                                  |
 
 ### Photography & Illustration Geometry
@@ -280,36 +282,75 @@ The product app ships **dark and light themes**. Dark is the reference theme des
 
 Status icons map by category: `backlog` dashed circle, `unstarted` empty circle and `canceled` filled cross in `status-neutral`; `started` half-filled circle in `status-started`; `completed` filled check in `status-completed`. Priority icons: Urgent is a filled square with `!` in `priority-urgent`; High / Medium / Low are 3 bars with 3 / 2 / 1 filled in `ink-muted`; No priority is three dashes in `ink-tertiary`.
 
-Status icon hues follow Linear's product UI (yellow in progress, lavender done) rather than the ≥ 3:1 rule; the icon always sits next to its text label.
-
-Property pickers (status, priority, assignee, labels) follow Linear's popover: `floating` surface, `rounded-lg`, hairline border, plain filter input with a hotkey hint, 32px rows in `ink`, a check on the current value and a number shortcut on the right (pressing the number picks it while the filter is empty).
 
 ### Theme Rules
 
 - Hierarchy works the same way in both themes: canvas → surface-1 → … → surface-4, separated by hairlines. In light mode a lift is a step *darker*.
-- Light mode may use a very soft shadow on floating layers only (menus, popovers, dialogs): `0 4px 16px rgba(15,16,17,0.08)`. Cards and panels stay shadow-free.
-- Status and priority colors keep their hue across themes but are tuned per theme to hold ≥ 4.5:1 text contrast (≥ 3:1 for icons).
+- Floating layers (menus, popovers, dialogs) sit on `{colors.floating}`, one step *lighter* than the page in light mode and lifted in dark, with a hairline border. Light mode adds a very soft shadow: `0 4px 16px rgba(15,16,17,0.08)`. Cards and panels stay shadow-free.
+- Status, priority and label colors use Linear's product hues and keep them across themes (tuned per theme). Text stays ≥ 4.5:1; a colored icon may fall below 3:1 (e.g. yellow In Progress on light) as long as its text label sits next to it.
 - Every component must be checked in both themes before it is considered done.
+
+## Product UI (App)
+
+The app copies Linear's product UI. When building a screen, compare it side by side with Linear in both themes; when this section and the marketing rules above disagree, this section wins.
+
+### Color in the product
+
+Lavender stays scarce on chrome, but the product uses a small semantic palette, exactly like Linear:
+
+| Use                     | Token                    | Look                                  |
+| ----------------------- | ------------------------ | ------------------------------------- |
+| Backlog / Todo / Canceled | `status-neutral`       | Gray dashed ring / ring / filled ×    |
+| In Progress             | `status-started`         | Yellow half-filled ring               |
+| Done                    | `status-completed`       | Lavender filled check                 |
+| Urgent                  | `priority-urgent`        | Orange filled square with `!`         |
+| High / Medium / Low     | `ink-muted`              | 3 bars, 3 / 2 / 1 filled              |
+| No priority             | `ink-tertiary`           | Three dashes                          |
+| Labels                  | the label's own color    | 8px dot before the name               |
+
+Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon and selected/active states. Never as a section or card fill.
+
+### Components
+
+**Property chip** (issue properties: status, priority, assignee, labels, project). Icon + value in `ink`, 14px, `h-8`, `px-2`, `{rounded.pill}`. Transparent at rest; `surface-2` on hover and while its menu is open. Empty values read in `ink-subtle` ("Unassigned", "Labels").
+
+**Picker popover** (opened from a property chip).
+
+- `floating` surface, `{rounded.lg}`, 1px `hairline` border, light-mode floating shadow. Width 240px, opens aligned to the chip's start edge.
+- Header: plain filter input (no search icon), 40px tall, `px-3.5`, placeholder in `ink-tertiary` ending in "..." ("Change status...", "Assign to..."), lavender caret, and the picker's hotkey on the right as a 20px `{rounded.xs}` key cap with a `hairline-strong` border. A hairline divides header and list.
+- Rows: 32px, `px-2.5`, `{rounded.md}`, 14px `ink`, 16px icon or avatar, 10px gap. Highlighted row on `floating-hover`. On the right: a check on the current value, then the row's number shortcut in `ink-subtle`.
+- Keyboard: arrows move, Enter picks, Escape closes and returns focus to the chip. A number key picks that row while the filter is empty (`0` = "No priority" / "No assignee", then `1…9`). The current value is highlighted when the menu opens. Multi-select pickers (labels) stay open while toggling.
+- Optional group headings (e.g. "Team members") in 13px `ink-subtle`, no divider.
+
+**Avatar.** Always a circle (`{rounded.full}`), 16px in rows and chips, 20px in lists, 32px in member rows. Image when available, otherwise initials.
+
+**Menus** (dropdowns, context menus) use the same `floating` surface, row height and highlight as the picker popover.
+
+### Density
+
+- 14px body, 13px meta, 12px captions. Rows 32px; list rows 36–40px.
+- Icons 14–16px. Spacing on a 4px grid.
 
 ## Do's and Don'ts
 
 ### Do
 
 - Reserve `{colors.canvas}` (#010102) as the system's anchor surface — the faint blue tint is intentional.
-- Use `{colors.primary}` lavender ONLY for: brand mark, primary CTA, focus ring, link emphasis.
+- Use `{colors.primary}` lavender ONLY for: brand mark, primary CTA, focus ring, link emphasis (plus the in-app uses listed under "Product UI (App)").
 - Use the four-step surface ladder for hierarchy. Avoid skipping levels.
 - Pair display weight 600 with body weight 400 — Linear resists 700+ display weights.
 - Apply negative letter-spacing aggressively on display.
 - Use product UI screenshots as the protagonist of every section.
 - Compose CTAs as `{rounded.md}` 8px corners.
+- In the app, match Linear's product UI side by side in light and dark before calling a screen done.
 
 ### Don't
 
 - Don't hard-code colors; always use tokens so both themes work.
 - Don't use lavender as a section background or card fill.
-- Don't introduce a second chromatic accent (orange, pink, green for marketing).
+- Don't introduce a second chromatic accent on marketing or app chrome. The product's semantic palette (status, priority, labels) is the only exception.
 - Don't add atmospheric gradients or spotlight cards.
-- Don't pill-round CTAs.
+- Don't pill-round CTAs or form buttons. Property chips and status pills are the pill exceptions.
 - Don't use `#000000` true black as the canvas.
 - Don't combine multiple bright accents in product screenshot mockups.
 
@@ -350,7 +391,7 @@ Property pickers (status, priority, assignee, labels) follow Linear's popover: `
 3. Default body to `{typography.body}` at weight 400.
 4. Run `npx @google/design.md lint DESIGN.md` after edits.
 5. Add new variants as separate component entries.
-6. Treat lavender as scarce: brand mark, primary CTA, focus, link emphasis.
+6. Treat lavender as scarce: brand mark, primary CTA, focus, link emphasis (and the in-app exceptions under "Product UI (App)").
 7. Lead every section with a product UI screenshot.
 
 ## Known Gaps
@@ -358,5 +399,6 @@ Property pickers (status, priority, assignee, labels) follow Linear's popover: `
 - The four-step surface ladder values are extracted directly from Linear's `--color-bg-level-3`, `--color-line-tint`, etc. CSS variables; they are Linear's canonical surface spec.
 - Form-field error and validation styling is not visible on the inspected pages.
 - The light theme (see "Themes (App)") is derived for the product app; Linear's marketing site itself is dark-only.
+- "Product UI (App)" is taken from Linear's app (light and dark) by side-by-side comparison, not from a published spec. Values are approximations; when in doubt, compare with Linear again.
 - Linear's actual product UI uses a richer color-tag palette (red, orange, yellow, green, blue, purple) for issue priorities and project labels — those colors live in the in-product surfaces shown in mockups.
 - The custom display, text, and mono families are proprietary; an open-source substitute is acceptable.
