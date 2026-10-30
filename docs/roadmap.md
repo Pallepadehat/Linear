@@ -36,7 +36,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M2-02  | [x]    | Issue procedures: create, get, getByIdentifier, update, delete, list    | M2-01      |
 | M2-03  | [x]    | Labels schema + procedures                                              | M1-13      |
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
-| M2-05  | [ ]    | ActivityLog writes for issue changes                                    | M2-02      |
+| M2-05  | [x]    | ActivityLog writes for issue changes                                    | M2-02      |
 | M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
 | M2-07  | [ ]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
 | M2-08  | [ ]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
@@ -110,3 +110,5 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 
 2026-10-30 · LIN-34 / M3-01 · projects schema, CRUD, category progress, workspace validation and icon binding; row locking serializes team replacements. Complete; PR #12. After merging updated develop, all 223 tests pass (71 API tests), along with lint, typecheck and build. Fresh migration and reapplication verified on disposable Podman PostgreSQL database; issue project FK uses ON DELETE SET NULL.
 2026-10-30 · M4-06 · github.installUrl/completeInstall (signed state + OAuth installation check, ADR 0009), owner-only repositories list/connect/disconnect with CONFLICT across workspaces, settings GitHub section + /setup/github callback; integration tests on a fake GitHub client
+2026-10-30 · M2-05 · activity_log table; one entry per changed field written in the create/update transaction; activity.list (oldest first, cursor)
+2026-10-30 · LIN-34 / M3-01 · merged activity-log updates from develop; preserved activity migration 0004 and sequenced unchanged projects SQL as 0005 with regenerated snapshot. Full tests (77 API tests), lint, typecheck and build pass; fresh migration and reapplication verified using Podman PostgreSQL.
