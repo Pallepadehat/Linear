@@ -29,6 +29,32 @@ describe('createPresignedUploadInputSchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it('accepts attachments up to 25 MB in a workspace', () => {
+    const pdf = { kind: 'attachment', contentType: 'application/pdf', workspaceSlug: 'tip' }
+    expect(
+      createPresignedUploadInputSchema.safeParse({ ...pdf, size: 25 * 1024 * 1024 }).success,
+    ).toBe(true)
+    expect(
+      createPresignedUploadInputSchema.safeParse({ ...pdf, size: 25 * 1024 * 1024 + 1 }).success,
+    ).toBe(false)
+    expect(
+      createPresignedUploadInputSchema.safeParse({ ...pdf, workspaceSlug: undefined, size: 10 })
+        .success,
+    ).toBe(false)
+  })
+
+  it('rejects html and svg attachments', () => {
+    for (const contentType of ['text/html', 'image/svg+xml']) {
+      const result = createPresignedUploadInputSchema.safeParse({
+        kind: 'attachment',
+        contentType,
+        size: 10,
+        workspaceSlug: 'tip',
+      })
+      expect(result.success).toBe(false)
+    }
+  })
+
   it('requires a workspace for workspace icons', () => {
     const result = createPresignedUploadInputSchema.safeParse({
       kind: 'workspace_icon',

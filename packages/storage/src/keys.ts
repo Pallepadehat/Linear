@@ -5,6 +5,7 @@ const EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
+  'image/gif': 'gif',
   'image/svg+xml': 'svg',
   'application/pdf': 'pdf',
   'text/plain': 'txt',

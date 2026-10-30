@@ -64,8 +64,6 @@ export const uploadsRouter = {
   confirm: authed.uploads.confirm.handler(async ({ context, input }) => {
     const upload = await getOwnUpload(context.db, input.uploadId, context.user.id)
     const kind = upload.kind
-    // Attachments are P1; the contract can't create them yet.
-    if (kind === 'attachment') throw new ORPCError('NOT_FOUND', { message: 'Upload not found' })
     if (upload.status === 'ready') return { id: upload.id, kind, status: upload.status }
 
     const head = await context.storage.head(upload.objectKey)
@@ -78,7 +76,8 @@ export const uploadsRouter = {
     }
 
     const ready = await markUploadReady(context.db, upload.id)
-    if (ready) {
+    // Attachments are served as uploaded; only icons and avatars get resized variants.
+    if (ready && kind !== 'attachment') {
       await enqueue(
         context.queues,
         'media',
