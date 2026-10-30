@@ -37,7 +37,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M2-03  | [ ]    | Labels schema + procedures                                              | M1-13      |
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
 | M2-05  | [ ]    | ActivityLog writes for issue changes                                    | M2-02      |
-| M2-06  | [ ]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
+| M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
 | M2-07  | [ ]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
 | M2-08  | [ ]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
 | M2-09  | [ ]    | Optimistic updates for status, priority, assignee, labels               | M2-07      |
@@ -100,3 +100,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-29 · M1-17 · Vitest per package, API inject harness on linear_test, worker job tests, CI services
 2026-10-29 · M1-18 · idempotent seed: demo@tip.dev, workspace Tip, team TIP
 2026-10-30 · M2-01 · issues table, createIssue allocates numbers via teams.issue_counter UPDATE … RETURNING; 20-way concurrency test
+2026-10-30 · M2-06 · StatusIcon/PriorityIcon (status-started + priority-urgent tokens), Status/Priority/Assignee/Label pickers on shadcn popover + command; UserAvatar already existed
