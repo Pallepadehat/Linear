@@ -15,6 +15,13 @@
       "when": 1793347097793,
       "tag": "0001_issues",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793349141966,
+      "tag": "0002_workable_surge",
+      "breakpoints": true
     }
   ]
 }
