@@ -8,6 +8,9 @@ import {
   type DbOrTx,
 } from '@linear/db'
 import { and, asc, desc, eq, inArray, lt, sql, type SQL } from 'drizzle-orm'
+import { recordActivity, type ActivityActor } from '../activity/activity.service'
+import { diffIssue } from '../activity/diff'
+import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
 import { nextCompletedAt } from './completed-at'
 
@@ -35,6 +38,7 @@ export type CreateIssueInput = {
 export type UpdateIssueInput = {
   workspaceId: string
   id: string
+  actor: ActivityActor
   title?: string
   description?: string | null
   statusId?: string
@@ -103,6 +107,12 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       .returning()
     if (!issue) throw new Error('issue insert returned no row')
     await setIssueLabels(tx, input.workspaceId, issue.id, labelIds)
+    await recordActivity(tx, {
+      workspaceId: input.workspaceId,
+      issueId: issue.id,
+      actor: { type: 'user', id: input.creatorId },
+      changes: [{ kind: 'created', from: null, to: null }],
+    })
     return issue
   })
 }
@@ -135,9 +145,7 @@ export async function getIssueByIdentifier(
  * shift the pages after it.
  */
 export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
-  if (input.cursor && !UUID_PATTERN.test(input.cursor)) {
-    throw new DomainError('BAD_REQUEST', 'Invalid cursor')
-  }
+  assertCursor(input.cursor)
   const rows = await loadIssues(
     db,
     input.workspaceId,
@@ -184,9 +192,23 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       changes.projectId = input.projectId
     }
 
+    const labelIds =
+      input.labelIds === undefined
+        ? undefined
+        : await resolveLabelIds(tx, input.workspaceId, input.labelIds)
+    const currentLabels = await tx
+      .select({ labelId: issueLabels.labelId })
+      .from(issueLabels)
+      .where(
+        and(eq(issueLabels.workspaceId, input.workspaceId), eq(issueLabels.issueId, current.id)),
+      )
+    const activity = diffIssue(
+      { ...current, labelIds: currentLabels.map((row) => row.labelId) },
+      { ...changes, labelIds },
+    )
+
     await tx.update(issues).set(changes).where(eq(issues.id, current.id))
-    if (input.labelIds !== undefined) {
-      const labelIds = await resolveLabelIds(tx, input.workspaceId, input.labelIds)
+    if (labelIds !== undefined) {
       await tx
         .delete(issueLabels)
         .where(
@@ -194,6 +216,12 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
         )
       await setIssueLabels(tx, input.workspaceId, current.id, labelIds)
     }
+    await recordActivity(tx, {
+      workspaceId: input.workspaceId,
+      issueId: current.id,
+      actor: input.actor,
+      changes: activity,
+    })
   })
   return getIssue(db, input.workspaceId, input.id)
 }
@@ -206,8 +234,6 @@ export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
   return issue
 }
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Issues with their team key, status and labels, scoped to the workspace. */
 async function loadIssues(db: DbOrTx, workspaceId: string, where: SQL | undefined, limit?: number) {
