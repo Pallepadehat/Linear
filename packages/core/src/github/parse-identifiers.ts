@@ -1,12 +1,12 @@
+import type { LinkType } from '../automation/evaluate'
+
 // Rules from docs/domain.md → GitHub PR linking. Candidates are not validated
 // against the workspace here; unknown team keys and numbers are dropped by the caller.
-
-export type PrLinkType = 'closing' | 'reference'
 
 export interface PrIdentifierCandidate {
   teamKey: string
   number: number
-  type: PrLinkType
+  type: LinkType
 }
 
 export interface PrIdentifierSource {
@@ -31,7 +31,7 @@ export function parsePrIdentifiers({
 }: PrIdentifierSource): PrIdentifierCandidate[] {
   const found = new Map<string, PrIdentifierCandidate>()
 
-  const add = (key: string, digits: string, type: PrLinkType) => {
+  const add = (key: string, digits: string, type: LinkType) => {
     const number = Number(digits)
     // Issue numbers start at 1; ignore zero and digit runs too long to be a real number.
     if (!Number.isSafeInteger(number) || number < 1) return
