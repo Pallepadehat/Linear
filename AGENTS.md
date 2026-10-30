@@ -181,7 +181,7 @@ Details in [`docs/testing.md`](docs/testing.md).
 - UI follows `docs/design.md` and looks right in both light and dark.
 - `.env.example` updated if new env vars were added.
 - Roadmap task marked `[x]` with a log line; `domain.md` / ADRs updated if rules or decisions changed.
-- PR targets `develop` (production is `main`; see branch rules in `docs/workflow.md`).
+- PR targets `develop` (production is `main`; see branch rules in `docs/workflow.md`) and references its Linear issue (`Fixes LIN-<n>`; see "Linear" in `docs/workflow.md`).
 - Commits follow Conventional Commits (`feat(api): …`); no AI attribution or co-author trailers.
 
 ## Don'ts
