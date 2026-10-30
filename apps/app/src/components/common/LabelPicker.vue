@@ -24,7 +24,7 @@ function toggle(id: string) {
   <PickerPopover label="Change labels" placeholder="Change labels..." hotkey="L">
     <template #trigger>
       <Tag class="size-3.5 text-ink-subtle" aria-hidden="true" />
-      <span v-if="selected.length === 0">Labels</span>
+      <span v-if="selected.length === 0" class="text-ink-subtle">Labels</span>
       <span v-else-if="selected.length === 1">{{ selected[0]?.name }}</span>
       <span v-else>{{ selected.length }} labels</span>
     </template>

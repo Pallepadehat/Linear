@@ -34,7 +34,7 @@ function onKeydown(event: KeyboardEvent) {
       <Button
         variant="ghost"
         size="sm"
-        class="justify-start px-2 text-ink has-[>svg]:px-2 data-[state=open]:bg-surface-2"
+        class="justify-start rounded-full px-2 text-ink has-[>svg]:px-2 data-[state=open]:bg-surface-2"
       >
         <span class="sr-only">{{ label }}:</span>
         <slot name="trigger" />

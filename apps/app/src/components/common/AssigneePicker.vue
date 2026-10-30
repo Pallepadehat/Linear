@@ -31,7 +31,7 @@ function choose(id: string | null) {
     <template #trigger>
       <UserAvatar v-if="current" :name="current.name" :src="current.avatarUrl" size="xs" />
       <UnassignedIcon v-else />
-      <span>{{ current?.name ?? 'Unassigned' }}</span>
+      <span :class="{ 'text-ink-subtle': !current }">{{ current?.name ?? 'Unassigned' }}</span>
     </template>
     <PickerItem value="unassigned" :selected="model === null" shortcut="0" @select="choose(null)">
       <UnassignedIcon />
