@@ -1,0 +1,28 @@
+name: Linear
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  issue-link:
+    name: linear-issue
+    runs-on: ubuntu-latest
+    steps:
+      # Linear's GitHub integration links a PR through a LIN-<n> ID in the branch,
+      # title, or description; without one the issue never moves on open/merge.
+      - name: Require a Linear issue ID
+        env:
+          BRANCH: ${{ github.head_ref }}
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Template comments are stripped so an unfilled template doesn't count.
+          if printf '%s\n%s\n%s' "$BRANCH" "$TITLE" "$BODY" \
+            | perl -0pe 's/<!--.*?-->//gs' | grep -qiE '\bLIN-[0-9]+\b'; then
+            echo "Linear issue ID found."
+          else
+            echo "::error::Add a Linear issue ID (e.g. 'Fixes LIN-123') to the PR title, description, or branch name."
+            exit 1
+          fi

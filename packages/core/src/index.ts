@@ -1,5 +1,6 @@
 export * from './errors'
 export * from './identifiers'
+export * from './issues'
 export * from './teams'
 export * from './uploads'
 export * from './users'
