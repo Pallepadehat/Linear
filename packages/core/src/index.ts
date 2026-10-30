@@ -1,4 +1,5 @@
 export * from './errors'
+export * from './github'
 export * from './identifiers'
 export * from './teams'
 export * from './uploads'
