@@ -37,7 +37,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M2-03  | [ ]    | Labels schema + procedures                                              | M1-13      |
 | M2-04  | [ ]    | Comments schema + procedures                                            | M2-02      |
 | M2-05  | [ ]    | ActivityLog writes for issue changes                                    | M2-02      |
-| M2-06  | [ ]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
+| M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
 | M2-07  | [ ]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
 | M2-08  | [ ]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
 | M2-09  | [ ]    | Optimistic updates for status, priority, assignee, labels               | M2-07      |
@@ -56,8 +56,8 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 
 | ID     | Status | Task                                                                          | Depends on |
 | ------ | ------ | ----------------------------------------------------------------------------- | ---------- |
-| M4-01  | [~]    | GitHub schema: installations, repos, PRs, issue-PR links, webhook deliveries  | M2-01      |
-| M4-02  | [ ]    | Identifier parser (branch/title/body, link types) + unit tests                | —          |
+| M4-01  | [x]    | GitHub schema: installations, repos, PRs, issue-PR links, webhook deliveries  | M2-01      |
+| M4-02  | [x]    | Identifier parser (branch/title/body, link types) + unit tests                | —          |
 | M4-03  | [x]    | Automation rules `evaluate()` + unit tests for rules A–F                      | —          |
 | M4-04  | [ ]    | Webhook route: signature check, delivery persist, enqueue                     | M4-01, M1-15 |
 | M4-05  | [ ]    | Worker: process `pull_request`, link, reconcile, automate (one transaction)   | M4-02, M4-03, M4-04 |
@@ -101,5 +101,6 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-29 · M1-18 · idempotent seed: demo@tip.dev, workspace Tip, team TIP
 2026-10-30 · M2-01 · issues table, createIssue allocates numbers via teams.issue_counter UPDATE … RETURNING; 20-way concurrency test
 2026-10-30 · M4-03 · pure automation evaluate(), exported event/domain types, 29 tests covering A–F and multi-PR cases; full suite blocked by API/worker Vite startup error
-
-2026-10-30 · M4-01 · GitHub tables, enums, indexes, migration and uniqueness integration tests implemented; verification pending: lint/typecheck/build pass, API/worker tests hit Vite startup error, fresh migration blocked by unavailable Postgres (ECONNREFUSED).
+2026-10-30 · M4-01 · GitHub tables, enums, indexes, migration and uniqueness integration tests; PR #6 CI and local checks pass lint, typecheck, all tests (including three schema constraints), and build; fresh migration verified on Podman PostgreSQL.
+2026-10-30 · M4-02 · parsePrIdentifiers (branch/title/body → closing/reference, closing wins, deduped) + unit tests
+2026-10-30 · M2-06 · StatusIcon/PriorityIcon (status/priority/floating tokens), Status/Priority/Assignee/Label pickers on shadcn popover + command; UserAvatar already existed; design.md "Product UI (App)" makes Linear's product UI the reference

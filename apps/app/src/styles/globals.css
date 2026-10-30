@@ -27,6 +27,14 @@
   --success: #1f8a3a;
   /* Form errors; not in the marketing spec (design.md → Known gaps). */
   --danger: #c52828;
+  /* Status / priority hues, tuned per theme for >= 3:1 icon contrast (design.md → Theme Rules). */
+  --status-neutral: #959ba5;
+  --status-started: #e8b10e;
+  --status-completed: #5e6ad2;
+  --priority-urgent: #d24a12;
+  /* Menus and popovers: lighter than the page in light mode, lifted in dark. */
+  --floating: #fefefe;
+  --floating-hover: #f0f0f2;
   --overlay: rgb(15 16 17 / 0.4);
   --floating-shadow: 0 4px 16px rgb(15 16 17 / 0.08);
 }
@@ -50,6 +58,12 @@
   --on-primary: #ffffff;
   --success: #27a644;
   --danger: #eb5757;
+  --status-neutral: #8a8f98;
+  --status-started: #f2c94c;
+  --status-completed: #6c78e6;
+  --priority-urgent: #fc7840;
+  --floating: #1c1d1f;
+  --floating-hover: #28292d;
   --overlay: rgb(0 0 0 / 0.6);
   /* Dark relies on the surface ladder, not shadows. */
   --floating-shadow: none;
@@ -62,7 +76,7 @@
   --foreground: var(--ink);
   --card: var(--surface-1);
   --card-foreground: var(--ink);
-  --popover: var(--surface-3);
+  --popover: var(--floating);
   --popover-foreground: var(--ink);
   --primary: var(--primary-color);
   --primary-foreground: var(--on-primary);
@@ -108,6 +122,12 @@
   --color-on-primary: var(--on-primary);
   --color-success: var(--success);
   --color-danger: var(--danger);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-started: var(--status-started);
+  --color-status-completed: var(--status-completed);
+  --color-floating: var(--floating);
+  --color-floating-hover: var(--floating-hover);
+  --color-priority-urgent: var(--priority-urgent);
   --color-overlay: var(--overlay);
 
   --color-background: var(--background);
