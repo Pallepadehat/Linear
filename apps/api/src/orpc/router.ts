@@ -1,3 +1,4 @@
+import { activityRouter } from '../modules/activity/activity.router'
 import { githubRouter } from '../modules/github/github.router'
 import { issuesRouter } from '../modules/issues/issues.router'
 import { labelsRouter } from '../modules/labels/labels.router'
@@ -15,6 +16,7 @@ export const router = os.router({
   labels: labelsRouter,
   issues: issuesRouter,
   github: githubRouter,
+  activity: activityRouter,
 })
 
 export type Router = typeof router

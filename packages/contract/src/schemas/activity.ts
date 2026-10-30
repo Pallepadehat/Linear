@@ -1,0 +1,52 @@
+import { z } from 'zod'
+import { workspaceScopedSchema } from './common'
+
+export const activityActorTypeSchema = z.enum(['user', 'github'])
+
+/** Which issue field changed; `created` marks the issue's creation. */
+export const activityKindSchema = z.enum([
+  'created',
+  'title',
+  'description',
+  'status',
+  'priority',
+  'assignee',
+  'project',
+  'labels',
+])
+
+/**
+ * Per kind: `title` text, `status`/`assignee`/`project` ids, `priority` number,
+ * `labels` sorted label ids. `created` and `description` carry no values.
+ */
+export const activityValueSchema = z.union([z.string(), z.number(), z.array(z.string())]).nullable()
+
+export const activitySchema = z.object({
+  id: z.uuid(),
+  issueId: z.uuid(),
+  actorType: activityActorTypeSchema,
+  /** Null for GitHub, or when the user was deleted. */
+  actorId: z.uuid().nullable(),
+  kind: activityKindSchema,
+  from: activityValueSchema,
+  to: activityValueSchema,
+  createdAt: z.date(),
+})
+
+export const listActivityInputSchema = workspaceScopedSchema.extend({
+  issueId: z.uuid(),
+  /** `nextCursor` from the previous page. */
+  cursor: z.string().min(1).nullish(),
+  limit: z.number().int().min(1).max(100).default(50),
+})
+
+export const activityPageSchema = z.object({
+  items: z.array(activitySchema),
+  nextCursor: z.string().nullable(),
+})
+
+export type ActivityActorType = z.infer<typeof activityActorTypeSchema>
+export type ActivityKind = z.infer<typeof activityKindSchema>
+export type Activity = z.infer<typeof activitySchema>
+export type ActivityPage = z.infer<typeof activityPageSchema>
+export type ListActivityInput = z.input<typeof listActivityInputSchema>
