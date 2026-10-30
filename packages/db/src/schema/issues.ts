@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { check, index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 import { users } from './auth'
 import { id, timestamps } from './columns'
+import { projects } from './projects'
 import { teams, workflowStatuses } from './teams'
 import { workspaces } from './workspaces'
 
@@ -28,8 +29,7 @@ export const issues = pgTable(
     creatorId: uuid()
       .notNull()
       .references(() => users.id),
-    // FK to projects is added with the projects table.
-    projectId: uuid(),
+    projectId: uuid().references(() => projects.id, { onDelete: 'set null' }),
     completedAt: timestamp({ withTimezone: true }),
     ...timestamps,
   },
