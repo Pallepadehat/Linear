@@ -213,6 +213,28 @@ describe('realtime', () => {
     )
   })
 
+  it('signals link changes on the issue', async () => {
+    const { owner, member, issue } = await workspaceWithIssue()
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    const link = await owner.client.issueLinks.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      url: 'https://example.com/spec',
+    })
+    await owner.client.issueLinks.update({ workspaceSlug: 'tip', id: link.id, title: 'Spec' })
+    await owner.client.issueLinks.delete({ workspaceSlug: 'tip', id: link.id })
+
+    const update = { type: 'issue.updated', actorId: owner.userId, issueId: issue.id }
+    await eventually(() =>
+      expect(events).toEqual([
+        { ...update, fields: ['links'] },
+        { ...update, fields: ['links'] },
+        { ...update, fields: ['links'] },
+      ]),
+    )
+  })
+
   it('never sends events to users outside the workspace (PRD Test 9)', async () => {
     const { owner, issue } = await workspaceWithIssue()
     const outsider = await signUp(app, 'Outsider')
