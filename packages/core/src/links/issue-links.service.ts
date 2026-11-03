@@ -3,7 +3,7 @@ import { and, asc, eq } from 'drizzle-orm'
 import { recordActivity } from '../activity/activity.service'
 import { DomainError } from '../errors'
 import { issueExistsInWorkspace } from '../issues/issues.service'
-import { linkHostname, parseWebUrl, resolveLinkTitle } from './link-url'
+import { linkHostname, nextLinkTitle, parseWebUrl, resolveLinkTitle } from './link-url'
 
 export type IssueLinkRecord = typeof issueLinks.$inferSelect & { hostname: string }
 
@@ -60,13 +60,7 @@ export async function updateIssueLink(
       .for('update')
     if (!current) throw new DomainError('NOT_FOUND', 'Link not found')
     const url = input.url ?? current.url
-    const titleWasDefault = current.title === linkHostname(current.url)
-    const title =
-      input.title !== undefined
-        ? resolveLinkTitle(url, input.title)
-        : titleWasDefault
-          ? linkHostname(url)
-          : current.title
+    const title = nextLinkTitle(current, url, input.title)
     const [link] = await tx
       .update(issueLinks)
       .set({ url, title })

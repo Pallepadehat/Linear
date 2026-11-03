@@ -29,3 +29,16 @@ export function resolveLinkTitle(url: string, title: string | null | undefined):
   const trimmed = title?.trim()
   return trimmed ? trimmed : linkHostname(url)
 }
+
+/**
+ * The title after an edit: an explicit title wins (empty = hostname); otherwise a title that
+ * was the old hostname follows the new URL, and a custom one is kept.
+ */
+export function nextLinkTitle(
+  current: { url: string; title: string },
+  url: string,
+  title: string | undefined,
+): string {
+  if (title !== undefined) return resolveLinkTitle(url, title)
+  return current.title === linkHostname(current.url) ? linkHostname(url) : current.title
+}
