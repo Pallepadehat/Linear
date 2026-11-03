@@ -142,6 +142,48 @@ describe('realtime', () => {
     await eventually(() => expect(events).toEqual([event, event, event]))
   })
 
+  it('publishes project.updated for milestone changes and issue.updated for issues losing one', async () => {
+    const { owner, member, team } = await workspaceWithIssue()
+    const scope = { workspaceSlug: 'tip' }
+    const project = await owner.client.projects.create({ ...scope, name: 'Launch' })
+    const milestone = await owner.client.milestones.create({
+      ...scope,
+      projectId: project.id,
+      name: 'Alpha',
+    })
+    const issue = await owner.client.issues.create({
+      ...scope,
+      teamId: team.id,
+      title: 'In milestone',
+      projectId: project.id,
+      milestoneId: milestone.id,
+    })
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    await owner.client.milestones.reorder({
+      ...scope,
+      projectId: project.id,
+      orderedIds: [milestone.id],
+    })
+    await owner.client.milestones.delete({ ...scope, id: milestone.id })
+    await owner.client.issues.update({ ...scope, id: issue.id, projectId: null })
+
+    const projectEvent = { type: 'project.updated', projectId: project.id, actorId: owner.userId }
+    await eventually(() =>
+      expect(events).toEqual([
+        projectEvent,
+        projectEvent,
+        { type: 'issue.updated', issueId: issue.id, fields: ['milestone'], actorId: owner.userId },
+        {
+          type: 'issue.updated',
+          issueId: issue.id,
+          fields: ['project', 'milestone'],
+          actorId: owner.userId,
+        },
+      ]),
+    )
+  })
+
   it('tells both the sub-issue and its parent when the parent changes', async () => {
     const { owner, member, team, issue } = await workspaceWithIssue()
     const parent = await owner.client.issues.create({

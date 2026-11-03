@@ -31,6 +31,7 @@ const ISSUE_INPUT_FIELDS = {
   priority: 'priority',
   assigneeId: 'assignee',
   projectId: 'project',
+  milestoneId: 'milestone',
   cycleId: 'cycle',
   estimate: 'estimate',
   labelIds: 'labels',

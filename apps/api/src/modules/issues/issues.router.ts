@@ -85,6 +85,8 @@ export const issuesRouter = {
       // A status change may have auto-added the issue to the current cycle.
       if (changed.includes('status') && !changed.includes('cycle') && issue.cycleId)
         changed.push('cycle')
+      // A project change clears the milestone unless one was given.
+      if (changed.includes('project') && !changed.includes('milestone')) changed.push('milestone')
       await publishChange(context, { type: 'issue.updated', issueId: issue.id, fields: changed })
       // Parents show their sub-issues' progress: tell the old and new parent, and the
       // current one when a sub-issue's status changed.
