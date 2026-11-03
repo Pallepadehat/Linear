@@ -281,6 +281,13 @@
   .markdown-body hr {
     @apply my-4 border-hairline;
   }
+  /* @mention chips (user and issue); tokens only, both themes. */
+  .markdown-body .mention-chip {
+    @apply mx-px inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-2 py-px pr-2 pl-1 align-[-0.15em] text-[13px] leading-4 font-medium text-ink no-underline;
+  }
+  .markdown-body a.mention-chip:hover {
+    @apply bg-surface-3;
+  }
   .markdown-body strong {
     @apply font-semibold;
   }

@@ -1,4 +1,4 @@
-import type { Activity, CommentThread } from '@linear/contract'
+import type { Activity, ActivityMentionSource, CommentThread } from '@linear/contract'
 import { pointsText } from '@/lib/estimates'
 import { formatDueDate, todayIso } from '@/lib/due-dates'
 import { priorityLabel, toPriority } from '@/lib/priorities'
@@ -131,6 +131,9 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       const [title = 'a link'] = added.length ? added : asList(entry.from)
       return added.length ? `added link ${title}` : `removed link ${title}`
     }
+    // The source issue follows as a link (see mentionSource).
+    case 'mentioned_in':
+      return 'mentioned this issue in'
     // Identifiers are stored as-is (team keys never change).
     case 'parent': {
       const to = asString(entry.to)
@@ -141,6 +144,19 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       return to ? `added sub-issue ${to}` : `removed sub-issue ${asString(entry.from) ?? ''}`.trim()
     }
   }
+}
+
+/**
+ * Where a `mentioned_in` entry's issue was mentioned. The server resolves it; the stored
+ * `[sourceIssueId, sourceIdentifier, commentId?]` is the fallback.
+ */
+export function mentionSource(entry: Activity): ActivityMentionSource | null {
+  if (entry.kind !== 'mentioned_in') return null
+  if (entry.mentionedIn) return entry.mentionedIn
+  const [issueId, identifier, commentId] = asList(entry.to)
+  return issueId && identifier
+    ? { issueId, identifier, title: null, commentId: commentId ?? null }
+    : null
 }
 
 const RELATION_PHRASES = {

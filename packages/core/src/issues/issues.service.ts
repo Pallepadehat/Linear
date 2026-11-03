@@ -47,6 +47,7 @@ import {
 } from '../projects/milestones/milestones.service'
 import { nextIssueMilestone } from '../projects/milestones/rules'
 import { CLOSED_STATUS_CATEGORIES } from '../relations/roles'
+import { syncMentions, type MentionsResult } from '../mentions/mentions.service'
 import { subscribeUsers } from '../subscriptions/subscriptions.service'
 import { deleteFavoritesOf } from '../favorites/favorites.service'
 import { pickDefaultStatus } from '../teams/default-status'
@@ -316,8 +317,15 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         title: issue.title,
       },
     )
+    const mentions = await syncMentions(tx, {
+      workspaceId: input.workspaceId,
+      issueId: issue.id,
+      actorId: input.creatorId,
+      before: null,
+      after: issue.description,
+    })
     /** The `created` activity entry, the source of the create's notifications. */
-    return { ...issue, createdActivityId: created!.id }
+    return { ...issue, createdActivityId: created!.id, mentions }
   })
 }
 
@@ -619,7 +627,7 @@ function rankOrder(rank: SQL<number>) {
 }
 
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
-  const { parentChange, projectChange, feedProjectIds, activity } = await db.transaction(
+  const { parentChange, projectChange, feedProjectIds, activity, mentions } = await db.transaction(
     async (tx) => {
       // Locking the row keeps `completedAt` consistent with concurrent status changes.
       const [current] = await tx
@@ -779,7 +787,18 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       const feedProjectIds = [
         ...new Set([projectChange?.from, projectChange?.to, completedMilestoneProjectId]),
       ].filter((id): id is string => Boolean(id))
-      return { parentChange, projectChange, feedProjectIds, activity: recorded }
+      // GitHub never edits descriptions, so mentions always have a user behind them.
+      let mentions: MentionsResult = { userIds: [], mentionedIssueIds: [] }
+      if (input.description !== undefined && input.actor.type === 'user') {
+        mentions = await syncMentions(tx, {
+          workspaceId: input.workspaceId,
+          issueId: current.id,
+          actorId: input.actor.id,
+          before: current.description,
+          after: input.description,
+        })
+      }
+      return { parentChange, projectChange, feedProjectIds, activity: recorded, mentions }
     },
   )
   const issue = await getIssue(
@@ -792,6 +811,8 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     ...issue,
     /** The issue's new activity entries (what actually changed), for notifications. */
     activity,
+    /** What the new description newly mentions. */
+    mentions,
     /** Old and new parent ids when the parent changed, so callers can notify both. */
     parentChange: parentChange
       ? { from: parentChange.from?.id ?? null, to: parentChange.to?.id ?? null }

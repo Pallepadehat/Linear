@@ -16,6 +16,7 @@ import {
 import { and, count, desc, eq, inArray, isNull, lt, lte, or, type SQL } from 'drizzle-orm'
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
+import { parseMentions } from '../mentions/parse'
 import {
   notificationSummary,
   recipientsFor,
@@ -89,9 +90,10 @@ async function resolveEvent(
     }
     case 'commented':
     case 'mentioned': {
+      let mentionedIds: string[] = []
       if (input.commentId) {
         const [comment] = await db
-          .select({ id: comments.id })
+          .select({ id: comments.id, body: comments.body })
           .from(comments)
           .where(
             and(
@@ -101,10 +103,11 @@ async function resolveEvent(
             ),
           )
         if (!comment) return null
+        mentionedIds = parseMentions(comment.body).userIds
       }
       const payload = input.commentId ? { commentId: input.commentId } : {}
       return input.event === 'commented'
-        ? { event: { type: 'commented' }, payload }
+        ? { event: { type: 'commented', mentionedIds }, payload }
         : { event: { type: 'mentioned', userIds: input.userIds ?? [] }, payload }
     }
     case 'pr_linked': {

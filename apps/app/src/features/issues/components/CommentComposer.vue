@@ -2,7 +2,8 @@
 import { commentBodySchema } from '@linear/contract'
 import { ArrowUp } from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onMounted, ref, useId, useTemplateRef } from 'vue'
+import { nextTick, onMounted, ref, useId, useTemplateRef } from 'vue'
+import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
@@ -20,9 +21,11 @@ const props = defineProps<{
 const emit = defineEmits<{ done: [] }>()
 
 const id = useId()
-const textarea = useTemplateRef<HTMLTextAreaElement>('textarea')
-onMounted(() => {
-  if (props.autofocus) textarea.value?.focus()
+const editor = useTemplateRef<InstanceType<typeof MarkdownEditor>>('editor')
+onMounted(async () => {
+  if (!props.autofocus) return
+  await nextTick()
+  editor.value?.focus()
 })
 
 const queryClient = useQueryClient()
@@ -79,18 +82,18 @@ function onKeydown(event: KeyboardEvent) {
     class="rounded-lg border border-hairline bg-surface-1 px-4 pt-3 pb-2 focus-within:border-hairline-strong"
     @submit.prevent="submit"
   >
-    <label :for="id" class="sr-only">{{ parentId ? 'Reply' : 'Leave a comment' }}</label>
-    <textarea
-      :id="id"
-      ref="textarea"
-      v-model="body"
-      rows="2"
-      :placeholder="placeholder ?? 'Leave a comment...'"
-      :aria-invalid="Boolean(error)"
-      :aria-describedby="error ? `${id}-error` : undefined"
-      class="field-sizing-content max-h-80 min-h-10 w-full resize-none bg-transparent text-sm text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
-      @keydown="onKeydown"
-    />
+    <!-- Keys bubble up from the editor; open mention / slash menus stop Esc first. -->
+    <div @keydown="onKeydown">
+      <MarkdownEditor
+        ref="editor"
+        v-model="body"
+        :label="parentId ? 'Reply' : 'Leave a comment'"
+        :placeholder="placeholder ?? 'Leave a comment...'"
+        :workspace-slug="workspaceSlug"
+        :attachments="false"
+        class="max-h-80 min-h-10 overflow-y-auto text-sm text-ink caret-primary"
+      />
+    </div>
     <div class="flex items-center gap-2">
       <p v-if="error" :id="`${id}-error`" class="text-[13px] text-danger" role="alert">
         {{ error }}
