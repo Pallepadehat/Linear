@@ -21,6 +21,7 @@ import { notificationsContract } from './routers/notifications'
 import { teamsContract } from './routers/teams'
 import { templatesContract } from './routers/templates'
 import { uploadsContract } from './routers/uploads'
+import { viewsContract } from './routers/views'
 import { workspacesContract } from './routers/workspaces'
 
 export const contract = {
@@ -43,6 +44,7 @@ export const contract = {
   realtime: realtimeContract,
   templates: templatesContract,
   presence: presenceContract,
+  views: viewsContract,
 }
 
 export type Contract = typeof contract
@@ -69,3 +71,4 @@ export * from './schemas/templates'
 export * from './schemas/relations'
 export * from './schemas/links'
 export * from './schemas/notifications'
+export * from './schemas/views'

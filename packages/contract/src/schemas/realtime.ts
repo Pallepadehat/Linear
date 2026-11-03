@@ -52,6 +52,9 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
     templateId: z.uuid(),
     actorId: z.uuid().nullable(),
   }),
+  /** A view was created or changed (docs/domain.md → Views); clients refetch their view queries. */
+  z.object({ type: z.literal('view.updated'), viewId: z.uuid(), actorId: z.uuid().nullable() }),
+  z.object({ type: z.literal('view.deleted'), viewId: z.uuid(), actorId: z.uuid().nullable() }),
   z.object({ type: z.literal('presence.changed'), userId: z.uuid() }),
   // Sent only to the recipient's sockets (docs/domain.md → Notifications); clients refetch the Inbox.
   z.object({ type: z.literal('notification.created'), notificationId: z.uuid() }),
