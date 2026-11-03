@@ -123,11 +123,13 @@ export function createRealtimeEventHandler({
     void queryClient.invalidateQueries({ queryKey: issueListKey(), predicate })
   }
 
-  // Other fields (description, PRs, …) only matter to counts filtered on them.
-  function facetsDependOn(fields: RealtimeIssueField[]) {
+  // Other fields (description, links, PRs, …) only matter to counts filtered on them.
+  function invalidateDependentFacets(fields: RealtimeIssueField[]) {
     const changed = new Set(fields)
     const predicate = (query: Query) => listDependsOn(listInput(query), changed)
-    return queryClient.getQueryCache().findAll({ queryKey: issueFacetsKey(), predicate }).length > 0
+    if (!queryClient.getQueryCache().findAll({ queryKey: issueFacetsKey(), predicate }).length)
+      return
+    void queryClient.invalidateQueries({ queryKey: issueFacetsKey(), predicate })
   }
 
   async function onIssueUpdated(issueId: string, fields: RealtimeIssueField[]) {
@@ -141,9 +143,8 @@ export function createRealtimeEventHandler({
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
-    if (fields.some((f) => FACET_FIELDS.includes(f)) || facetsDependOn(fields)) {
-      invalidateSoon('facets')
-    }
+    if (fields.some((f) => FACET_FIELDS.includes(f))) invalidateSoon('facets')
+    else invalidateDependentFacets(fields)
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.

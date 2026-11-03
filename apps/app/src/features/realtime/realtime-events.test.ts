@@ -284,7 +284,7 @@ describe('realtime event handler', () => {
     }
   })
 
-  it('refetches Details panel counts filtered by "Has links" when links change', async () => {
+  it('refetches Details panel counts filtered by "Has links" when links change', () => {
     const handle = createRealtimeEventHandler({
       queryClient,
       workspaceSlug: 'tip',
@@ -299,8 +299,6 @@ describe('realtime event handler', () => {
       queryClient.setQueryData(byLinks, empty)
       queryClient.setQueryData(plain, empty)
       handle({ type: 'issue.updated', issueId: 'a', fields: [...fields], ...actor })
-      // Coalesced with the other count refreshes.
-      await vi.advanceTimersByTimeAsync(1_000)
       expect(stale(byLinks)).toBe(true)
       expect(stale(plain)).toBe(false)
     }
