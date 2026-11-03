@@ -102,7 +102,11 @@ describe('realtime event handler', () => {
     const byStatus = keyFor({ statusIds: [todo.id] })
     const byPriority = keyFor({ sort: 'priority' })
     const byTitle = keyFor({ q: 'login' })
-    for (const key of [byStatus, byPriority, byTitle]) {
+    // An Active / Backlog tab: a status change can move the issue between tabs.
+    const activeTab = issueListOptions('tip', {
+      statusCategories: ['started', 'unstarted'],
+    }).queryKey
+    for (const key of [byStatus, byPriority, byTitle, activeTab]) {
       queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
         pages: [{ items: [issue('a')], nextCursor: null }],
         pageParams: [null],
@@ -112,12 +116,13 @@ describe('realtime event handler', () => {
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['status'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
-    expect([stale(listKey), stale(byStatus), stale(byPriority), stale(byTitle)]).toEqual([
-      false,
-      true,
-      false,
-      false,
-    ])
+    expect([
+      stale(listKey),
+      stale(byStatus),
+      stale(byPriority),
+      stale(byTitle),
+      stale(activeTab),
+    ]).toEqual([false, true, false, false, true])
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
@@ -156,6 +161,13 @@ describe('realtime event handler', () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: orpc.comments.list.key({ input: { issueId: 'a' } }),
     })
+  })
+
+  it('refetches template lists on a template event', () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'template.updated', templateId: crypto.randomUUID(), ...actor })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: orpc.templates.key() })
   })
 })
 

@@ -68,6 +68,15 @@ describe('toBoardColumns', () => {
     expect(columns[0]?.issues.map((i) => i.id)).toEqual(['a', 'b'])
   })
 
+  it("leaves out empty columns outside the view's categories", () => {
+    const statuses = new Map([[teamA, [backlog, todo, inProgress, done]]])
+    const active = toBoardColumns([issue('a', todo)], statuses, ['started', 'unstarted'])
+    expect(active.map((c) => c.status.name)).toEqual(['Todo', 'In Progress'])
+    // An issue moved out of the view keeps its column until the list refetches.
+    const moved = toBoardColumns([issue('a', done)], statuses, ['backlog'])
+    expect(moved.map((c) => c.status.name)).toEqual(['Backlog', 'Done'])
+  })
+
   it('still shows issues whose team statuses have not loaded', () => {
     const columns = toBoardColumns([issue('a', inProgress)], new Map())
     expect(columns.map((c) => c.status.name)).toEqual(['In Progress'])

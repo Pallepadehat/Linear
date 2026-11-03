@@ -22,11 +22,14 @@ import { EMPTY_FILTERS, type IssueFilters } from './issue-filters'
 
 const PAGE_SIZE = 50
 
-export type IssueListFilter = Pick<ListIssuesInput, 'teamId' | 'projectId' | 'assignee' | 'creator'>
+export type IssueListFilter = Pick<
+  ListIssuesInput,
+  'teamId' | 'projectId' | 'assignee' | 'creator' | 'statusCategories'
+>
 
 /**
  * Issue pages for a workspace, narrowed by the page's scope (team, project,
- * assignee or creator), then by the user's filters and sort.
+ * assignee or creator) and view tab, then by the user's filters and sort.
  */
 export function issueListOptions(
   workspaceSlug: string,

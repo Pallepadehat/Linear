@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
 import { labelSchema } from './labels'
-import { workflowStatusSchema } from './teams'
+import { statusCategorySchema, workflowStatusSchema } from './teams'
 
 /** 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (docs/domain.md → Priorities). */
 export const issuePrioritySchema = z.number().int().min(0).max(4)
@@ -95,6 +95,8 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   /** `'me'` narrows to issues the signed-in user created. */
   creator: z.literal('me').optional(),
   statusIds: filterIdsSchema.optional(),
+  /** Status categories (the Active / Backlog tabs); combines with `statusIds` via AND. */
+  statusCategories: z.array(statusCategorySchema).max(5).optional(),
   priorities: z.array(issuePrioritySchema).max(5).optional(),
   assigneeIds: nullableFilterIdsSchema.optional(),
   projectIds: nullableFilterIdsSchema.optional(),

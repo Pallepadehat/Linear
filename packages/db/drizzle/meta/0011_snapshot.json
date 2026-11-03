@@ -1,5 +1,5 @@
 {
-  "id": "c2601e5e-66cd-4647-a00e-4fea50ac8ab2",
+  "id": "1a174180-1831-4bf7-9f0c-9208f686d208",
   "prevId": "d104ad48-2659-46f2-a167-9770943ce5d5",
   "version": "7",
   "dialect": "postgresql",
@@ -3014,8 +3014,8 @@
       },
       "isRLSEnabled": false
     },
-    "public.issue_subscriptions": {
-      "name": "issue_subscriptions",
+    "public.issue_templates": {
+      "name": "issue_templates",
       "schema": "",
       "columns": {
         "id": {
@@ -3030,17 +3030,67 @@
           "primaryKey": false,
           "notNull": true
         },
-        "issue_id": {
-          "name": "issue_id",
+        "team_id": {
+          "name": "team_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status_id": {
+          "name": "status_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assignee_id": {
+          "name": "assignee_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "label_ids": {
+          "name": "label_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::uuid[]"
+        },
+        "created_by_id": {
+          "name": "created_by_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -3058,17 +3108,11 @@
         }
       },
       "indexes": {
-        "issue_subscriptions_user_id_workspace_id_index": {
-          "name": "issue_subscriptions_user_id_workspace_id_index",
+        "issue_templates_team_id_index": {
+          "name": "issue_templates_team_id_index",
           "columns": [
             {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "workspace_id",
+              "expression": "team_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3081,9 +3125,9 @@
         }
       },
       "foreignKeys": {
-        "issue_subscriptions_workspace_id_workspaces_id_fk": {
-          "name": "issue_subscriptions_workspace_id_workspaces_id_fk",
-          "tableFrom": "issue_subscriptions",
+        "issue_templates_workspace_id_workspaces_id_fk": {
+          "name": "issue_templates_workspace_id_workspaces_id_fk",
+          "tableFrom": "issue_templates",
           "tableTo": "workspaces",
           "columnsFrom": [
             "workspace_id"
@@ -3094,12 +3138,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "issue_subscriptions_issue_id_issues_id_fk": {
-          "name": "issue_subscriptions_issue_id_issues_id_fk",
-          "tableFrom": "issue_subscriptions",
-          "tableTo": "issues",
+        "issue_templates_team_id_teams_id_fk": {
+          "name": "issue_templates_team_id_teams_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "teams",
           "columnsFrom": [
-            "issue_id"
+            "team_id"
           ],
           "columnsTo": [
             "id"
@@ -3107,33 +3151,78 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "issue_subscriptions_user_id_users_id_fk": {
-          "name": "issue_subscriptions_user_id_users_id_fk",
-          "tableFrom": "issue_subscriptions",
-          "tableTo": "users",
+        "issue_templates_status_id_workflow_statuses_id_fk": {
+          "name": "issue_templates_status_id_workflow_statuses_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "workflow_statuses",
           "columnsFrom": [
-            "user_id"
+            "status_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "issue_templates_assignee_id_users_id_fk": {
+          "name": "issue_templates_assignee_id_users_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "users",
+          "columnsFrom": [
+            "assignee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "issue_templates_project_id_projects_id_fk": {
+          "name": "issue_templates_project_id_projects_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "issue_templates_created_by_id_users_id_fk": {
+          "name": "issue_templates_created_by_id_users_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "issue_subscriptions_issue_id_user_id_unique": {
-          "name": "issue_subscriptions_issue_id_user_id_unique",
-          "nullsNotDistinct": false,
+        "issue_templates_workspace_id_team_id_name_unique": {
+          "name": "issue_templates_workspace_id_team_id_name_unique",
+          "nullsNotDistinct": true,
           "columns": [
-            "issue_id",
-            "user_id"
+            "workspace_id",
+            "team_id",
+            "name"
           ]
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "issue_templates_priority_range": {
+          "name": "issue_templates_priority_range",
+          "value": "\"issue_templates\".\"priority\" is null or \"issue_templates\".\"priority\" between 0 and 4"
+        }
+      },
       "isRLSEnabled": false
     }
   },
