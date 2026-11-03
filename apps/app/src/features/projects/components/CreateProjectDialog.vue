@@ -7,6 +7,7 @@ import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import ImageUploadButton from '@/components/common/ImageUploadButton.vue'
+import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,7 +22,12 @@ import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { errorMessage } from '@/lib/errors'
 import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
-import { projectListOptions, storeProject } from '../queries'
+import { toPriority, type Priority } from '@/lib/priorities'
+import { projectLabelListOptions, projectListOptions, storeProject } from '../queries'
+import ProjectDatePicker from './ProjectDatePicker.vue'
+import ProjectLabelsPicker from './ProjectLabelsPicker.vue'
+import ProjectLeadPicker from './ProjectLeadPicker.vue'
+import ProjectMembersPicker from './ProjectMembersPicker.vue'
 import ProjectStatusPicker from './ProjectStatusPicker.vue'
 import ProjectTeamsPicker from './ProjectTeamsPicker.vue'
 
@@ -52,6 +58,12 @@ const {
     status: 'planned',
     iconUploadId: null,
     teamIds: [],
+    priority: 0,
+    leadId: null,
+    memberIds: [],
+    startDate: null,
+    targetDate: null,
+    labelIds: [],
   },
 })
 // Like the issue dialog, errors appear only after submitting, then clear once fixed.
@@ -68,6 +80,13 @@ const { data: teams } = useQuery(
   computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
 
+const { data: members } = useQuery(
+  computed(() =>
+    orpc.workspaces.listMembers.queryOptions({ input: { workspaceSlug: slug.value } }),
+  ),
+)
+const { data: labels } = useQuery(computed(() => projectLabelListOptions(slug.value)))
+
 const status = computed({
   get: () => values.status ?? 'planned',
   set: (value: ProjectStatus) => setFieldValue('status', value, false),
@@ -75,6 +94,30 @@ const status = computed({
 const teamIds = computed({
   get: () => values.teamIds ?? [],
   set: (ids: string[]) => setFieldValue('teamIds', ids, false),
+})
+const priority = computed({
+  get: () => toPriority(values.priority),
+  set: (value: Priority) => setFieldValue('priority', value, false),
+})
+const leadId = computed({
+  get: () => values.leadId ?? null,
+  set: (id: string | null) => setFieldValue('leadId', id, false),
+})
+const memberIds = computed({
+  get: () => values.memberIds ?? [],
+  set: (ids: string[]) => setFieldValue('memberIds', ids, false),
+})
+const startDate = computed({
+  get: () => values.startDate ?? null,
+  set: (day: string | null) => setFieldValue('startDate', day, false),
+})
+const targetDate = computed({
+  get: () => values.targetDate ?? null,
+  set: (day: string | null) => setFieldValue('targetDate', day, false),
+})
+const labelIds = computed({
+  get: () => values.labelIds ?? [],
+  set: (ids: string[]) => setFieldValue('labelIds', ids, false),
 })
 
 function revokePreview() {
@@ -198,7 +241,13 @@ function onKeydown(event: KeyboardEvent) {
           class="flex flex-wrap items-center gap-1.5 px-4 pt-2 pb-3 [&_button]:border [&_button]:border-hairline"
         >
           <ProjectStatusPicker v-model="status" />
+          <PriorityPicker v-model="priority" no-hotkey />
+          <ProjectLeadPicker v-model="leadId" :members="members ?? []" />
+          <ProjectMembersPicker v-model="memberIds" :members="members ?? []" />
+          <ProjectDatePicker v-model="startDate" label="Start date" />
+          <ProjectDatePicker v-model="targetDate" label="Target date" />
           <ProjectTeamsPicker v-model="teamIds" :teams="teams ?? []" />
+          <ProjectLabelsPicker v-model="labelIds" :labels="labels ?? []" :workspace-slug="slug" />
         </div>
         <DialogFooter class="flex-row items-center gap-3 px-4 pt-1 pb-3.5">
           <p v-if="formError" class="text-[13px] text-danger" role="alert">{{ formError }}</p>

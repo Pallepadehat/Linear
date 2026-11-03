@@ -1,3 +1,4 @@
+import type { ProjectStatus } from '@linear/contract'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
@@ -22,5 +23,8 @@ export const useUiStore = defineStore('ui', () => {
   /** Breadcrumb a page puts in the panel header; null falls back to the route title. */
   const breadcrumb = ref<string[] | null>(null)
 
-  return { createIssueOpen, createIssueDefaults, openCreateIssue, breadcrumb }
+  /** Projects table filter: the statuses shown (empty = all). */
+  const projectStatusFilter = ref<ProjectStatus[]>([])
+
+  return { createIssueOpen, createIssueDefaults, openCreateIssue, breadcrumb, projectStatusFilter }
 })
