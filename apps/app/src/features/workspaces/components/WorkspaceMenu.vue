@@ -45,7 +45,7 @@ async function logOut() {
   <DropdownMenu>
     <DropdownMenuTrigger
       class="flex h-7 min-w-0 items-center gap-2 rounded-md px-1.5 text-left outline-hidden hover:bg-surface-3 focus-visible:ring-2 focus-visible:ring-ring"
-      :aria-label="`Workspace menu, ${workspace?.name ?? slug}`"
+      :aria-label="`${workspace?.name ?? slug} workspace menu`"
     >
       <WorkspaceIcon :name="workspace?.name ?? slug" />
       <span class="truncate font-medium text-ink">{{ workspace?.name ?? '…' }}</span>

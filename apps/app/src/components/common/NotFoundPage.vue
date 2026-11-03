@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
     <EmptyState
       :icon="FileQuestion"
       title="Page not found"
+      title-as="h1"
       description="The page you're looking for doesn't exist."
     >
       <Button variant="secondary" as-child>
