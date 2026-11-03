@@ -44,17 +44,21 @@ export type NotificationOwner = { workspaceId: string; userId: string }
 
 type Resolved = { event: NotificationEvent; payload: NotificationPayload } | null
 
-async function activityOf(db: DbOrTx, input: NotifyInput, kind: 'assignee' | 'status') {
+async function activityOf(
+  db: DbOrTx,
+  input: NotifyInput,
+  kinds: ('assignee' | 'status' | 'created')[],
+) {
   if (!input.activityId) return null
   const [row] = await db
-    .select({ from: activityLog.from, to: activityLog.to })
+    .select({ kind: activityLog.kind, from: activityLog.from, to: activityLog.to })
     .from(activityLog)
     .where(
       and(
         eq(activityLog.workspaceId, input.workspaceId),
         eq(activityLog.issueId, input.issueId),
         eq(activityLog.id, input.activityId),
-        eq(activityLog.kind, kind),
+        inArray(activityLog.kind, kinds),
       ),
     )
   return row ?? null
@@ -70,11 +74,13 @@ async function resolveEvent(
 ): Promise<Resolved> {
   switch (input.event) {
     case 'assigned': {
-      const assigneeId = asId((await activityOf(db, input, 'assignee'))?.to)
+      // On create the source is the `created` entry and the assignee is the issue's.
+      const row = await activityOf(db, input, ['assignee', 'created'])
+      const assigneeId = row?.kind === 'created' ? issue.assigneeId : asId(row?.to)
       return assigneeId ? { event: { type: 'assigned', assigneeId }, payload: {} } : null
     }
     case 'status_changed': {
-      const row = await activityOf(db, input, 'status')
+      const row = await activityOf(db, input, ['status'])
       if (!row) return null
       return {
         event: { type: 'status_changed' },
