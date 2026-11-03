@@ -71,7 +71,7 @@ const projectId = computed({
           <span class="truncate">{{ label.name }}</span>
         </li>
       </ul>
-      <LabelPicker v-model="labelIds" :labels="labels" />
+      <LabelPicker v-model="labelIds" :labels="labels" trigger-text="Add label" />
     </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>

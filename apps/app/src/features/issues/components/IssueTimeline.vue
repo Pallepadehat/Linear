@@ -66,7 +66,7 @@ defineProps<{
         <span class="min-w-0">
           <span class="font-medium text-ink-muted">{{ activityActor(entry.activity, names) }}</span>
           {{ describeActivity(entry.activity, names) }}
-          <span aria-hidden="true">·</span>
+          <span aria-hidden="true" class="mx-1">·</span>
           <time :datetime="entry.at.toISOString()" :title="fullDate(entry.at)">
             {{ timeAgo(entry.at) }}
           </time>
