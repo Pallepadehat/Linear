@@ -259,6 +259,22 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
   return Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined))
 }
 
+/**
+ * The route query after a filter change: every key the filters own is rewritten (a
+ * cleared filter drops its key, `?estimate=` and `?links=` included), and params
+ * owned by other features (`?view=`, …) are kept as they are.
+ */
+export function nextFilterQuery(
+  query: LocationQuery,
+  filters: IssueFilters,
+  changes: Partial<IssueFilters>,
+): LocationQueryRaw {
+  const rest = Object.fromEntries(
+    Object.entries(query).filter(([key]) => !FILTER_QUERY_KEYS.includes(key)),
+  )
+  return { ...rest, ...serializeIssueFilters({ ...filters, ...changes }) }
+}
+
 export function hasActiveFilters(filters: IssueFilters) {
   return (
     filters.statusIds.length > 0 ||

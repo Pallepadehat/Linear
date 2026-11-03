@@ -5,6 +5,7 @@ import {
   dateBounds,
   describeDateFilter,
   hasActiveFilters,
+  nextFilterQuery,
   nextOperator,
   operatorLabel,
   parseIssueFilters,
@@ -142,6 +143,45 @@ describe('issue filters in the URL', () => {
     ).toEqual({ label: 'not' })
     // Every key the serializer writes is owned by the filters.
     expect(Object.keys(query).every((key) => FILTER_QUERY_KEYS.includes(key))).toBe(true)
+  })
+
+  it('removes cleared filters from the URL and keeps other params', () => {
+    // Every filter that has a URL key, plus params owned by other features.
+    const query = {
+      view: 'active',
+      issue: 'TIP-1',
+      estimate: '3',
+      subscriber: 'me',
+      links: 'has',
+      pr: 'no',
+      'label-not': A,
+      created: 'past-week',
+      content: 'login',
+      q: 'x',
+    }
+    const filters = parseIssueFilters(query)
+    expect(nextFilterQuery(query, filters, EMPTY_FILTERS)).toEqual({
+      view: 'active',
+      issue: 'TIP-1',
+    })
+    expect(nextFilterQuery(query, filters, { estimates: [], hasLinks: null })).toEqual({
+      ...query,
+      estimate: undefined,
+      links: undefined,
+    } as never)
+    // Every key the serializer can write is one the filters own.
+    const full = serializeIssueFilters({
+      ...EMPTY_FILTERS,
+      statusIds: [A],
+      estimates: [1],
+      subscriberIds: ['me'],
+      hasLinks: false,
+      hasPullRequests: true,
+      updated: { kind: 'past', period: 'day' },
+      content: 'x',
+      q: 'y',
+    })
+    expect(Object.keys(full).filter((key) => !FILTER_QUERY_KEYS.includes(key))).toEqual([])
   })
 
   it('drops an operator whose values are gone, and prefers `is` when both keys are present', () => {

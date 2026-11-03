@@ -2,10 +2,9 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   EMPTY_FILTERS,
-  FILTER_QUERY_KEYS,
   hasActiveFilters,
+  nextFilterQuery,
   parseIssueFilters,
-  serializeIssueFilters,
   type IssueFilters,
 } from '../issue-filters'
 
@@ -22,13 +21,7 @@ export function useIssueFilters() {
   const active = computed(() => hasActiveFilters(filters.value))
 
   function update(changes: Partial<IssueFilters>) {
-    // Keep unrelated query params (owned by other features) as they are.
-    const rest = Object.fromEntries(
-      Object.entries(route.query).filter(([key]) => !FILTER_QUERY_KEYS.includes(key)),
-    )
-    void router.replace({
-      query: { ...rest, ...serializeIssueFilters({ ...filters.value, ...changes }) },
-    })
+    void router.replace({ query: nextFilterQuery(route.query, filters.value, changes) })
   }
 
   /** Clears filters and search; display options (a per-view preference) stay. */
