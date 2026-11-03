@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  completesMilestone,
-  diffProject,
-  issueProjectEvents,
-  type ProjectSnapshot,
-} from './project-diff'
+import { diffProject, issueProjectEvents, type ProjectSnapshot } from './project-diff'
 
 const current: ProjectSnapshot = {
   status: 'planned',
