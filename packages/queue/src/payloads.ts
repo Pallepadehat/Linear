@@ -9,6 +9,7 @@ export const jobSchemas = {
   maintenance: {
     'delete-objects': z.object({ uploadId: z.uuid() }),
     'cleanup-pending': z.object({}),
+    'cleanup-attachments': z.object({}),
   },
   githubWebhooks: {
     pull_request: z.object({ deliveryId: z.uuid() }),

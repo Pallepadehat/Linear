@@ -13,13 +13,10 @@ import { recordActivity, type ActivityActor } from '../activity/activity.service
 import { diffIssue } from '../activity/diff'
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
+import { pickDefaultStatus } from '../teams/default-status'
+import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
-
-/** 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (docs/domain.md → Priorities). */
-export const ISSUE_PRIORITIES = [0, 1, 2, 3, 4] as const
-export type IssuePriority = (typeof ISSUE_PRIORITIES)[number]
-
-const DEFAULT_STATUS_NAME = 'Backlog'
+import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
 
 export type CreateIssueInput = {
   workspaceId: string
@@ -27,9 +24,10 @@ export type CreateIssueInput = {
   creatorId: string
   title: string
   description?: string | null
-  /** Defaults to the team's `Backlog` status (domain.md → Statuses). */
+  /** Omitted status, priority and assignee use the team's issue defaults (domain.md). */
   statusId?: string
   priority?: number
+  /** `null` leaves the issue unassigned even when the team has a default assignee. */
   assigneeId?: string | null
   projectId?: string | null
   labelIds?: string[]
@@ -75,11 +73,34 @@ function assertPriority(priority: number) {
 
 export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
   const title = normalizeTitle(input.title)
-  const priority = input.priority ?? 0
-  assertPriority(priority)
+  const [teamDefaults] = await db
+    .select({
+      statusId: teams.defaultStatusId,
+      priority: teams.defaultPriority,
+      assigneeId: teams.defaultAssigneeId,
+    })
+    .from(teams)
+    .where(and(eq(teams.id, input.teamId), eq(teams.workspaceId, input.workspaceId)))
+  if (!teamDefaults) throw new DomainError('NOT_FOUND', 'Team not found')
 
-  const status = await resolveStatus(db, input.workspaceId, input.teamId, input.statusId)
-  if (input.assigneeId) await assertWorkspaceMember(db, input.workspaceId, input.assigneeId)
+  const priority = input.priority ?? teamDefaults.priority
+  assertPriority(priority)
+  const status = await resolveStatus(
+    db,
+    input.workspaceId,
+    input.teamId,
+    input.statusId ?? null,
+    teamDefaults.statusId,
+  )
+  let assigneeId = input.assigneeId ?? null
+  if (input.assigneeId === undefined && teamDefaults.assigneeId) {
+    // A default assignee who has since left the workspace is skipped, not an error.
+    assigneeId = (await isWorkspaceMember(db, input.workspaceId, teamDefaults.assigneeId))
+      ? teamDefaults.assigneeId
+      : null
+  } else if (assigneeId) {
+    await assertWorkspaceMember(db, input.workspaceId, assigneeId)
+  }
   if (input.projectId) await assertProject(db, input.workspaceId, input.projectId)
   const labelIds = await resolveLabelIds(db, input.workspaceId, input.labelIds ?? [])
 
@@ -103,7 +124,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         description: input.description ?? null,
         statusId: status.id,
         priority,
-        assigneeId: input.assigneeId ?? null,
+        assigneeId,
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
         completedAt: nextCompletedAt(status.category, null),
@@ -111,6 +132,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       .returning()
     if (!issue) throw new Error('issue insert returned no row')
     await setIssueLabels(tx, input.workspaceId, issue.id, labelIds)
+    await syncIssueAttachments(tx, input.workspaceId, issue.id, issue.description)
     await recordActivity(tx, {
       workspaceId: input.workspaceId,
       issueId: issue.id,
@@ -186,7 +208,13 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       changes.priority = input.priority
     }
     if (input.statusId !== undefined) {
-      const status = await resolveStatus(tx, input.workspaceId, current.teamId, input.statusId)
+      const status = await resolveStatus(
+        tx,
+        input.workspaceId,
+        current.teamId,
+        input.statusId,
+        null,
+      )
       changes.statusId = status.id
       changes.completedAt = nextCompletedAt(status.category, current.completedAt)
     }
@@ -215,6 +243,9 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     )
 
     await tx.update(issues).set(changes).where(eq(issues.id, current.id))
+    if (input.description !== undefined) {
+      await syncIssueAttachments(tx, input.workspaceId, current.id, input.description)
+    }
     if (labelIds !== undefined) {
       await tx
         .delete(issueLabels)
@@ -233,13 +264,22 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
   return getIssue(db, input.workspaceId, input.id)
 }
 
+/**
+ * Deletes the issue (labels, links, comments cascade) and marks its attachments
+ * deleted unless another issue still references them. The caller enqueues
+ * `delete-objects` for each `deletedUploadIds` entry after the commit.
+ */
 export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
-  const [issue] = await db
-    .delete(issues)
-    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
-    .returning({ id: issues.id })
-  if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
-  return issue
+  return db.transaction(async (tx) => {
+    const attachmentIds = await listIssueAttachmentIds(tx, workspaceId, id)
+    const [issue] = await tx
+      .delete(issues)
+      .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
+      .returning({ id: issues.id })
+    if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
+    const deletedUploadIds = await releaseAttachments(tx, workspaceId, attachmentIds)
+    return { id: issue.id, deletedUploadIds }
+  })
 }
 
 /** Issues with their team key, status and labels, scoped to the workspace. */
@@ -312,7 +352,8 @@ async function resolveStatus(
   db: DbOrTx,
   workspaceId: string,
   teamId: string,
-  statusId: string | undefined,
+  statusId: string | null,
+  defaultStatusId: string | null,
 ) {
   const scope = and(
     eq(workflowStatuses.workspaceId, workspaceId),
@@ -328,24 +369,22 @@ async function resolveStatus(
     return status
   }
 
-  // Prefer `Backlog` by name; if it was renamed, the first `backlog` status, then the first `unstarted` one.
-  const candidates = await db
-    .select()
-    .from(workflowStatuses)
-    .where(and(scope, inArray(workflowStatuses.category, ['backlog', 'unstarted'])))
-    .orderBy(asc(workflowStatuses.position))
-  const status =
-    candidates.find((s) => s.name === DEFAULT_STATUS_NAME) ??
-    candidates.find((s) => s.category === 'backlog') ??
-    candidates[0]
-  if (!status) throw new DomainError('NOT_FOUND', 'Team not found')
+  const statuses = await db.select().from(workflowStatuses).where(scope)
+  const status = pickDefaultStatus(statuses, defaultStatusId)
+  if (!status) throw new DomainError('BAD_REQUEST', 'Team has no status for new issues')
   return status
 }
 
-async function assertWorkspaceMember(db: DbOrTx, workspaceId: string, userId: string) {
+async function isWorkspaceMember(db: DbOrTx, workspaceId: string, userId: string) {
   const [member] = await db
     .select({ id: workspaceMembers.id })
     .from(workspaceMembers)
     .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)))
-  if (!member) throw new DomainError('BAD_REQUEST', 'Assignee is not a member of this workspace')
+  return Boolean(member)
+}
+
+async function assertWorkspaceMember(db: DbOrTx, workspaceId: string, userId: string) {
+  if (!(await isWorkspaceMember(db, workspaceId, userId))) {
+    throw new DomainError('BAD_REQUEST', 'Assignee is not a member of this workspace')
+  }
 }

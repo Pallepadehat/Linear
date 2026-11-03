@@ -61,14 +61,23 @@ try {
     if (!team) {
       const teamId = uuidv7()
       await tx.insert(teams).values({ id: teamId, workspaceId: workspace!.id, ...DEMO.team })
-      await tx.insert(workflowStatuses).values(
-        DEFAULT_WORKFLOW_STATUSES.map((s, position) => ({
-          workspaceId: workspace!.id,
-          teamId,
-          ...s,
-          position,
-        })),
-      )
+      const statuses = await tx
+        .insert(workflowStatuses)
+        .values(
+          DEFAULT_WORKFLOW_STATUSES.map((s, position) => ({
+            workspaceId: workspace!.id,
+            teamId,
+            ...s,
+            position,
+          })),
+        )
+        .returning()
+      // Issue default status: Backlog (docs/domain.md → Team issue defaults).
+      const backlog = statuses.find((s) => s.name === 'Backlog')
+      await tx
+        .update(teams)
+        .set({ defaultStatusId: backlog?.id ?? null })
+        .where(eq(teams.id, teamId))
       await tx.insert(teamMembers).values({ workspaceId: workspace!.id, teamId, userId: user!.id })
     }
   })

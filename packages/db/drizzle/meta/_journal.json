@@ -57,6 +57,20 @@
       "when": 1793692644401,
       "tag": "0007_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793693589677,
+      "tag": "0008_issue_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793694910601,
+      "tag": "0009_team_issue_defaults",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { users } from './auth'
 import { id, timestamps } from './columns'
 import { projects } from './projects'
 import { teams, workflowStatuses } from './teams'
+import { uploads } from './uploads'
 import { workspaces } from './workspaces'
 
 export const issues = pgTable(
@@ -41,5 +42,32 @@ export const issues = pgTable(
     index().on(t.projectId),
     check('issues_number_positive', sql`${t.number} > 0`),
     check('issues_priority_range', sql`${t.priority} between 0 and 4`),
+  ],
+)
+
+/**
+ * `attachment` uploads referenced from an issue description (`attachment:<uploadId>`),
+ * kept in sync on every description write. An upload may be referenced by several
+ * issues; it is deleted once no link remains (docs/domain.md → Uploads).
+ */
+export const issueAttachments = pgTable(
+  'issue_attachments',
+  {
+    id: id(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    issueId: uuid()
+      .notNull()
+      .references(() => issues.id, { onDelete: 'cascade' }),
+    uploadId: uuid()
+      .notNull()
+      .references(() => uploads.id, { onDelete: 'cascade' }),
+    ...timestamps,
+  },
+  (t) => [
+    unique('issue_attachments_issue_id_upload_id_unique').on(t.issueId, t.uploadId),
+    index().on(t.workspaceId),
+    index().on(t.uploadId),
   ],
 )
