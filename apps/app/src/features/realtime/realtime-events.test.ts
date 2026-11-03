@@ -32,6 +32,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    dueDate: null,
     labels: [],
     isSubscribed: false,
     createdAt: created,
@@ -143,6 +144,22 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byPriority), stale(byTitle)]).toEqual([false, true, true])
+
+    const overdue = keyFor({ due: ['overdue'] })
+    const byDueDate = keyFor({ sort: 'dueDate' })
+    for (const key of [overdue, byDueDate]) {
+      queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
+        pages: [{ items: [issue('a')], nextCursor: null }],
+        pageParams: [null],
+      })
+    }
+    // Finishing an issue takes it out of Overdue; a new due date reorders and refilters.
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['status'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(overdue), stale(byDueDate)]).toEqual([true, false])
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['dueDate'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(stale(byDueDate)).toBe(true)
   })
 
   it("leaves caches alone while this tab's own edit is in flight", async () => {

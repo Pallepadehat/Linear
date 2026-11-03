@@ -10,6 +10,7 @@ export const realtimeIssueFieldSchema = z.enum([
   'assignee',
   'project',
   'labels',
+  'dueDate',
   'pullRequests',
   // The issue's parent changed / one of its sub-issues was added, removed or changed status.
   'parent',

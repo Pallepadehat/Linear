@@ -1,5 +1,5 @@
 {
-  "id": "f03ba91c-b79d-4809-891c-3dbbff4d608f",
+  "id": "9821c1b8-c6ae-4159-bc20-2bb1547474c8",
   "prevId": "a537bd78-a9a9-4276-bc3f-335e0b624644",
   "version": "7",
   "dialect": "postgresql",
@@ -1403,9 +1403,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "parent_id": {
-          "name": "parent_id",
-          "type": "uuid",
+        "due_date": {
+          "name": "due_date",
+          "type": "date",
           "primaryKey": false,
           "notNull": false
         },
@@ -1491,21 +1491,6 @@
           "method": "btree",
           "with": {}
         },
-        "issues_parent_id_index": {
-          "name": "issues_parent_id_index",
-          "columns": [
-            {
-              "expression": "parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "issues_workspace_id_priority_index": {
           "name": "issues_workspace_id_priority_index",
           "columns": [
@@ -1565,6 +1550,33 @@
             },
             {
               "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "issues_workspace_id_due_date_id_index": {
+          "name": "issues_workspace_id_due_date_id_index",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "due_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1654,19 +1666,6 @@
           "tableTo": "projects",
           "columnsFrom": [
             "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "issues_parent_id_issues_id_fk": {
-          "name": "issues_parent_id_issues_id_fk",
-          "tableFrom": "issues",
-          "tableTo": "issues",
-          "columnsFrom": [
-            "parent_id"
           ],
           "columnsTo": [
             "id"
@@ -3521,8 +3520,7 @@
         "assignee",
         "project",
         "labels",
-        "parent",
-        "sub_issue"
+        "due_date"
       ]
     }
   },

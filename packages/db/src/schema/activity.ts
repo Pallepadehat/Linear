@@ -19,6 +19,7 @@ export const activityKind = pgEnum('activity_kind', [
   'assignee',
   'project',
   'labels',
+  'due_date',
   'parent',
   'sub_issue',
 ])

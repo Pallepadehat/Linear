@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import {
   check,
+  date,
   index,
   integer,
   pgTable,
@@ -43,6 +44,8 @@ export const issues = pgTable(
     projectId: uuid().references(() => projects.id, { onDelete: 'set null' }),
     // Sub-issues: same workspace, never a cycle (packages/core/src/issues/parent.ts).
     parentId: uuid().references((): AnyPgColumn => issues.id, { onDelete: 'set null' }),
+    // A calendar day (YYYY-MM-DD), no time or timezone (docs/domain.md → Due dates).
+    dueDate: date({ mode: 'string' }),
     completedAt: timestamp({ withTimezone: true }),
     ...timestamps,
   },
@@ -57,6 +60,7 @@ export const issues = pgTable(
     index().on(t.workspaceId, t.priority),
     index().on(t.workspaceId, t.createdAt, t.id),
     index().on(t.workspaceId, t.updatedAt, t.id),
+    index().on(t.workspaceId, t.dueDate, t.id),
     check('issues_number_positive', sql`${t.number} > 0`),
     check('issues_priority_range', sql`${t.priority} between 0 and 4`),
   ],

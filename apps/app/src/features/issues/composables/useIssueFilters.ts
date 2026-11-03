@@ -14,6 +14,7 @@ const FILTER_KEYS = [
   'assignee',
   'project',
   'label',
+  'due',
   'q',
   'sort',
   'dir',
