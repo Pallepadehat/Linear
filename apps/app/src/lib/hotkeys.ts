@@ -48,6 +48,8 @@ export const SHORTCUTS = {
   'go-my-issues': { keys: 'g m', label: 'Go to My issues', scope: 'global' },
   'go-projects': { keys: 'g p', label: 'Go to Projects', scope: 'global' },
   'go-team-issues': { keys: 'g t', label: "Go to team's issues", scope: 'global' },
+  // Handled by key code in WorkspaceLayout (⌥F types "ƒ" on macOS); listed here for the sheet.
+  'toggle-favorite': { keys: 'alt+f', label: 'Favorite / unfavorite', scope: 'global' },
   'list-filter': { keys: 'f', label: 'Filter issues', scope: 'list' },
   'list-next': { keys: ['j', 'arrowdown'], label: 'Move down', scope: 'list' },
   'list-prev': { keys: ['k', 'arrowup'], label: 'Move up', scope: 'list' },

@@ -14,6 +14,7 @@ import {
 import { and, asc, count, eq, inArray, isNotNull, sql, type AnyColumn } from 'drizzle-orm'
 import { DomainError, isUniqueViolation } from '../errors'
 import { assertProjectDates, assertProjectPriority } from './project-rules'
+import { deleteFavoritesOf } from '../favorites/favorites.service'
 
 type Changes = {
   name?: string
@@ -280,12 +281,15 @@ export function updateProject(db: DbOrTx, workspaceId: string, id: string, input
   return saveProject(db, workspaceId, input, id)
 }
 export async function deleteProject(db: DbOrTx, workspaceId: string, id: string) {
-  const [row] = await db
-    .delete(projects)
-    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)))
-    .returning({ id: projects.id })
-  if (!row) throw new DomainError('NOT_FOUND', 'Project not found')
-  return row
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .delete(projects)
+      .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)))
+      .returning({ id: projects.id })
+    if (!row) throw new DomainError('NOT_FOUND', 'Project not found')
+    await deleteFavoritesOf(tx, workspaceId, 'project', [row.id])
+    return row
+  })
 }
 
 function duplicateLabelName(error: unknown, name: string): never {

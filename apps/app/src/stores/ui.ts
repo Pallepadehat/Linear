@@ -1,6 +1,7 @@
 import type { ProjectStatus } from '@linear/contract'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { FavoriteTarget } from '@/features/favorites/favorite-list'
 import type { RouteLocationRaw } from 'vue-router'
 import type { IssuePrefill } from '@/features/issues/prefill'
 
@@ -62,6 +63,9 @@ export const useUiStore = defineStore('ui', () => {
   /** The issue list's Details panel (⌘I); the toolbar toggles it, the panel itself lands in M7-05. */
   const issueDetailsOpen = ref(false)
 
+  /** The entity the current page shows, for the header star and ⌥F; reset on navigation. */
+  const favoriteTarget = ref<FavoriteTarget | null>(null)
+
   return {
     createIssueOpen,
     createIssueDefaults,
@@ -74,6 +78,7 @@ export const useUiStore = defineStore('ui', () => {
     shortcutsOpen,
     activeIssue,
     issueToDelete,
+    favoriteTarget,
     issueDetailsOpen,
   }
 })
