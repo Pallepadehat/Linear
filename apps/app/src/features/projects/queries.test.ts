@@ -30,6 +30,7 @@ const project: Project = {
   labelIds: [],
   progress: { completed: 0, total: 0 },
   issueCount: 0,
+  currentMilestone: null,
   createdAt: new Date(0),
 }
 

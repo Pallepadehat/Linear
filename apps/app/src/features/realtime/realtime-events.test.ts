@@ -32,6 +32,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    milestoneId: null,
     cycleId: null,
     estimate: null,
     dueDate: null,
