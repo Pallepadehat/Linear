@@ -1,6 +1,6 @@
 import { createDb } from '@linear/db'
 import { loadWorkerEnv } from '@linear/env'
-import { createRedisConnection } from '@linear/queue'
+import { createRealtimePublisher, createRedisConnection } from '@linear/queue'
 import { createStorage } from '@linear/storage'
 import type { Worker } from 'bullmq'
 import { pino } from 'pino'
@@ -20,7 +20,7 @@ const storage = createStorage({
   secretAccessKey: env.S3_SECRET_KEY,
   bucket: env.S3_BUCKET,
 })
-const deps = { db, storage, logger }
+const deps = { db, storage, logger, publish: createRealtimePublisher(connection) }
 
 const workers: Worker[] = [
   createMediaWorker(deps, connection),

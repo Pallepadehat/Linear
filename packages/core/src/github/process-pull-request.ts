@@ -49,6 +49,16 @@ type PullRequestRow = typeof pullRequests.$inferSelect
 
 export type DeliveryOutcome = 'processed' | 'ignored' | 'failed' | 'skipped'
 
+/** An issue whose linked PRs or status this delivery changed, for realtime events. */
+export type ChangedIssue = { issueId: string; statusChanged: boolean }
+
+export type DeliveryResult = {
+  outcome: DeliveryOutcome
+  /** Set when the delivery was processed; the repository's workspace. */
+  workspaceId: string | null
+  changedIssues: ChangedIssue[]
+}
+
 /**
  * Applies one `pull_request` delivery in a single transaction: upsert the PR, recompute
  * its issue links, run automation, mark the delivery (docs/domain.md → Webhook processing).
@@ -58,22 +68,25 @@ export type DeliveryOutcome = 'processed' | 'ignored' | 'failed' | 'skipped'
 export async function processPullRequestDelivery(
   db: Db,
   deliveryId: string,
-): Promise<DeliveryOutcome> {
-  return db.transaction(async (tx) => {
+): Promise<DeliveryResult> {
+  return db.transaction(async (tx): Promise<DeliveryResult> => {
     const [delivery] = await tx
       .select()
       .from(webhookDeliveries)
       .where(eq(webhookDeliveries.deliveryId, deliveryId))
       .for('update')
     if (!delivery || delivery.status === 'processed' || delivery.status === 'ignored') {
-      return 'skipped'
+      return { outcome: 'skipped', workspaceId: null, changedIssues: [] }
     }
-    const finish = async (status: Exclude<DeliveryOutcome, 'skipped'>, error?: string) => {
+    const finish = async (
+      status: Exclude<DeliveryOutcome, 'skipped'>,
+      error?: string,
+    ): Promise<DeliveryResult> => {
       await tx
         .update(webhookDeliveries)
         .set({ status, error: error ?? null })
         .where(eq(webhookDeliveries.id, delivery.id))
-      return status
+      return { outcome: status, workspaceId: null, changedIssues: [] }
     }
 
     // A payload that doesn't parse never will; fail it without a retry.
@@ -90,12 +103,32 @@ export async function processPullRequestDelivery(
 
     const { pullRequest, previousState } = await upsertPullRequest(tx, repository, event)
     // Links of a merged PR are frozen (docs/domain.md → GitHub PR linking).
-    const created =
+    const { created, removedIssueIds } =
       previousState === 'merged'
-        ? []
+        ? { created: [], removedIssueIds: [] }
         : await reconcileLinks(tx, pullRequest, event.pull_request.body)
-    await automate(tx, pullRequest, previousState, created)
-    return finish('processed')
+    const moved = await automate(tx, pullRequest, previousState, created)
+
+    // Every linked issue shows this PR (its title or state may have changed), and
+    // issues it was just unlinked from no longer do.
+    const linked = await tx
+      .select({ issueId: issuePullRequestLinks.issueId })
+      .from(issuePullRequestLinks)
+      .where(
+        and(
+          eq(issuePullRequestLinks.workspaceId, pullRequest.workspaceId),
+          eq(issuePullRequestLinks.pullRequestId, pullRequest.id),
+        ),
+      )
+    const issueIds = new Set([...linked.map((l) => l.issueId), ...removedIssueIds])
+    const result = await finish('processed')
+    return {
+      ...result,
+      workspaceId: pullRequest.workspaceId,
+      changedIssues: [...issueIds]
+        .sort()
+        .map((issueId) => ({ issueId, statusChanged: moved.has(issueId) })),
+    }
   })
 }
 
@@ -164,7 +197,8 @@ type CreatedLink = { issueId: string; type: LinkType }
 
 /**
  * Makes the PR's links match the identifiers it mentions now. Only issues in the
- * repository's workspace can match. Returns links that are new or became `closing`.
+ * repository's workspace can match. Returns links that are new or became `closing`,
+ * and the issues whose link was removed.
  */
 async function reconcileLinks(tx: DbOrTx, pr: PullRequestRow, body: string | null) {
   const candidates = parsePrIdentifiers({ branch: pr.branch, title: pr.title, body })
@@ -199,7 +233,8 @@ async function reconcileLinks(tx: DbOrTx, pr: PullRequestRow, body: string | nul
         eq(issuePullRequestLinks.pullRequestId, pr.id),
       ),
     )
-  const stale = existing.filter((link) => !wanted.has(link.issueId)).map((link) => link.id)
+  const staleLinks = existing.filter((link) => !wanted.has(link.issueId))
+  const stale = staleLinks.map((link) => link.id)
   if (stale.length > 0) {
     await tx.delete(issuePullRequestLinks).where(inArray(issuePullRequestLinks.id, stale))
   }
@@ -221,7 +256,7 @@ async function reconcileLinks(tx: DbOrTx, pr: PullRequestRow, body: string | nul
       if (type === 'closing') created.push({ issueId, type })
     }
   }
-  return created
+  return { created, removedIssueIds: staleLinks.map((link) => link.issueId) }
 }
 
 async function automate(
@@ -252,9 +287,11 @@ async function automate(
   }
 
   // A fixed order keeps concurrent deliveries from locking the same issues in opposite order.
+  const moved = new Set<string>()
   for (const issueId of [...events.keys()].sort()) {
-    await automateIssue(tx, pr, issueId, events.get(issueId)!)
+    if (await automateIssue(tx, pr, issueId, events.get(issueId)!)) moved.add(issueId)
   }
+  return moved
 }
 
 async function automateIssue(
@@ -269,7 +306,7 @@ async function automateIssue(
     .innerJoin(workflowStatuses, eq(workflowStatuses.id, issues.statusId))
     .where(and(eq(issues.workspaceId, pr.workspaceId), eq(issues.id, issueId)))
     .for('update', { of: issues })
-  if (!issue) return
+  if (!issue) return false
 
   const links = await tx
     .select({ type: issuePullRequestLinks.type, prState: pullRequests.state })
@@ -283,6 +320,7 @@ async function automateIssue(
     )
 
   let category = issue.category
+  let moved = false
   for (const event of events) {
     const result = evaluate({ category }, links, event)
     if (!result) continue
@@ -307,5 +345,7 @@ async function automateIssue(
       actor: { type: 'github', pullRequestId: pr.id },
     })
     category = result.to
+    moved = true
   }
+  return moved
 }

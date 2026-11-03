@@ -146,5 +146,5 @@ export async function deleteComment(db: DbOrTx, input: DeleteCommentInput) {
   await db
     .delete(comments)
     .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.id)))
-  return { id: existing.id }
+  return { id: existing.id, issueId: existing.issueId }
 }
