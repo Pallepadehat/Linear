@@ -1,4 +1,5 @@
 import { projectsRouter } from '../modules/projects/projects.router'
+import { realtimeRouter } from '../modules/realtime/realtime.router'
 import { activityRouter } from '../modules/activity/activity.router'
 import { commentsRouter } from '../modules/comments/comments.router'
 import { githubRouter } from '../modules/github/github.router'
@@ -21,6 +22,7 @@ export const router = os.router({
   github: githubRouter,
   activity: activityRouter,
   comments: commentsRouter,
+  realtime: realtimeRouter,
 })
 
 export type Router = typeof router

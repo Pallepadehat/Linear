@@ -8,6 +8,7 @@ import type { Redis } from 'ioredis'
 import { createAuth } from './auth/auth'
 import type { ApiEnv } from './env'
 import { registerGithubWebhook } from './modules/github/github-webhook'
+import { createRealtimeHub } from './modules/realtime/realtime.hub'
 import { registerAuth } from './plugins/auth'
 import { registerCors } from './plugins/cors'
 import { registerORPC } from './plugins/orpc'
@@ -50,17 +51,25 @@ export async function buildApp(deps: AppDeps) {
     trustedOrigins: [deps.env.APP_URL],
   })
 
+  const realtime = createRealtimeHub(deps.redis, app.log)
+  app.addHook('onClose', async () => realtime.close())
+
   await registerGithubWebhook(app, deps)
   await registerCors(app, deps.env.APP_URL)
   await registerAuth(app, auth)
-  await registerORPC(app, {
-    db: deps.db,
-    auth,
-    queues: deps.queues,
-    storage: deps.storage,
-    github: deps.github ?? null,
-    installStateSecret: deps.env.BETTER_AUTH_SECRET,
-  })
+  await registerORPC(
+    app,
+    {
+      db: deps.db,
+      auth,
+      queues: deps.queues,
+      storage: deps.storage,
+      github: deps.github ?? null,
+      installStateSecret: deps.env.BETTER_AUTH_SECRET,
+      realtime,
+    },
+    deps.env.APP_URL,
+  )
 
   app.get('/health', async (_request, reply) => {
     const [database, redis] = await Promise.allSettled([

@@ -12,7 +12,7 @@ import {
   workflowStatuses,
 } from '@linear/db'
 import { createTeam, createUser, createWorkspace } from '@linear/db/testing'
-import { createRedisConnection } from '@linear/queue'
+import { createRealtimePublisher, createRedisConnection } from '@linear/queue'
 import { createGithubWorker, createTestJobDeps } from '@linear/worker/testing'
 import { and, eq } from 'drizzle-orm'
 import { afterAll, expect, vi } from 'vitest'
@@ -71,7 +71,9 @@ export function pullRequestEvent(
 export async function setupGithubAcceptance() {
   const { app, db } = await setupTestApp()
   const connection = createRedisConnection(process.env.REDIS_URL ?? 'redis://localhost:6379')
-  const worker = createGithubWorker(createTestJobDeps(db), connection, { prefix: 'test' })
+  // Real realtime events, so tests can watch automation reach open sockets.
+  const deps = createTestJobDeps(db, createRealtimePublisher(connection))
+  const worker = createGithubWorker(deps, connection, { prefix: 'test' })
   // Registered after the harness hooks, so it runs first: stop the worker before the DB closes.
   afterAll(async () => {
     await worker.close()

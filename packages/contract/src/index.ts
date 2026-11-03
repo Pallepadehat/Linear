@@ -4,6 +4,7 @@ import type {
   InferContractRouterOutputs,
 } from '@orpc/contract'
 import { projectsContract } from './routers/projects'
+import { realtimeContract } from './routers/realtime'
 import { activityContract } from './routers/activity'
 import { commentsContract } from './routers/comments'
 import { githubContract } from './routers/github'
@@ -25,6 +26,7 @@ export const contract = {
   github: githubContract,
   activity: activityContract,
   comments: commentsContract,
+  realtime: realtimeContract,
 }
 
 export type Contract = typeof contract
@@ -43,3 +45,4 @@ export * from './schemas/users'
 export * from './schemas/workspaces'
 export * from './schemas/activity'
 export * from './schemas/comments'
+export * from './schemas/realtime'

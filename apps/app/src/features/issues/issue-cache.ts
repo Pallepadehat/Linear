@@ -47,6 +47,21 @@ export function patchIssueInPages(
   return changed ? { ...data, pages } : data
 }
 
+/** Drops the issue with `id` from an infinite list cache (same object when absent). */
+export function removeIssueFromPages(
+  data: InfiniteData<IssuePage> | undefined,
+  id: string,
+): InfiniteData<IssuePage> | undefined {
+  if (!data?.pages.some((page) => page.items.some((item) => item.id === id))) return data
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.filter((item) => item.id !== id),
+    })),
+  }
+}
+
 /** The detail-cache counterpart of `patchIssueInPages`. */
 export function patchIssue(
   data: Issue | undefined,

@@ -20,6 +20,7 @@ import {
   truncateAll,
 } from '@linear/db/testing'
 import { loadRootEnvFile } from '@linear/env'
+import type { RealtimeEvent } from '@linear/queue'
 import { createMemoryStorage } from '@linear/storage/testing'
 import { and, eq } from 'drizzle-orm'
 import { pino } from 'pino'
@@ -28,9 +29,20 @@ import { processGithubWebhook } from '../src/jobs/github/github-webhook'
 
 loadRootEnvFile()
 const { db, close } = createDb(testDatabaseUrl(), { max: 2 })
-const deps = { db, storage: createMemoryStorage().storage, logger: pino({ level: 'silent' }) }
+const published: { workspaceId: string; event: RealtimeEvent }[] = []
+const deps = {
+  db,
+  storage: createMemoryStorage().storage,
+  logger: pino({ level: 'silent' }),
+  publish: async (workspaceId: string, event: RealtimeEvent) => {
+    published.push({ workspaceId, event })
+  },
+}
 
-beforeEach(() => truncateAll(db))
+beforeEach(async () => {
+  published.length = 0
+  await truncateAll(db)
+})
 afterAll(close)
 
 let sequence = 0
@@ -276,6 +288,39 @@ describe('github-webhook job', () => {
 
     await deliver(payload(githubRepoId, 'edited', { ...base, body: null }))
     expect(await linksOf(issue.id)).toEqual([])
+  })
+
+  it('publishes realtime events for the issues it changed, after the commit', async () => {
+    const { workspace, issue, githubRepoId } = await arrange()
+    const event = (fields: string[]) => ({
+      workspaceId: workspace.id,
+      event: { type: 'issue.updated', issueId: issue.id, fields, actorId: null, originId: null },
+    })
+
+    const deliveryId = await deliver(payload(githubRepoId, 'opened'))
+    await deliver(payload(githubRepoId, 'synchronize'))
+    await deliver(payload(githubRepoId, 'closed', { merged: true }))
+    // A redelivery is skipped and has no effect, so it publishes nothing.
+    await processGithubWebhook(deps, deliveryId)
+
+    expect(published).toEqual([
+      event(['status', 'pullRequests']),
+      event(['pullRequests']),
+      event(['status', 'pullRequests']),
+    ])
+  })
+
+  it('publishes for an issue a PR was unlinked from', async () => {
+    const { issue, githubRepoId } = await arrange()
+    const base = { branch: 'cleanup', title: 'Cleanup' }
+    await deliver(payload(githubRepoId, 'opened', { ...base, body: 'see TIP-200' }))
+    published.length = 0
+
+    await deliver(payload(githubRepoId, 'edited', { ...base, body: null }))
+
+    expect(published.map((p) => p.event)).toEqual([
+      expect.objectContaining({ issueId: issue.id, fields: ['pullRequests'] }),
+    ])
   })
 
   it('does not revert a manual status change on later events (rule F)', async () => {

@@ -9,6 +9,7 @@ import {
 import { enqueue } from '@linear/queue'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
+import { changedIssueFields, publishChange } from '../realtime/publish'
 import { toIssueDto } from './issues.dto'
 
 const inWorkspace = requireWorkspace()
@@ -24,6 +25,7 @@ export const issuesRouter = {
         workspaceId: context.workspace.id,
         creatorId: context.user.id,
       })
+      await publishChange(context, { type: 'issue.created', issueId: issue.id })
       return toIssueDto(await getIssue(context.db, context.workspace.id, issue.id))
     }),
 
@@ -51,6 +53,11 @@ export const issuesRouter = {
         workspaceId: context.workspace.id,
         actor: { type: 'user', id: context.user.id },
       })
+      await publishChange(context, {
+        type: 'issue.updated',
+        issueId: issue.id,
+        fields: changedIssueFields(fields),
+      })
       return toIssueDto(issue)
     }),
 
@@ -61,6 +68,7 @@ export const issuesRouter = {
       for (const uploadId of deletedUploadIds) {
         await enqueue(context.queues, 'maintenance', 'delete-objects', { uploadId })
       }
+      await publishChange(context, { type: 'issue.deleted', issueId: id })
       return { id }
     }),
 

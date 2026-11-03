@@ -4,6 +4,7 @@ import { onKeyStroke } from '@vueuse/core'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import { useRealtime } from '@/features/realtime/useRealtime'
 import { useUiStore } from '@/stores/ui'
 import AppSidebar from './AppSidebar.vue'
 import { PANEL_HEADER_ACTIONS } from './panel-header'
@@ -14,6 +15,9 @@ const CreateIssueDialog = defineAsyncComponent(
 
 const route = useRoute()
 const ui = useUiStore()
+
+// Teammates' changes show up live while the workspace is open.
+useRealtime(() => String(route.params.workspaceSlug ?? ''))
 
 const routeTitle = computed(
   () => [...route.matched].reverse().find((r) => r.meta.title)?.meta.title ?? '',

@@ -25,7 +25,8 @@ export default defineConfig(({ mode }) => {
         ? undefined
         : {
             '/api': { target: apiTarget, changeOrigin: false },
-            '/rpc': { target: apiTarget, changeOrigin: false },
+            // `ws` also proxies the realtime WebSocket at /rpc/ws.
+            '/rpc': { target: apiTarget, changeOrigin: false, ws: true },
           },
     },
   }

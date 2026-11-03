@@ -21,7 +21,7 @@ import {
 loadRootEnvFile()
 const { db, close } = createDb(testDatabaseUrl(), { max: 2 })
 const { storage, objects } = createMemoryStorage()
-const deps = { db, storage, logger: pino({ level: 'silent' }) }
+const deps = { db, storage, logger: pino({ level: 'silent' }), publish: async () => {} }
 
 beforeEach(async () => {
   await truncateAll(db)

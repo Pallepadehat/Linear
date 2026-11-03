@@ -6,12 +6,27 @@ import type { JobDeps } from '../../deps'
  * the transaction rolls back, the delivery is marked `failed`, and the error is rethrown
  * so BullMQ retries; a later attempt that succeeds marks it `processed`.
  */
-export async function processGithubWebhook({ db, logger }: JobDeps, deliveryId: string) {
+export async function processGithubWebhook({ db, logger, publish }: JobDeps, deliveryId: string) {
+  let result
   try {
-    const outcome = await processPullRequestDelivery(db, deliveryId)
-    logger.info({ deliveryId, outcome }, 'github-webhook: done')
+    result = await processPullRequestDelivery(db, deliveryId)
+    logger.info({ deliveryId, outcome: result.outcome }, 'github-webhook: done')
   } catch (err) {
     await markDeliveryFailed(db, deliveryId, err instanceof Error ? err.message : 'Unknown error')
     throw err
+  }
+
+  // After the commit, and outside the try: a lost event must not retry the delivery
+  // (it would be skipped anyway). Open clients resync on reconnect.
+  const { workspaceId, changedIssues } = result
+  if (!workspaceId) return
+  for (const { issueId, statusChanged } of changedIssues) {
+    await publish(workspaceId, {
+      type: 'issue.updated',
+      issueId,
+      fields: statusChanged ? ['status', 'pullRequests'] : ['pullRequests'],
+      actorId: null,
+      originId: null,
+    }).catch((err: unknown) => logger.error({ err, deliveryId }, 'github-webhook: publish failed'))
   }
 }

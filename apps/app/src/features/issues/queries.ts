@@ -1,5 +1,10 @@
 import type { Issue, IssuePage, ListIssuesInput } from '@linear/contract'
-import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/vue-query'
+import {
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+  type QueryClient,
+} from '@tanstack/vue-query'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
@@ -33,6 +38,24 @@ export const createIssueMutationOptions = () => orpc.issues.create.mutationOptio
 
 export type UpdateIssueVariables = { issue: Issue; patch: IssuePatch }
 
+const issueInfiniteListKey = () => orpc.issues.list.key({ type: 'infinite' })
+/** Single-issue caches: by id and by `TIP-200` identifier. */
+export const issueDetailKeys = () => [orpc.issues.get.key(), orpc.issues.getByIdentifier.key()]
+
+/** Writes `update` into every cache holding the issue: each list page and the detail entries. */
+export function writeIssueToCaches(
+  queryClient: QueryClient,
+  id: string,
+  update: (issue: Issue) => Issue,
+) {
+  queryClient.setQueriesData<InfiniteData<IssuePage>>(
+    { queryKey: issueInfiniteListKey() },
+    (data) => patchIssueInPages(data, id, update),
+  )
+  for (const queryKey of issueDetailKeys())
+    queryClient.setQueriesData<Issue>({ queryKey }, (data) => patchIssue(data, id, update))
+}
+
 /**
  * Issue edits (title, description and every property) applied optimistically to
  * every cached copy of the issue — each list page and the detail entries — rolled
@@ -40,18 +63,11 @@ export type UpdateIssueVariables = { issue: Issue; patch: IssuePatch }
  */
 export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
   const queryClient = useQueryClient()
-  const listKey = orpc.issues.list.key({ type: 'infinite' })
-  const detailKeys = [orpc.issues.get.key(), orpc.issues.getByIdentifier.key()]
+  const listKey = issueInfiniteListKey()
+  const detailKeys = issueDetailKeys()
   const mutationKey = orpc.issues.update.mutationKey()
-
-  // Writes `update` into every cache holding the issue.
-  function patchCaches(id: string, update: (issue: Issue) => Issue) {
-    queryClient.setQueriesData<InfiniteData<IssuePage>>({ queryKey: listKey }, (data) =>
-      patchIssueInPages(data, id, update),
-    )
-    for (const queryKey of detailKeys)
-      queryClient.setQueriesData<Issue>({ queryKey }, (data) => patchIssue(data, id, update))
-  }
+  const patchCaches = (id: string, update: (issue: Issue) => Issue) =>
+    writeIssueToCaches(queryClient, id, update)
 
   return useMutation({
     mutationKey,
