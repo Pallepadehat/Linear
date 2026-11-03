@@ -4,6 +4,7 @@ import {
   createProjectLabel,
   deleteProject,
   getProject,
+  getProjectProgress,
   listProjectLabels,
   listProjects,
   updateProject,
@@ -66,6 +67,11 @@ export const projectsRouter = {
         context.storage,
         await getProject(context.db, context.workspace.id, input.id),
       ),
+    ),
+  progress: authed.projects.progress
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(({ context, input }) =>
+      getProjectProgress(context.db, context.workspace.id, input.projectId),
     ),
   create: authed.projects.create
     .use(inWorkspace, (input) => input.workspaceSlug)
