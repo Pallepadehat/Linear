@@ -4,6 +4,7 @@ import { QueryClient, type InfiniteData } from '@tanstack/vue-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toValue } from 'vue'
 import { EMPTY_FILTERS, type IssueFilters } from '@/features/issues/issue-filters'
+import { unreadCountOptions } from '@/features/inbox/queries'
 import { issueListOptions } from '@/features/issues/queries'
 import { orpc } from '@/lib/orpc'
 import { createRealtimeEventHandler } from './realtime-events'
@@ -106,6 +107,18 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.updated', issueId: 'a', fields: ['relations'], ...actor })
     await vi.waitFor(() => expect(listed()[0]!.blockedByCount).toBe(1))
     expect(queryClient.getQueryData<IssueDetail>(detailKey)!.relations.blockedBy).toEqual([blocker])
+  })
+
+  it('refreshes the Inbox and unread badge on notification.created', () => {
+    const fetchIssue = vi.fn(async (id: string) => issue(id))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+    const countKey = unreadCountOptions('tip').queryKey
+    queryClient.setQueryData(countKey, { count: 1 })
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['priority'], ...actor })
+    expect(queryClient.getQueryState(countKey)!.isInvalidated).toBe(false)
+    handle({ type: 'notification.created', notificationId: crypto.randomUUID() })
+    expect(queryClient.getQueryState(countKey)!.isInvalidated).toBe(true)
   })
 
   it("refetches the issue's linked pull requests when GitHub changes them", () => {

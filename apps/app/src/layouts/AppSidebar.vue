@@ -20,6 +20,7 @@ import SidebarSection from '@/components/common/SidebarSection.vue'
 import TeamIcon from '@/components/common/TeamIcon.vue'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import SidebarFavorites from '@/features/favorites/components/SidebarFavorites.vue'
+import { unreadCountOptions } from '@/features/inbox/queries'
 import WorkspaceMenu from '@/features/workspaces/components/WorkspaceMenu.vue'
 import { shortcutKeys } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
@@ -35,8 +36,9 @@ const { data: teams } = useQuery(
   computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
 
-// Unread notifications arrive with the inbox (M10-02); the badge hides at 0.
-const unreadCount = 0
+// Refetched on `notification.created` (realtime) and after Inbox actions; hidden at 0.
+const { data: unread } = useQuery(computed(() => unreadCountOptions(slug.value)))
+const unreadCount = computed(() => unread.value?.count ?? 0)
 
 const at = (name: string, params: Record<string, string> = {}) => ({
   name,
