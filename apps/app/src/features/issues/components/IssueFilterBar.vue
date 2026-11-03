@@ -65,7 +65,7 @@ function clearSearch(event: KeyboardEvent) {
       </span>
       <button
         type="button"
-        class="flex h-full items-center border-l border-hairline px-1.5 text-ink-subtle hover:bg-surface-2 hover:text-ink focus-visible:bg-surface-2 focus-visible:outline-hidden"
+        class="flex h-full items-center border-l border-hairline px-1.5 text-ink-subtle hover:bg-surface-2 hover:text-ink focus-visible:bg-surface-2 focus-visible:text-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         :aria-label="`Remove ${dimension.label} filter`"
         @click="dimension.clear()"
       >
