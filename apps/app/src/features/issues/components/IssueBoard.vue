@@ -16,10 +16,12 @@ import {
 } from '../board-columns'
 import { useDisplayOptions } from '../composables/useDisplayOptions'
 import { useIssueFilters } from '../composables/useIssueFilters'
+import { useIssueSelection } from '../composables/useIssueSelection'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { displayListInput, displayViewKey, visibleCategories } from '../display-options'
 import { viewStatusCategories } from '../issue-view'
 import BoardColumn from './BoardColumn.vue'
+import BulkActionBar from './BulkActionBar.vue'
 import IssueFilterBar from './IssueFilterBar.vue'
 
 // Spelled out: Vue's SFC compiler can't resolve the zod-inferred `IssueListFilter` for props.
@@ -80,6 +82,19 @@ const toColumns = (list: Issue[]) =>
     },
   )
 const columns = computed(() => toColumns(issues.value))
+// Shift-click ranges run down each column, left to right.
+// An issue in several label columns counts once.
+const boardIssues = computed(() => [
+  ...new Map(columns.value.flatMap((column) => column.issues).map((i) => [i.id, i])).values(),
+])
+const {
+  selectedIds,
+  click: select,
+  toggleGroup,
+} = useIssueSelection(boardIssues, {
+  loaded: issues,
+  keyboard: true,
+})
 // A team board waits for its statuses so empty columns don't pop in afterwards.
 const loading = computed(
   () => query.isPending.value || (!!props.teamId && !statusesByTeam.value.has(props.teamId)),
@@ -143,7 +158,7 @@ function createInColumn(column: Column) {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
+  <div class="relative flex min-h-0 flex-1 flex-col">
     <IssueFilterBar
       :workspace-slug="workspaceSlug"
       :team-id="teamId"
@@ -212,13 +227,23 @@ function createInColumn(column: Column) {
         :can-drop="dropTarget(column)?.type === 'move'"
         :creatable="!!teamId"
         :properties="options.properties"
+        :selected-ids="selectedIds"
         @update="(issue, patch) => updateIssue.mutate({ issue, patch })"
         @dragstart="onDragStart"
         @dragend="endDrag"
         @drop="onDrop(column)"
         @open="openIssue"
+        @select="select"
+        @select-all="toggleGroup(column.issues)"
         @create="createInColumn(column)"
       />
     </div>
+    <BulkActionBar
+      :workspace-slug="workspaceSlug"
+      :issues="issues"
+      :statuses-by-team="statusesByTeam"
+      :users="users"
+      :labels="labels"
+    />
   </div>
 </template>

@@ -27,11 +27,14 @@ import {
   type IssueListRow,
 } from '../group-issues'
 import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
+import { useIssueSelection } from '../composables/useIssueSelection'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
 import GroupIcon from './GroupIcon.vue'
+import BulkActionBar from './BulkActionBar.vue'
 import IssueFilterBar from './IssueFilterBar.vue'
 import IssueRow from './IssueRow.vue'
+import SelectionCheckbox from './SelectionCheckbox.vue'
 
 // Spelled out: Vue's SFC compiler can't resolve the zod-inferred `IssueListFilter` for props.
 const props = defineProps<{
@@ -199,7 +202,13 @@ watch([filters, () => props.view, options], () => {
 // J/K move through the visible rows (collapsed groups are skipped); an issue
 // listed under several labels is visited once.
 const listedIssues = computed(() => uniqueIssues(rows.value))
-const { focusedId, selectedIds } = useIssueListKeyboard(listedIssues, async (issue) => {
+const {
+  selectedIds,
+  click: select,
+  groupState,
+  toggleGroup: toggleGroupSelection,
+} = useIssueSelection(listedIssues, { loaded: issues })
+const { focusedId } = useIssueListKeyboard(listedIssues, async (issue) => {
   const index = rows.value.findIndex((row) => row.type === 'issue' && row.issue.id === issue.id)
   if (index === -1) return
   virtualizer.value.scrollToIndex(index, { align: 'auto' })
@@ -220,7 +229,7 @@ watchEffect(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
+  <div class="relative flex min-h-0 flex-1 flex-col">
     <IssueFilterBar
       :workspace-slug="workspaceSlug"
       :team-id="teamId"
@@ -290,9 +299,16 @@ watchEffect(() => {
         >
           <div
             v-if="row.type === 'group'"
-            class="mx-2 flex h-8 flex-1 items-center gap-1 rounded-md pr-1"
+            class="group/band mx-2 flex h-8 flex-1 items-center gap-1 rounded-md pr-1"
             :class="row.depth ? 'pl-6' : 'bg-group-band pl-1'"
           >
+            <SelectionCheckbox
+              class="opacity-0 group-hover/band:opacity-100 focus-visible:opacity-100"
+              :class="{ 'opacity-100': groupState(row.group.issues) }"
+              :checked="groupState(row.group.issues)"
+              :label="`Select all issues in ${row.group.label}`"
+              @toggle="toggleGroupSelection(row.group.issues)"
+            />
             <button
               type="button"
               class="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md pl-1 text-left"
@@ -345,9 +361,17 @@ watchEffect(() => {
             :properties="properties"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
             @open="openIssue(row.issue)"
+            @select="(event) => select(row.issue, event)"
           />
         </div>
       </div>
     </div>
+    <BulkActionBar
+      :workspace-slug="workspaceSlug"
+      :issues="issues"
+      :statuses-by-team="statusesByTeam"
+      :users="users"
+      :labels="labels"
+    />
   </div>
 </template>
