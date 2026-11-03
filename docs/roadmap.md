@@ -49,7 +49,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M3-01  | [x]    | Projects schema + procedures, project icon upload      | M2-02, M1-16 |
 | M3-02  | [x]    | Projects list + project detail pages                   | M3-01      |
 | M3-03  | [x]    | My Issues view                                         | M2-07      |
-| M3-04  | [ ]    | Board view with drag-and-drop status changes           | M2-09      |
+| M3-04  | [x]    | Board view with drag-and-drop status changes           | M2-09      |
 | M3-05  | [ ]    | Filters, sorting, search (title + identifier), URL-synced | M2-07   |
 
 ## M4 — GitHub integration
@@ -119,3 +119,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-11-03 · LIN-11 / M2-04 · comments table (cascade with issue, migration 0007), `comments.list` (oldest first, cursor) / `create` / `update` (author only) / `delete` (author or owner, per domain.md Roles); DTO carries author name + avatar URL. Integration tests cover create/list, paging, FORBIDDEN edits/deletes, cascade and cross-workspace NOT_FOUND. Lint, typecheck and all tests pass.
 2026-11-03 · LIN-15 / M2-09 · `useUpdateIssue()` patches the infinite list and detail caches optimistically (cancel → snapshot → patch, rollback + toast on error, invalidate after the last in-flight change); compact status/priority/assignee/label pickers on issue rows; pure cache helpers in `issue-cache.ts` with unit tests. Checked with a 3 s delayed and a failing `issues.update` in the browser, light and dark. Lint, typecheck and all tests pass.
 2026-11-03 · LIN-46 / M5-01 · PRD §12 Tests 1–9 as `acceptance: <n> <title>` files in `apps/api/test/acceptance/`; Tests 3–9 post signed GitHub fixtures to `/webhooks/github` and run the real GitHub worker (`@linear/worker/testing`, test-only) on the `test` queue prefix. Map in `docs/testing.md`. All 9 green in CI with lint, typecheck and the full suite.
+2026-11-03 · LIN-36 / M3-04 · board view (`IssueBoard` → `BoardColumn` → `BoardCard`, lazy-loaded) on the team and All issues pages with a list/board toggle in the panel header (persisted in the preferences store). Native drag and drop and the card's status picker (keyboard) move issues through the optimistic `useUpdateIssue()`; columns per status in workflow order, merged across teams by category + name, virtualized, all pages loaded in the background. Pure `board-columns.ts` with unit tests; `board-card` token. Verified in the browser with ~3 600 issues: drag, reload, keyboard move and rollback on a failing update, light and dark. Lint, typecheck and all tests pass.
