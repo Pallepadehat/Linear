@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__linear__whoami",
+      "mcp__linear__get_issue",
+      "mcp__linear__list_issues",
+      "mcp__linear__list_comments",
+      "mcp__linear__list_issue_statuses",
+      "mcp__linear__list_teams",
+      "mcp__linear__list_projects",
+      "mcp__linear__get_project"
+    ]
+  }
+}
