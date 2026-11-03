@@ -71,6 +71,7 @@ function issue(
     project: null,
     pullRequests: [],
     linkCount: 0,
+    milestone: null,
     parentId: null,
     subIssueProgress: null,
     ...fields,

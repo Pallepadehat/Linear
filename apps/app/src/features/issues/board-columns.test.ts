@@ -44,6 +44,7 @@ function issue(id: string, s: WorkflowStatus, teamId = teamA, fields: Partial<Is
     project: null,
     pullRequests: [],
     linkCount: 0,
+    milestone: null,
     parentId: null,
     subIssueProgress: null,
     ...fields,

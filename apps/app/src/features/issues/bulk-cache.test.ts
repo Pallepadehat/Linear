@@ -51,6 +51,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     project: null,
     pullRequests: [],
     linkCount: 0,
+    milestone: null,
     parentId: null,
     subIssueProgress: null,
     ...overrides,

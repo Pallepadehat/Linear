@@ -52,6 +52,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     project: null,
     pullRequests: [],
     linkCount: 0,
+    milestone: null,
     parentId: null,
     subIssueProgress: null,
     ...overrides,
@@ -92,6 +93,18 @@ describe('applyIssuePatch', () => {
     expect(applyIssuePatch(inLaunch, { projectId: launch.id }, now).project).toEqual(launch)
     expect(applyIssuePatch(inLaunch, { projectId: crypto.randomUUID() }, now).project).toBeNull()
     expect(applyIssuePatch(inLaunch, { projectId: null }, now).project).toBeNull()
+  })
+
+  it('drops the milestone summary when the milestone changes or the project clears it', () => {
+    const beta = { id: crypto.randomUUID(), name: 'Beta' }
+    const inBeta = issue('a', {
+      projectId: crypto.randomUUID(),
+      milestoneId: beta.id,
+      milestone: beta,
+    })
+    expect(applyIssuePatch(inBeta, { priority: 1 }, now).milestone).toEqual(beta)
+    expect(applyIssuePatch(inBeta, { milestoneId: null }, now).milestone).toBeNull()
+    expect(applyIssuePatch(inBeta, { projectId: crypto.randomUUID() }, now).milestone).toBeNull()
   })
 
   it('leaves completedAt alone when the status is unchanged', () => {
