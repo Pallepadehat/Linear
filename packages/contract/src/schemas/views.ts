@@ -21,14 +21,7 @@ export const VIEW_ICONS = [
   'bookmark',
 ] as const
 /** Semantic color token keys (docs/design.md); never hex. */
-export const VIEW_COLORS = [
-  'neutral',
-  'primary',
-  'started',
-  'completed',
-  'success',
-  'urgent',
-] as const
+export const VIEW_COLORS = ['neutral', 'started', 'completed', 'success', 'urgent'] as const
 
 export const viewIconSchema = z.enum(VIEW_ICONS)
 export const viewColorSchema = z.enum(VIEW_COLORS)

@@ -230,13 +230,13 @@ describe('views', () => {
       ...scope,
       name: 'Board',
       icon: 'star',
-      color: 'primary',
+      color: 'success',
       filters: {},
       display,
     })
     await owner.client.favorites.add({ ...scope, entityType: 'view', entityId: view.id })
     expect(await owner.client.favorites.list(scope)).toMatchObject([
-      { entityType: 'view', entityId: view.id, name: 'Board', icon: 'star', color: 'primary' },
+      { entityType: 'view', entityId: view.id, name: 'Board', icon: 'star', color: 'success' },
     ])
     await member.client.views.delete({ ...scope, id: view.id })
     expect(await owner.client.favorites.list(scope)).toEqual([])
