@@ -4,6 +4,7 @@ import type {
   InferContractRouterOutputs,
 } from '@orpc/contract'
 import { projectsContract } from './routers/projects'
+import { presenceContract } from './routers/presence'
 import { realtimeContract } from './routers/realtime'
 import { activityContract } from './routers/activity'
 import { commentsContract } from './routers/comments'
@@ -13,6 +14,7 @@ import { issuesContract } from './routers/issues'
 import { labelsContract } from './routers/labels'
 import { meContract } from './routers/me'
 import { teamsContract } from './routers/teams'
+import { templatesContract } from './routers/templates'
 import { uploadsContract } from './routers/uploads'
 import { workspacesContract } from './routers/workspaces'
 
@@ -29,6 +31,8 @@ export const contract = {
   comments: commentsContract,
   favorites: favoritesContract,
   realtime: realtimeContract,
+  templates: templatesContract,
+  presence: presenceContract,
 }
 
 export type Contract = typeof contract
@@ -49,3 +53,4 @@ export * from './schemas/activity'
 export * from './schemas/comments'
 export * from './schemas/favorites'
 export * from './schemas/realtime'
+export * from './schemas/templates'

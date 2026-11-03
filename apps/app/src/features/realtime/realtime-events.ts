@@ -8,6 +8,7 @@ import type {
 import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
 import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
+import { templatesKey } from '@/features/templates/queries'
 import { issueDetailKeys, issueListKey, writeIssueToCaches } from '@/features/issues/queries'
 import { client, orpc } from '@/lib/orpc'
 
@@ -19,7 +20,7 @@ const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project']
 function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssueField>) {
   return (
     input.sort === 'updatedAt' ||
-    (fields.has('status') && !!input.statusIds?.length) ||
+    (fields.has('status') && (!!input.statusIds?.length || !!input.statusCategories?.length)) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
     (fields.has('labels') && !!input.labelIds?.length) ||
     (fields.has('title') && !!input.q)
@@ -81,6 +82,11 @@ export function createRealtimeEventHandler({
 
   async function onIssueUpdated(issueId: string, fields: RealtimeIssueField[]) {
     void queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) })
+    if (fields.includes('pullRequests')) {
+      void queryClient.invalidateQueries({
+        queryKey: orpc.github.pullRequests.listForIssue.key({ input: { issueId } }),
+      })
+    }
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects')
@@ -125,6 +131,10 @@ export function createRealtimeEventHandler({
         return void queryClient.invalidateQueries({
           queryKey: orpc.comments.list.key({ input: { issueId: event.issueId } }),
         })
+      case 'template.updated':
+        return void queryClient.invalidateQueries({ queryKey: templatesKey() })
+      case 'presence.changed':
+        return void queryClient.invalidateQueries({ queryKey: orpc.presence.list.key() })
     }
   }
 }

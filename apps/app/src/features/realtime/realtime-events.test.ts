@@ -73,6 +73,20 @@ describe('realtime event handler', () => {
     expect(listed()[1]!.status).toEqual(todo)
   })
 
+  it("refetches the issue's linked pull requests when GitHub changes them", () => {
+    const fetchIssue = vi.fn(async (id: string) => issue(id))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+    const prKey = orpc.github.pullRequests.listForIssue.queryKey({
+      input: { workspaceSlug: 'tip', issueId: 'a' },
+    })
+    queryClient.setQueryData(prKey, [])
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['title'], ...actor })
+    expect(queryClient.getQueryState(prKey)!.isInvalidated).toBe(false)
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['pullRequests'], actorId: null })
+    expect(queryClient.getQueryState(prKey)!.isInvalidated).toBe(true)
+  })
+
   it('refetches lists, coalesced, only when the issue may join or leave one', async () => {
     const fetchIssue = vi.fn(async (id: string) => issue(id))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
@@ -101,7 +115,11 @@ describe('realtime event handler', () => {
     const byStatus = keyFor({ statusIds: [todo.id] })
     const byPriority = keyFor({ sort: 'priority' })
     const byTitle = keyFor({ q: 'login' })
-    for (const key of [byStatus, byPriority, byTitle]) {
+    // An Active / Backlog tab: a status change can move the issue between tabs.
+    const activeTab = issueListOptions('tip', {
+      statusCategories: ['started', 'unstarted'],
+    }).queryKey
+    for (const key of [byStatus, byPriority, byTitle, activeTab]) {
       queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
         pages: [{ items: [issue('a')], nextCursor: null }],
         pageParams: [null],
@@ -111,12 +129,13 @@ describe('realtime event handler', () => {
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['status'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
-    expect([stale(listKey), stale(byStatus), stale(byPriority), stale(byTitle)]).toEqual([
-      false,
-      true,
-      false,
-      false,
-    ])
+    expect([
+      stale(listKey),
+      stale(byStatus),
+      stale(byPriority),
+      stale(byTitle),
+      stale(activeTab),
+    ]).toEqual([false, true, false, false, true])
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
@@ -135,6 +154,13 @@ describe('realtime event handler', () => {
     expect(listed()[0]!.status).toEqual(todo)
   })
 
+  it('refetches presence when a teammate presence changes', () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'presence.changed', userId: crypto.randomUUID() })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: orpc.presence.list.key() })
+  })
+
   it('removes a deleted issue from lists', () => {
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
     handle({ type: 'issue.deleted', issueId: 'a', ...actor })
@@ -148,6 +174,13 @@ describe('realtime event handler', () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: orpc.comments.list.key({ input: { issueId: 'a' } }),
     })
+  })
+
+  it('refetches template lists on a template event', () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'template.updated', templateId: crypto.randomUUID(), ...actor })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: orpc.templates.key() })
   })
 })
 

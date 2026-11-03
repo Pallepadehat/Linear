@@ -5,7 +5,9 @@ import { useRoute } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import FavoriteButton from '@/features/favorites/components/FavoriteButton.vue'
 import { useToggleFavorite } from '@/features/favorites/queries'
+import { usePresence } from '@/features/presence/usePresence'
 import { useRealtime } from '@/features/realtime/useRealtime'
+import { isPlainShortcut } from '@/lib/keyboard'
 import { useUiStore } from '@/stores/ui'
 import AppSidebar from './AppSidebar.vue'
 import { PANEL_HEADER_ACTIONS } from './panel-header'
@@ -18,7 +20,10 @@ const route = useRoute()
 const ui = useUiStore()
 
 // Teammates' changes show up live while the workspace is open.
-useRealtime(() => String(route.params.workspaceSlug ?? ''))
+const workspaceSlug = () => String(route.params.workspaceSlug ?? '')
+const { client: realtimeClient } = useRealtime(workspaceSlug)
+// Teammates see that you're online and which issue you're on.
+usePresence(workspaceSlug, realtimeClient)
 
 const routeTitle = computed(
   () => [...route.matched].reverse().find((r) => r.meta.title)?.meta.title ?? '',
@@ -39,8 +44,7 @@ const isTyping = (target: EventTarget | null) =>
 
 // `C` opens the create issue dialog, like Linear; ignored while typing.
 onKeyStroke('c', (event) => {
-  if (event.metaKey || event.ctrlKey || event.altKey || ui.createIssueOpen) return
-  if (isTyping(event.target)) return
+  if (ui.createIssueOpen || !isPlainShortcut(event)) return
   event.preventDefault()
   ui.openCreateIssue()
 })

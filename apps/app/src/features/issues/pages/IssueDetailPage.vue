@@ -8,6 +8,9 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { issuePullRequestsOptions } from '@/features/github/queries'
+import IssueViewers from '@/features/presence/components/IssueViewers.vue'
+import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
@@ -56,7 +59,13 @@ const { data: members } = useQuery(
   ),
 )
 const users = computed(
-  () => members.value?.map((m) => ({ id: m.userId, name: m.name, avatarUrl: m.avatarUrl })) ?? [],
+  () =>
+    members.value?.map((m) => ({
+      id: m.userId,
+      name: m.name,
+      email: m.email,
+      avatarUrl: m.avatarUrl,
+    })) ?? [],
 )
 const { data: labels } = useQuery(
   computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: slug.value } })),
@@ -89,6 +98,9 @@ watchEffect(() => {
   }
 })
 
+// Teammates see that you're on this issue (presence heartbeats).
+useViewingIssue(() => issue.value?.id)
+
 // Comments and activity are paged; an issue's history is small, so load all of it.
 const issueId = computed(() => issue.value?.id ?? '')
 const comments = useInfiniteQuery(
@@ -108,6 +120,14 @@ watchEffect(() => {
     if (query.hasNextPage.value && !query.isFetchingNextPage.value) void query.fetchNextPage()
   }
 })
+const { data: pullRequests } = useQuery(
+  computed(() => ({
+    ...issuePullRequestsOptions(slug.value, issueId.value),
+    enabled: Boolean(issue.value),
+  })),
+)
+// GitHub activity links to its PR while that PR is still linked.
+const pullRequestOf = (id: string) => pullRequests.value?.find((pr) => pr.id === id)
 const timeline = computed(() =>
   buildTimeline(
     comments.data.value?.pages.flatMap((p) => p.items) ?? [],
@@ -202,7 +222,10 @@ onBeforeUnmount(commitDescription)
   >
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
-        <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
+        <div class="flex items-center justify-between gap-2">
+          <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
+          <IssueViewers :issue-id="issue.id" />
+        </div>
         <label for="issue-title" class="sr-only">Issue title</label>
         <textarea
           id="issue-title"
@@ -240,7 +263,13 @@ onBeforeUnmount(commitDescription)
             aria-busy="true"
             aria-label="Loading activity"
           />
-          <IssueTimeline v-else :entries="timeline" :names="names" :avatar-of="avatarOf" />
+          <IssueTimeline
+            v-else
+            :entries="timeline"
+            :names="names"
+            :avatar-of="avatarOf"
+            :pull-request-of="pullRequestOf"
+          />
           <CommentComposer :workspace-slug="slug" :issue-id="issue.id" />
         </section>
       </div>
@@ -252,6 +281,7 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :pull-requests="pullRequests"
       @change="save"
     />
   </div>

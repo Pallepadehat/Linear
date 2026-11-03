@@ -2,6 +2,7 @@ import {
   completeInstallation,
   connectRepository,
   disconnectRepository,
+  listIssuePullRequests,
   listRepositories,
   signInstallState,
   verifyInstallState,
@@ -14,6 +15,7 @@ import { toGithubInstallationDto, toGithubRepositoryDto } from './github.dto'
 
 // Connecting GitHub is owner-only (docs/domain.md → Roles).
 const asOwner = requireWorkspace('owner')
+const inWorkspace = requireWorkspace()
 
 function requireGitHub(context: InitialContext) {
   if (!context.github) {
@@ -78,6 +80,14 @@ export const githubRouter = {
       .use(asOwner, (input) => input.workspaceSlug)
       .handler(({ context, input }) =>
         disconnectRepository(context.db, context.workspace.id, input.id),
+      ),
+  },
+
+  pullRequests: {
+    listForIssue: authed.github.pullRequests.listForIssue
+      .use(inWorkspace, (input) => input.workspaceSlug)
+      .handler(({ context, input }) =>
+        listIssuePullRequests(context.db, context.workspace.id, input.issueId),
       ),
   },
 }
