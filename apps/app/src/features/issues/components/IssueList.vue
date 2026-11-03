@@ -16,6 +16,7 @@ import {
   type IssueListRow,
 } from '../group-issues'
 import { useIssueViewData } from '../composables/useIssueViewData'
+import { viewStatusCategories } from '../issue-view'
 import IssueFilterBar from './IssueFilterBar.vue'
 import IssueRow from './IssueRow.vue'
 
@@ -26,6 +27,8 @@ const props = defineProps<{
   projectId?: string
   assignee?: 'me'
   creator?: 'me'
+  /** The view tab (team and All issues pages); My issues and project lists have none. */
+  view?: 'all' | 'active' | 'backlog'
 }>()
 // Replaces the default "No issues yet" state, e.g. for My Issues tabs.
 defineSlots<{ empty?: () => unknown }>()
@@ -45,8 +48,16 @@ const { query, issues, users, labels, statusesByTeam, estimatesByTeam, updateIss
       projectId: props.projectId,
       assignee: props.assignee,
       creator: props.creator,
+      statusCategories: viewStatusCategories(props.view),
     }),
   )
+const viewEmpty = computed(() =>
+  props.view === 'active'
+    ? { title: 'No active issues', description: 'Issues in Todo or In Progress show up here.' }
+    : props.view === 'backlog'
+      ? { title: 'No backlog issues', description: 'Issues waiting in the backlog show up here.' }
+      : null,
+)
 const collapsed = ref(new Set<string>())
 // Sums come from the cached issues, so optimistic estimate changes show at once.
 const groupEstimate = (group: IssueGroup) =>
@@ -100,8 +111,8 @@ watch(rows, async (next, prev) => {
   el.scrollTop += after - before
 })
 
-// A new filter or sort is a different list; start it from the top.
-watch(filters, () => {
+// A new filter, sort or view is a different list; start it from the top.
+watch([filters, () => props.view], () => {
   if (scrollEl.value) scrollEl.value.scrollTop = 0
 })
 
@@ -114,7 +125,12 @@ watchEffect(() => {
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <IssueFilterBar :workspace-slug="workspaceSlug" :team-id="teamId" :project-id="projectId" />
+    <IssueFilterBar
+      :workspace-slug="workspaceSlug"
+      :team-id="teamId"
+      :project-id="projectId"
+      :hide-filter-menu="!!view"
+    />
     <div v-if="query.isPending.value" class="grid" aria-busy="true" aria-label="Loading issues">
       <div
         v-for="i in 8"
@@ -142,6 +158,14 @@ watchEffect(() => {
       description="Try a different search or remove some filters."
     >
       <Button variant="secondary" size="sm" @click="clearFilters">Clear filters</Button>
+    </EmptyState>
+    <EmptyState
+      v-else-if="rows.length === 0 && viewEmpty"
+      :icon="Layers"
+      :title="viewEmpty.title"
+      :description="viewEmpty.description"
+    >
+      <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
     </EmptyState>
     <template v-else-if="rows.length === 0">
       <slot name="empty">
