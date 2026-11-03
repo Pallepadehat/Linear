@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useUiStore } from '@/stores/ui'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { groupIssuesByStatus, toListRows, type IssueListRow } from '../group-issues'
+import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import IssueFilterBar from './IssueFilterBar.vue'
 import IssueRow from './IssueRow.vue'
@@ -92,6 +93,23 @@ watch(rows, async (next, prev) => {
 // A new filter or sort is a different list; start it from the top.
 watch(filters, () => {
   if (scrollEl.value) scrollEl.value.scrollTop = 0
+})
+
+// J/K move through the visible rows (collapsed groups are skipped).
+const listedIssues = computed(() =>
+  rows.value.flatMap((row) => (row.type === 'issue' ? [row.issue] : [])),
+)
+const { focusedId, selectedIds } = useIssueListKeyboard(listedIssues, async (issue) => {
+  const index = rows.value.findIndex((row) => row.type === 'issue' && row.issue.id === issue.id)
+  if (index === -1) return
+  virtualizer.value.scrollToIndex(index, { align: 'auto' })
+  // The row may only render after the scroll; then move focus to its link.
+  await nextTick()
+  requestAnimationFrame(() =>
+    scrollEl.value
+      ?.querySelector<HTMLElement>(`[data-issue-id="${issue.id}"] a`)
+      ?.focus({ preventScroll: true }),
+  )
 })
 
 watchEffect(() => {
@@ -185,6 +203,9 @@ watchEffect(() => {
             v-else
             class="flex-1"
             :issue="row.issue"
+            :data-issue-id="row.issue.id"
+            :focused="row.issue.id === focusedId"
+            :selected="selectedIds.has(row.issue.id)"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"

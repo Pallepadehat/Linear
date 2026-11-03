@@ -3,11 +3,12 @@ import { issueTitleSchema } from '@linear/contract'
 import { SearchX } from '@lucide/vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { useHotkeys } from '@/composables/useHotkeys'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
@@ -25,6 +26,7 @@ import {
 } from '../queries'
 
 const route = useRoute()
+const router = useRouter()
 const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const identifier = computed(() => String(route.params.identifier))
@@ -80,6 +82,37 @@ const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.a
 watchEffect(() => {
   if (issue.value) ui.breadcrumb = [team.value?.name ?? 'Issues', issue.value.identifier]
 })
+
+// The open issue is the command menu's context; Esc goes back, ⌘⌫ deletes.
+watch(
+  issue,
+  (current) => {
+    ui.activeIssue = current ? { id: current.id, identifier: current.identifier } : null
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => {
+  if (ui.activeIssue?.id === issue.value?.id) ui.activeIssue = null
+})
+useHotkeys([
+  {
+    id: 'issue-back',
+    run: () => {
+      // Back to where the issue was opened from; a direct link falls back to its team.
+      if (window.history.state?.back) router.back()
+      else if (team.value)
+        void router.push({ name: 'team-issues', params: { teamKey: team.value.key } })
+      else void router.push({ name: 'issues' })
+    },
+  },
+  {
+    id: 'issue-delete',
+    run: () => {
+      if (!issue.value) return false
+      ui.issueToDelete = { id: issue.value.id, identifier: issue.value.identifier }
+    },
+  },
+])
 
 // Comments and activity are paged; an issue's history is small, so load all of it.
 const issueId = computed(() => issue.value?.id ?? '')
