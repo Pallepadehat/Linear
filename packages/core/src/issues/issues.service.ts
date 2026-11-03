@@ -20,6 +20,7 @@ import {
   desc,
   eq,
   gt,
+  gte,
   ilike,
   inArray,
   isNotNull,
@@ -36,6 +37,8 @@ import { recordActivity, type ActivityActor } from '../activity/activity.service
 import { diffIssue } from '../activity/diff'
 import { assignCycle, autoAddCycleId } from '../cycles/cycles.service'
 import { DomainError } from '../errors'
+import { assertIssueMilestone } from '../projects/milestones/milestones.service'
+import { nextIssueMilestone } from '../projects/milestones/rules'
 import { CLOSED_STATUS_CATEGORIES } from '../relations/roles'
 import { syncMentions, type MentionsResult } from '../mentions/mentions.service'
 import { subscribeUsers } from '../subscriptions/subscriptions.service'
@@ -68,6 +71,8 @@ export type CreateIssueInput = {
   /** `null` leaves the issue unassigned even when the team has a default assignee. */
   assigneeId?: string | null
   projectId?: string | null
+  /** Must be a milestone of `projectId`. */
+  milestoneId?: string | null
   /** Must be an open cycle of the issue's team. */
   cycleId?: string | null
   /** Must be on the team's estimate scale; `null` = no estimate. */
@@ -90,6 +95,8 @@ export type UpdateIssueInput = {
   priority?: number
   assigneeId?: string | null
   projectId?: string | null
+  /** A milestone of the issue's (new) project; a project change without one clears it. */
+  milestoneId?: string | null
   cycleId?: string | null
   estimate?: number | null
   labelIds?: string[]
@@ -104,17 +111,22 @@ export type ListIssuesInput = {
   workspaceId: string
   teamId?: string
   projectId?: string
+  milestoneId?: string
   cycleId?: string
   assigneeId?: string
   creatorId?: string
   statusIds?: string[]
   /** The issue's status category is one of these. */
   statusCategories?: StatusCategory[]
+  /** Completed / canceled issues only if they finished at or after this time. */
+  completedAfter?: Date
   priorities?: number[]
   /** `null` matches unassigned issues. */
   assigneeIds?: (string | null)[]
   /** `null` matches issues without a project. */
   projectIds?: (string | null)[]
+  /** `null` matches issues without a milestone. */
+  milestoneIds?: (string | null)[]
   /** `null` matches issues without a cycle. */
   cycleIds?: (string | null)[]
   /** Any of these labels. */
@@ -203,6 +215,8 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
     await assertWorkspaceMember(db, input.workspaceId, assigneeId)
   }
   if (input.projectId) await assertProject(db, input.workspaceId, input.projectId)
+  if (input.milestoneId)
+    await assertIssueMilestone(db, input.workspaceId, input.milestoneId, input.projectId ?? null)
   let cycleId = input.cycleId ?? null
   if (cycleId) await assignCycle(db, input.workspaceId, input.teamId, cycleId)
   else if (input.cycleId === undefined && status.category === 'started')
@@ -235,6 +249,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         assigneeId,
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
+        milestoneId: input.milestoneId ?? null,
         cycleId,
         estimate,
         parentId: parent?.id ?? null,
@@ -369,6 +384,7 @@ export function listFilter(input: IssueFilterInput) {
   return and(
     input.teamId ? eq(issues.teamId, input.teamId) : undefined,
     input.projectId ? eq(issues.projectId, input.projectId) : undefined,
+    input.milestoneId ? eq(issues.milestoneId, input.milestoneId) : undefined,
     input.cycleId ? eq(issues.cycleId, input.cycleId) : undefined,
     input.assigneeId ? eq(issues.assigneeId, input.assigneeId) : undefined,
     input.creatorId ? eq(issues.creatorId, input.creatorId) : undefined,
@@ -377,9 +393,11 @@ export function listFilter(input: IssueFilterInput) {
     input.statusCategories?.length
       ? inArray(workflowStatuses.category, input.statusCategories)
       : undefined,
+    completedAfterFilter(input.completedAfter),
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
+    anyOf(issues.milestoneId, input.milestoneIds),
     anyOf(issues.cycleId, input.cycleIds),
     estimateFilter(input.estimates),
     input.showSubIssues === false ? isNull(issues.parentId) : undefined,
@@ -402,6 +420,22 @@ export function listFilter(input: IssueFilterInput) {
             : undefined,
         )
       : undefined,
+  )
+}
+
+/**
+ * Open issues always pass; finished ones only if they finished recently enough.
+ * Canceled issues have no `completedAt`, so their last update stands in for it.
+ */
+function completedAfterFilter(after: Date | undefined) {
+  if (!after) return undefined
+  return or(
+    notInArray(workflowStatuses.category, ['completed', 'canceled']),
+    // A raw `sql` operand has no column type to encode a Date with, so pass ISO text.
+    gte(
+      sql`coalesce(${issues.completedAt}, ${issues.updatedAt})`,
+      sql`${after.toISOString()}::timestamptz`,
+    ),
   )
 }
 
@@ -548,6 +582,12 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
       changes.projectId = input.projectId
     }
+    // Changing or clearing the project clears the milestone (docs/domain.md → Project milestones).
+    const milestone = nextIssueMilestone(current, input)
+    if (milestone.milestoneId) {
+      await assertIssueMilestone(tx, input.workspaceId, milestone.milestoneId, milestone.projectId)
+    }
+    if (milestone.milestoneId !== undefined) changes.milestoneId = milestone.milestoneId
     if (input.cycleId !== undefined) {
       if (input.cycleId) await assignCycle(tx, input.workspaceId, current.teamId, input.cycleId)
       changes.cycleId = input.cycleId

@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { cycleListOptions } from '@/features/cycles/queries'
+import { projectListOptions } from '@/features/projects/queries'
 import type { EstimateSettings } from '@/lib/estimates'
 import { orpc } from '@/lib/orpc'
 import { issueListOptions, useUpdateIssue, type IssueListFilter } from '../queries'
@@ -9,7 +10,8 @@ import { useIssueFilters } from './useIssueFilters'
 /**
  * What the list and board views both need: the issue pages, the people and
  * labels the pickers offer, each listed team's statuses and cycles and the optimistic
- * update mutation. Issues follow the filters and sort in the route query.
+ * update mutation. Issues follow the filters in the route query and the view's
+ * display options (passed in through `filter`).
  */
 export function useIssueViewData(
   workspaceSlug: MaybeRefOrGetter<string>,
@@ -27,6 +29,8 @@ export function useIssueViewData(
   const { data: labels } = useQuery(
     computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: slug.value } })),
   )
+  // Project names and icons for grouping by project.
+  const { data: projects } = useQuery(computed(() => projectListOptions(slug.value)))
   const { data: teams } = useQuery(
     computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
   )
@@ -98,6 +102,7 @@ export function useIssueViewData(
     issues,
     users,
     labels: computed(() => labels.value ?? []),
+    projects: computed(() => projects.value ?? []),
     statusesByTeam,
     cyclesByTeam,
     estimatesByTeam,

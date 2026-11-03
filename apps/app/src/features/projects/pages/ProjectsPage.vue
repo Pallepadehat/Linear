@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import MilestoneIcon from '@/components/common/MilestoneIcon.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
@@ -189,6 +190,15 @@ const openCreate = () => (ui.createProjectOpen = true)
               >
                 <ProjectIcon :src="project.iconUrl" />
                 <span class="truncate font-medium text-ink">{{ project.name }}</span>
+                <!-- The current milestone: the first one that isn't complete. -->
+                <span
+                  v-if="project.currentMilestone"
+                  class="flex h-5 max-w-40 shrink-0 items-center gap-1 rounded-full border border-hairline px-1.5 text-xs text-ink-muted"
+                  :title="`Current milestone: ${project.currentMilestone.name}`"
+                >
+                  <MilestoneIcon :progress="project.currentMilestone.progress" />
+                  <span class="truncate">{{ project.currentMilestone.name }}</span>
+                </span>
               </RouterLink>
             </td>
             <td class="hidden px-3 lg:table-cell">

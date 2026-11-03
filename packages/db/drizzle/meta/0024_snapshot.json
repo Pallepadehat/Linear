@@ -1,5 +1,5 @@
 {
-  "id": "13955b57-6814-47c9-888a-2cae2c2334a7",
+  "id": "161b0a8f-3818-4839-a569-a859a67c6e51",
   "prevId": "d5afc007-3c03-4552-9cc2-019ab7f67c5f",
   "version": "7",
   "dialect": "postgresql",
@@ -1489,6 +1489,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "milestone_id": {
+          "name": "milestone_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "estimate": {
           "name": "estimate",
           "type": "integer",
@@ -1594,6 +1600,21 @@
           "columns": [
             {
               "expression": "cycle_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "issues_milestone_id_index": {
+          "name": "issues_milestone_id_index",
+          "columns": [
+            {
+              "expression": "milestone_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1828,6 +1849,19 @@
           "tableTo": "cycles",
           "columnsFrom": [
             "cycle_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "issues_milestone_id_project_milestones_id_fk": {
+          "name": "issues_milestone_id_project_milestones_id_fk",
+          "tableFrom": "issues",
+          "tableTo": "project_milestones",
+          "columnsFrom": [
+            "milestone_id"
           ],
           "columnsTo": [
             "id"
@@ -3046,6 +3080,149 @@
           "columns": [
             "project_id",
             "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.project_milestones": {
+      "name": "project_milestones",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_date": {
+          "name": "target_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "project_milestones_workspace_id_index": {
+          "name": "project_milestones_workspace_id_index",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_milestones_project_id_sort_order_index": {
+          "name": "project_milestones_project_id_sort_order_index",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sort_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "project_milestones_workspace_id_workspaces_id_fk": {
+          "name": "project_milestones_workspace_id_workspaces_id_fk",
+          "tableFrom": "project_milestones",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_milestones_project_id_projects_id_fk": {
+          "name": "project_milestones_project_id_projects_id_fk",
+          "tableFrom": "project_milestones",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "project_milestones_project_id_name_unique": {
+          "name": "project_milestones_project_id_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "project_id",
+            "name"
           ]
         }
       },
@@ -5139,8 +5316,7 @@
         "parent",
         "sub_issue",
         "relation",
-        "link",
-        "mentioned_in"
+        "link"
       ]
     },
     "public.issue_relation_type": {

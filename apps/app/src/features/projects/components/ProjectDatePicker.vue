@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CalendarDays, X } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import PickerItem from '@/components/common/PickerItem.vue'
 import PickerPopover from '@/components/common/PickerPopover.vue'
 import { datePresets, formatDay, parseDay } from '../project-dates'
@@ -9,7 +9,8 @@ import PickerSearchAction from './PickerSearchAction.vue'
 // A start or target date, day resolution: quick picks, or type a date in the filter.
 const props = defineProps<{ label: string; compact?: boolean }>()
 const model = defineModel<string | null>({ required: true })
-const open = ref(false)
+// `open` is a model so a menu ("Set target date") can open the picker.
+const open = defineModel<boolean>('open', { default: false })
 
 const presets = computed(() => (open.value ? datePresets() : []))
 const isDate = (text: string) => parseDay(text) !== null

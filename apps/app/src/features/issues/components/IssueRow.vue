@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Cycle, Issue, Label, WorkflowStatus } from '@linear/contract'
+import type { Cycle, DisplayProperty, Issue, Label, WorkflowStatus } from '@linear/contract'
 import { Ban, OctagonAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
@@ -32,6 +32,8 @@ const props = defineProps<{
   /** Keyboard focus (J/K) and selection (X); see `useIssueListKeyboard`. */
   focused?: boolean
   selected?: boolean
+  /** Display options → properties; all are shown when not given. */
+  properties?: readonly DisplayProperty[]
 }>()
 const emit = defineEmits<{
   update: [patch: IssuePatch]
@@ -40,6 +42,9 @@ const emit = defineEmits<{
   /** Checkbox, shift- or ⌘/Ctrl-click: toggle or extend the bulk selection. */
   select: [event: MouseEvent]
 }>()
+
+const shows = (property: DisplayProperty) =>
+  !props.properties || props.properties.includes(property)
 
 function onLinkClick(event: MouseEvent) {
   if (event.shiftKey || event.metaKey || event.ctrlKey) {
@@ -100,15 +105,17 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       @toggle="emit('select', $event)"
     />
     <PriorityPicker
+      v-if="shows('priority')"
       compact
       :model-value="toPriority(issue.priority)"
       @update:model-value="setPriority"
     />
-    <span class="ml-1 w-16 shrink-0 truncate font-mono text-xs text-ink-subtle">
+    <span v-if="shows('id')" class="ml-1 w-16 shrink-0 truncate font-mono text-xs text-ink-subtle">
       {{ issue.identifier }}
     </span>
+    <template v-if="!shows('status')" />
     <StatusPicker
-      v-if="statuses.length"
+      v-else-if="statuses.length"
       compact
       :statuses="statuses"
       :model-value="issue.status.id"
@@ -154,7 +161,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       <span class="sr-only">Blocking</span>
       {{ issue.blockingCount }}
     </span>
-    <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
+    <span v-if="shows('labels') && issue.labels.length" class="hidden shrink-0 md:flex">
       <LabelPicker
         compact
         :labels="labelOptions"
@@ -173,7 +180,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       />
     </span>
     <EstimatePicker
-      v-if="estimates && estimates.scale !== 'off'"
+      v-if="shows('estimate') && estimates && estimates.scale !== 'off'"
       compact
       :scale="estimates.scale"
       :allow-zero="estimates.allowZero"
@@ -181,19 +188,31 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       @update:model-value="setEstimate"
     />
     <DueDatePicker
+      v-if="shows('dueDate')"
       row
       :category="issue.status.category"
       :model-value="issue.dueDate"
       @update:model-value="setDueDate"
     />
     <AssigneePicker
+      v-if="shows('assignee')"
       compact
       :users="users"
       :model-value="issue.assigneeId"
       @update:model-value="setAssignee"
     />
     <time
+      v-if="shows('updatedAt')"
+      :datetime="issue.updatedAt.toISOString()"
+      :title="`Updated ${dateFormat.format(issue.updatedAt)}`"
+      class="ml-1 hidden w-12 shrink-0 text-right text-xs text-ink-subtle tabular-nums sm:block"
+    >
+      {{ dateFormat.format(issue.updatedAt) }}
+    </time>
+    <time
+      v-if="shows('createdAt')"
       :datetime="issue.createdAt.toISOString()"
+      :title="`Created ${dateFormat.format(issue.createdAt)}`"
       class="ml-1 hidden w-12 shrink-0 text-right text-xs text-ink-subtle tabular-nums sm:block"
     >
       {{ dateFormat.format(issue.createdAt) }}

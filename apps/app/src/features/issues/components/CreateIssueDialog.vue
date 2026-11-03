@@ -29,7 +29,7 @@ import { Switch } from '@/components/ui/switch'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { assignableCycles } from '@/features/cycles/cycles'
 import { cycleListOptions, cyclesKey } from '@/features/cycles/queries'
-import { projectListOptions, projectsKey } from '@/features/projects/queries'
+import { projectListOptions, invalidateProjects } from '@/features/projects/queries'
 import TemplatePicker from '@/features/templates/components/TemplatePicker.vue'
 import { templateListOptions } from '@/features/templates/queries'
 import { errorMessage } from '@/lib/errors'
@@ -369,7 +369,7 @@ const onSubmit = handleSubmit(async (form) => {
     await queryClient.invalidateQueries({ queryKey: issueListKey() })
     void queryClient.invalidateQueries({ queryKey: issueFacetsKey() })
     // Project progress counts the new issue.
-    if (issue.projectId) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (issue.projectId) void invalidateProjects(queryClient)
     if (issue.cycleId) void queryClient.invalidateQueries({ queryKey: cyclesKey() })
     toast.success(`${issue.identifier} created`, { description: issue.title })
     if (!createMore.value) {

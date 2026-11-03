@@ -173,8 +173,15 @@
     {
       "idx": 24,
       "version": "7",
-      "when": 1793742151949,
-      "tag": "0024_mentions",
+      "when": 1793742604134,
+      "tag": "0024_project_milestones",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793743254430,
+      "tag": "0025_mentions",
       "breakpoints": true
     }
   ]
