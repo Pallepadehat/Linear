@@ -33,7 +33,7 @@ const emit = defineEmits<{ save: [changes: ProjectChanges] }>()
 defineSlots<{
   /** Replaces the default progress bar (M9-05 progress chart). */
   progress?: () => unknown
-  /** The latest activity (M9-06 `ProjectActivityCard`). */
+  /** The latest activity: `ProjectActivityCard` (M9-06), replacing the placeholder card. */
   activity?: () => unknown
 }>()
 
@@ -178,10 +178,11 @@ const labelClass = 'w-24 shrink-0 text-ink-subtle'
       </slot>
     </PanelCard>
 
-    <PanelCard title="Activity">
-      <slot name="activity">
+    <!-- The activity card brings its own card chrome and "See all" link. -->
+    <slot name="activity">
+      <PanelCard title="Activity">
         <p class="px-2 text-[13px] text-ink-tertiary">Project activity shows up here.</p>
-      </slot>
-    </PanelCard>
+      </PanelCard>
+    </slot>
   </aside>
 </template>

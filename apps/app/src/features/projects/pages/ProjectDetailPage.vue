@@ -8,6 +8,7 @@ import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
 import { usePreferencesStore } from '@/stores/preferences'
+import ProjectActivityCard from '../components/ProjectActivityCard.vue'
 import ProjectDetailHeader from '../components/ProjectDetailHeader.vue'
 import ProjectSidePanel from '../components/ProjectSidePanel.vue'
 import ProjectTabs from '../components/ProjectTabs.vue'
@@ -104,6 +105,10 @@ function save(changes: ProjectChanges) {
       :teams="teams ?? []"
       :labels="labels ?? []"
       @save="save"
-    />
+    >
+      <template #activity>
+        <ProjectActivityCard :workspace-slug="slug" :project-id="project.id" />
+      </template>
+    </ProjectSidePanel>
   </div>
 </template>
