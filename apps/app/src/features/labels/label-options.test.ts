@@ -26,6 +26,7 @@ describe('label options', () => {
   it("keeps workspace labels and the team's own labels", () => {
     const labels = [label('ws', null), label('tip', 't1'), label('ops', 't2')]
     expect(labelsForTeam(labels, 't1').map((l) => l.id)).toEqual(['ws', 'tip'])
+    expect(labelsForTeam(labels, null).map((l) => l.id)).toEqual(['ws'])
   })
 
   it('matches names case-insensitively and trimmed', () => {

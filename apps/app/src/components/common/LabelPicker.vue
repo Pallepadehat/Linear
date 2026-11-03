@@ -19,8 +19,11 @@ import PickerPopover from './PickerPopover.vue'
 const props = defineProps<{
   /** Workspace labels plus any team's; only workspace labels and `teamId`'s are offered. */
   labels: Label[]
-  /** The issue's team: its labels get their own section and new labels belong to it. */
-  teamId: string
+  /**
+   * The issue's team: its labels get their own section and new labels belong to it.
+   * Null (workspace-scoped templates) offers and creates workspace labels only.
+   */
+  teamId: string | null
   compact?: boolean
   /** Fixed trigger text, for when the selected labels are already shown next to it. */
   triggerText?: string

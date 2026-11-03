@@ -27,8 +27,8 @@ export function nextLabelColor(existing: Pick<Label, 'color'>[]): string {
   return best
 }
 
-/** Labels an issue in `teamId` can use: workspace labels plus that team's own. */
-export function labelsForTeam<T extends Pick<Label, 'teamId'>>(labels: T[], teamId: string) {
+/** Labels an issue in `teamId` can use: workspace labels plus that team's own (null = workspace only). */
+export function labelsForTeam<T extends Pick<Label, 'teamId'>>(labels: T[], teamId: string | null) {
   return labels.filter((label) => label.teamId === null || label.teamId === teamId)
 }
 
