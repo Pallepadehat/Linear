@@ -50,6 +50,8 @@ async function toDto(db: DbOrTx, storage: Storage, row: ProjectRow): Promise<Pro
           progress: row.currentMilestone.progress,
         }
       : null,
+    health: row.health,
+    lastUpdateAt: row.lastUpdateAt,
     createdAt: row.createdAt,
   }
 }
