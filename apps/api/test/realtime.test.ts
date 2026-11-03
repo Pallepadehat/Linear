@@ -142,6 +142,24 @@ describe('realtime', () => {
     await eventually(() => expect(events).toEqual([event, event, event]))
   })
 
+  it('tells both projects when an issue moves between them', async () => {
+    const { owner, member, issue } = await workspaceWithIssue()
+    const from = await owner.client.projects.create({ workspaceSlug: 'tip', name: 'From' })
+    const to = await owner.client.projects.create({ workspaceSlug: 'tip', name: 'To' })
+    await owner.client.issues.update({ workspaceSlug: 'tip', id: issue.id, projectId: from.id })
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    await owner.client.issues.update({ workspaceSlug: 'tip', id: issue.id, projectId: to.id })
+
+    await eventually(() =>
+      expect(events).toEqual([
+        { type: 'issue.updated', issueId: issue.id, fields: ['project'], actorId: owner.userId },
+        { type: 'project.updated', projectId: from.id, actorId: owner.userId },
+        { type: 'project.updated', projectId: to.id, actorId: owner.userId },
+      ]),
+    )
+  })
+
   it('tells both the sub-issue and its parent when the parent changes', async () => {
     const { owner, member, team, issue } = await workspaceWithIssue()
     const parent = await owner.client.issues.create({

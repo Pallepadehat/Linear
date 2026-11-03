@@ -41,6 +41,9 @@ export const issuesRouter = {
         creatorId: context.user.id,
       })
       await publishChange(context, { type: 'issue.created', issueId: issue.id })
+      // Its project's feed got a `project.issue_added` entry.
+      if (issue.projectId)
+        await publishChange(context, { type: 'project.updated', projectId: issue.projectId })
       if (issue.parentId) await publishSubIssuesChanged(context, [issue.parentId])
       return toIssueDto(await getIssue(context.db, context.workspace.id, issue.id, context.user.id))
     }),
@@ -94,6 +97,10 @@ export const issuesRouter = {
           ? [issue.parentId]
           : []
       await publishSubIssuesChanged(context, parents)
+      // Both projects' feeds got an entry (removed / added).
+      for (const projectId of [issue.projectChange?.from, issue.projectChange?.to]) {
+        if (projectId) await publishChange(context, { type: 'project.updated', projectId })
+      }
       return toIssueDto(issue)
     }),
 
