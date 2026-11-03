@@ -1,4 +1,15 @@
-import { CircleDashed, CircleUser, Signal, Tag, Box } from '@lucide/vue'
+import {
+  Bell,
+  Box,
+  CalendarClock,
+  CalendarDays,
+  CalendarRange,
+  CalendarX2,
+  CircleDashed,
+  CircleUser,
+  Signal,
+  Tag,
+} from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, h, type Component, type MaybeRefOrGetter, toValue } from 'vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
@@ -9,7 +20,8 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import { orpc } from '@/lib/orpc'
 import { PRIORITIES } from '@/lib/priorities'
 import { CATEGORY_ORDER } from '../group-issues'
-import { toggleValues, type IssueFilters } from '../issue-filters'
+import { ME, toggleValues, type IssueFilters } from '../issue-filters'
+import type { IssueDueFilter } from '@linear/contract'
 
 export type FilterOption = {
   /** Unique within the dimension; also the menu item's text value. */
@@ -21,7 +33,7 @@ export type FilterOption = {
 }
 
 export type FilterDimension = {
-  key: 'status' | 'priority' | 'assignee' | 'project' | 'label'
+  key: 'status' | 'priority' | 'assignee' | 'project' | 'label' | 'due' | 'subscriber'
   label: string
   icon: Component
   options: FilterOption[]
@@ -157,6 +169,28 @@ export function useFilterDimensions(
       values: [l.id],
     }))
 
+    const dueOptions: { key: string; label: string; icon: Component; values: IssueDueFilter[] }[] =
+      [
+        { key: 'overdue', label: 'Overdue', icon: CalendarClock, values: ['overdue'] },
+        {
+          key: 'dueThisWeek',
+          label: 'Due this week',
+          icon: CalendarRange,
+          values: ['dueThisWeek'],
+        },
+        { key: 'noDueDate', label: 'No due date', icon: CalendarX2, values: ['noDueDate'] },
+      ]
+    // "Me" first; it stays the viewer when the URL is shared.
+    const subscriberOptions = [
+      { key: ME, label: 'Me', icon: () => h(CircleUser), values: [ME] },
+      ...(members.value ?? []).map((m) => ({
+        key: m.userId,
+        label: m.name,
+        icon: () => h(UserAvatar, { name: m.name, src: m.avatarUrl, size: 'xs' }),
+        values: [m.userId],
+      })),
+    ]
+
     return [
       dimension(
         'status',
@@ -196,6 +230,15 @@ export function useFilterDimensions(
             ),
           ]),
       dimension('label', 'Labels', Tag, f.labelIds, (v) => update({ labelIds: v }), labelOptions),
+      dimension('due', 'Due date', CalendarDays, f.due, (v) => update({ due: v }), dueOptions),
+      dimension(
+        'subscriber',
+        'Subscribers',
+        Bell,
+        f.subscriberIds,
+        (v) => update({ subscriberIds: v }),
+        subscriberOptions,
+      ),
     ]
   })
 }

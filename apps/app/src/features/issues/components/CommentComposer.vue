@@ -6,7 +6,7 @@ import { ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
-import { commentListOptions } from '../queries'
+import { commentListOptions, issueDetailKeys, issueSubscribersOptions } from '../queries'
 
 const props = defineProps<{ workspaceSlug: string; issueId: string }>()
 
@@ -30,9 +30,16 @@ async function submit() {
       body: parsed.data,
     })
     body.value = ''
-    await queryClient.invalidateQueries({
-      queryKey: commentListOptions(props.workspaceSlug, props.issueId).queryKey,
-    })
+    // Commenting subscribes the author, so the bell and subscriber list change too.
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: commentListOptions(props.workspaceSlug, props.issueId).queryKey,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: issueSubscribersOptions(props.workspaceSlug, props.issueId).queryKey,
+      }),
+      ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+    ])
   } catch (err) {
     error.value = errorMessage(err)
   }

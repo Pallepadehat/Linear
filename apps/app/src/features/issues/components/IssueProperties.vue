@@ -2,6 +2,7 @@
 import type { Issue, Label, LinkedPullRequest, WorkflowStatus } from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
@@ -10,6 +11,7 @@ import LinkedPullRequests from '@/features/github/components/LinkedPullRequests.
 import { toPriority, type Priority } from '@/lib/priorities'
 import { fullDate, timeAgo } from '@/lib/relative-time'
 import type { IssuePatch } from '../issue-cache'
+import SubscribersPicker from './SubscribersPicker.vue'
 
 const props = defineProps<{
   issue: Issue
@@ -19,8 +21,12 @@ const props = defineProps<{
   projects: ProjectOption[]
   /** Undefined while loading. */
   pullRequests: LinkedPullRequest[] | undefined
+  subscribers: AssigneeOption[]
 }>()
-const emit = defineEmits<{ change: [patch: IssuePatch] }>()
+const emit = defineEmits<{
+  change: [patch: IssuePatch]
+  subscription: [user: AssigneeOption, subscribe: boolean]
+}>()
 
 const statusId = computed({
   get: () => props.issue.status.id,
@@ -41,14 +47,21 @@ const assigneeId = computed({
     if (id !== props.issue.assigneeId) emit('change', { assigneeId: id })
   },
 })
-const labelIds = computed({
-  get: () => props.issue.labels.map((l) => l.id),
-  // The issue's own labels stay resolvable even if the workspace list hasn't loaded.
-  set: (ids: string[]) => {
-    const byId = new Map([...props.issue.labels, ...props.labels].map((l) => [l.id, l]))
-    emit('change', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
+const dueDate = computed({
+  get: () => props.issue.dueDate,
+  set: (value: string | null) => {
+    if (value !== props.issue.dueDate) emit('change', { dueDate: value })
   },
 })
+const labelIds = computed(() => props.issue.labels.map((l) => l.id))
+// The issue's own labels stay pickable even if the workspace list hasn't loaded.
+const labelOptions = computed(() => {
+  const known = new Set(props.labels.map((l) => l.id))
+  return [...props.labels, ...props.issue.labels.filter((l) => !known.has(l.id))]
+})
+function setLabels(labels: Label[]) {
+  emit('change', { labels })
+}
 const projectId = computed({
   get: () => props.issue.projectId,
   set: (id: string | null) => {
@@ -67,6 +80,7 @@ const projectId = computed({
       <StatusPicker v-model="statusId" :statuses="statuses" />
       <PriorityPicker v-model="priority" />
       <AssigneePicker v-model="assigneeId" :users="users" />
+      <DueDatePicker v-model="dueDate" :category="issue.status.category" />
     </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Labels</h2>
@@ -85,11 +99,25 @@ const projectId = computed({
           <span class="truncate">{{ label.name }}</span>
         </li>
       </ul>
-      <LabelPicker v-model="labelIds" :labels="labels" trigger-text="Add label" />
+      <LabelPicker
+        :model-value="labelIds"
+        :labels="labelOptions"
+        :team-id="issue.teamId"
+        trigger-text="Add label"
+        @update:labels="setLabels"
+      />
     </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>
       <ProjectPicker v-model="projectId" :projects="projects" />
+    </section>
+    <section class="grid gap-1">
+      <h2 class="px-2 text-xs font-medium text-ink-subtle">Subscribers</h2>
+      <SubscribersPicker
+        :subscribers="subscribers"
+        :members="users"
+        @toggle="(user, subscribe) => emit('subscription', user, subscribe)"
+      />
     </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Linked pull requests</h2>

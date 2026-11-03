@@ -63,6 +63,12 @@ export const SHORTCUTS = {
   'issue-priority': { keys: 'p', label: 'Change priority', scope: 'picker', inDialog: true },
   'issue-assignee': { keys: 'a', label: 'Assign to', scope: 'picker', inDialog: true },
   'issue-labels': { keys: 'l', label: 'Change labels', scope: 'picker', inDialog: true },
+  'issue-due-date': {
+    keys: 'shift+d',
+    label: 'Change due date',
+    scope: 'picker',
+    inDialog: true,
+  },
 } as const satisfies Record<string, ShortcutDefinition>
 
 export type ShortcutId = keyof typeof SHORTCUTS
