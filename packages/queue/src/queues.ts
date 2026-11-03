@@ -1,7 +1,13 @@
 import { Queue, type JobsOptions } from 'bullmq'
 import type { Redis } from 'ioredis'
 import { QUEUE_NAMES, type QueueKey } from './names'
-import { notificationSourceKey, parseJobPayload, type JobName, type JobPayload } from './payloads'
+import {
+  notificationSourceKey,
+  parseJobPayload,
+  projectProgressSnapshotKey,
+  type JobName,
+  type JobPayload,
+} from './payloads'
 
 export const defaultJobOptions: JobsOptions = {
   attempts: 5,
@@ -52,4 +58,33 @@ export function enqueueNotification(
   return enqueue(queues, 'notifications', 'notify', payload, {
     jobId: notificationSourceKey(payload),
   })
+}
+
+/** How long an on-demand progress snapshot waits, so a burst of issue edits runs it once. */
+export const PROJECT_PROGRESS_DEBOUNCE_MS = 10_000
+
+/**
+ * Queues a snapshot of each project's progress after its issues changed. While one is
+ * pending for a project and day, more changes join it (BullMQ deduplication); it reads
+ * the counts when it runs, so it includes them. Once it has run, the next change queues
+ * a new one.
+ */
+export async function enqueueProjectProgressSnapshots(
+  queues: Queues,
+  projectIds: Iterable<string | null | undefined>,
+  now = new Date(),
+) {
+  for (const projectId of new Set(projectIds)) {
+    if (!projectId) continue
+    await enqueue(
+      queues,
+      'maintenance',
+      'project-progress-snapshot',
+      { projectId },
+      {
+        delay: PROJECT_PROGRESS_DEBOUNCE_MS,
+        deduplication: { id: projectProgressSnapshotKey(projectId, now) },
+      },
+    )
+  }
 }
