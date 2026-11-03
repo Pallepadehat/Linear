@@ -3,6 +3,7 @@ import { commentBodySchema, type Comment, type ReactionEmoji } from '@linear/con
 import { CircleCheck, Link, Pencil, Reply, RotateCcw, SmilePlus, Trash2 } from '@lucide/vue'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
+import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -68,7 +69,7 @@ async function copyLink() {
 const editing = ref(false)
 const draft = ref('')
 const editError = ref<string | null>(null)
-const editor = useTemplateRef<HTMLTextAreaElement>('editor')
+const editor = useTemplateRef<InstanceType<typeof MarkdownEditor>>('editor')
 async function startEdit() {
   draft.value = props.comment.body
   editError.value = null
@@ -184,16 +185,17 @@ function toggleResolved() {
       class="mt-2 ml-7 rounded-md border border-hairline-strong bg-canvas px-3 pt-2 pb-1.5"
       @submit.prevent="saveEdit().catch(() => {})"
     >
-      <label :for="`edit-${comment.id}`" class="sr-only">Edit comment</label>
-      <textarea
-        :id="`edit-${comment.id}`"
-        ref="editor"
-        v-model="draft"
-        rows="2"
-        :aria-invalid="Boolean(editError)"
-        class="field-sizing-content max-h-80 min-h-10 w-full resize-none bg-transparent text-sm text-ink caret-primary outline-hidden"
-        @keydown="onEditKeydown"
-      />
+      <!-- Keys bubble up from the editor; open mention menus stop Esc first. -->
+      <div @keydown="onEditKeydown">
+        <MarkdownEditor
+          ref="editor"
+          v-model="draft"
+          label="Edit comment"
+          :workspace-slug="workspaceSlug"
+          :attachments="false"
+          class="max-h-80 min-h-10 overflow-y-auto text-sm text-ink caret-primary"
+        />
+      </div>
       <div class="flex items-center gap-2">
         <p v-if="editError" class="text-[13px] text-danger" role="alert">{{ editError }}</p>
         <Button type="button" variant="ghost" size="sm" class="ml-auto" @click="editing = false">
@@ -209,9 +211,14 @@ function toggleResolved() {
         </Button>
       </div>
     </form>
-    <p v-else class="mt-1.5 pl-7 text-sm break-words whitespace-pre-wrap text-ink">
-      {{ comment.body }}
-    </p>
+    <MarkdownEditor
+      v-else
+      :model-value="comment.body"
+      readonly
+      label="Comment"
+      :workspace-slug="workspaceSlug"
+      class="mt-1.5 pl-7 text-sm break-words text-ink"
+    />
 
     <ul
       v-if="comment.reactions.length"

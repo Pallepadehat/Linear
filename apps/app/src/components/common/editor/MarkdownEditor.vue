@@ -48,7 +48,13 @@ const props = withDefaults(
     /** Renders the markdown without editing (comment bodies). */
     readonly?: boolean
   }>(),
-  { attachments: true, readonly: false },
+  {
+    placeholder: undefined,
+    class: undefined,
+    workspaceSlug: undefined,
+    attachments: true,
+    readonly: false,
+  },
 )
 const model = defineModel<string>({ default: '' })
 
@@ -337,7 +343,7 @@ const editor = useEditor({
   ],
   editorProps: {
     attributes: props.readonly
-      ? { class: 'markdown-body outline-hidden', 'aria-label': props.label }
+      ? { class: 'markdown-body outline-hidden', role: 'group', 'aria-label': props.label }
       : {
           class: 'markdown-body outline-hidden',
           role: 'textbox',
