@@ -5,30 +5,29 @@ import {
   CircleUser,
   FolderKanban,
   Inbox,
+  IterationCcw,
   Layers,
   Search,
   SquarePen,
   SquareStack,
 } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
-import { computed, nextTick, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import IconButton from '@/components/common/IconButton.vue'
 import SidebarItem from '@/components/common/SidebarItem.vue'
 import SidebarSection from '@/components/common/SidebarSection.vue'
 import TeamIcon from '@/components/common/TeamIcon.vue'
-import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import SidebarFavorites from '@/features/favorites/components/SidebarFavorites.vue'
 import WorkspaceMenu from '@/features/workspaces/components/WorkspaceMenu.vue'
+import { shortcutKeys } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useUiStore } from '@/stores/ui'
 import { SIDEBAR_SECTIONS, teamSectionKey } from './sidebar-sections'
 
 const route = useRoute()
-const router = useRouter()
 const ui = useUiStore()
 const preferences = usePreferencesStore()
 const { slug } = useCurrentWorkspace()
@@ -55,17 +54,7 @@ watch(
   { immediate: true },
 )
 
-// Until the command menu (M7-11) lands, Search focuses the issue search field.
-async function openSearch() {
-  ui.searchFocusRequested = true
-  await nextTick()
-  if (ui.searchFocusRequested) await router.push(at('issues'))
-}
-
-const shortcuts = [
-  { keys: 'C', label: 'Create issue' },
-  { keys: '⌥F', label: 'Toggle favorite' },
-]
+const commandMenuKeys = shortcutKeys('command-menu').flat().join('')
 </script>
 
 <template>
@@ -74,7 +63,13 @@ const shortcuts = [
       <div class="flex min-w-0 flex-1">
         <WorkspaceMenu />
       </div>
-      <IconButton :icon="Search" label="Search" @click="openSearch" />
+      <IconButton
+        :icon="Search"
+        label="Search"
+        :shortcut="commandMenuKeys"
+        aria-haspopup="dialog"
+        @click="ui.commandMenuOpen = true"
+      />
       <IconButton
         :icon="SquarePen"
         label="New issue"
@@ -136,6 +131,13 @@ const shortcuts = [
               inset
             />
             <SidebarItem
+              v-if="team.cyclesEnabled"
+              :to="at('cycles', { teamKey: team.key })"
+              label="Cycles"
+              :icon="IterationCcw"
+              inset
+            />
+            <SidebarItem
               :to="at('team-projects', { teamKey: team.key })"
               label="Projects"
               :icon="FolderKanban"
@@ -156,38 +158,13 @@ const shortcuts = [
     </nav>
 
     <div class="flex items-center">
-      <Popover>
-        <PopoverTrigger as-child>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            class="text-ink-subtle"
-            aria-label="Help and keyboard shortcuts"
-            title="Help"
-          >
-            <CircleHelp aria-hidden="true" />
-          </Button>
-        </PopoverTrigger>
-        <!-- Stand-in until the full shortcuts sheet (M7-11). -->
-        <PopoverContent side="top" align="start" class="w-56 p-2">
-          <p class="px-1.5 pb-1 text-xs text-ink-subtle">Keyboard shortcuts</p>
-          <dl class="grid gap-px">
-            <div
-              v-for="s in shortcuts"
-              :key="s.keys"
-              class="flex h-7 items-center justify-between px-1.5"
-            >
-              <dt class="text-ink">{{ s.label }}</dt>
-              <dd>
-                <kbd
-                  class="inline-flex h-5 min-w-5 items-center justify-center rounded-xs border border-hairline-strong px-1 font-sans text-xs text-ink-muted"
-                  >{{ s.keys }}</kbd
-                >
-              </dd>
-            </div>
-          </dl>
-        </PopoverContent>
-      </Popover>
+      <IconButton
+        :icon="CircleHelp"
+        label="Keyboard shortcuts"
+        shortcut="?"
+        aria-haspopup="dialog"
+        @click="ui.shortcutsOpen = true"
+      />
     </div>
   </aside>
 </template>

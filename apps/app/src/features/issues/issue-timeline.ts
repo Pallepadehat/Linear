@@ -1,12 +1,17 @@
-import type { Activity, Comment } from '@linear/contract'
+import type { Activity, CommentThread } from '@linear/contract'
+import { pointsText } from '@/lib/estimates'
+import { formatDueDate, todayIso } from '@/lib/due-dates'
 import { priorityLabel, toPriority } from '@/lib/priorities'
 
 export type TimelineEntry =
-  | { type: 'comment'; key: string; at: Date; comment: Comment }
+  | { type: 'comment'; key: string; at: Date; comment: CommentThread }
   | { type: 'activity'; key: string; at: Date; activity: Activity }
 
-/** Comments and activity in one list, oldest first. Ties keep ids in order (UUIDv7). */
-export function buildTimeline(comments: Comment[], activity: Activity[]): TimelineEntry[] {
+/**
+ * Comment threads (placed by their root) and activity in one list, oldest first.
+ * Ties keep ids in order (UUIDv7).
+ */
+export function buildTimeline(comments: CommentThread[], activity: Activity[]): TimelineEntry[] {
   const entries: TimelineEntry[] = [
     ...comments.map((comment) => ({
       type: 'comment' as const,
@@ -29,7 +34,11 @@ export type ActivityNames = {
   status: (id: string) => string | undefined
   user: (id: string) => string | undefined
   project: (id: string) => string | undefined
+  /** Absent where cycles aren't loaded; entries then read "a cycle". */
+  cycle?: (id: string) => string | undefined
   label: (id: string) => string | undefined
+  /** How the issue's team names an estimate ("M" on t-shirt scales); defaults to points. */
+  estimate?: (value: number) => string
 }
 
 export function activityActor(entry: Activity, names: ActivityNames): string {
@@ -66,6 +75,10 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       const to = toPriority(typeof entry.to === 'number' ? entry.to : 0)
       return to === 0 ? 'removed the priority' : `set priority to ${priorityLabel(to)}`
     }
+    case 'estimate': {
+      if (typeof entry.to !== 'number') return 'removed estimate'
+      return `set estimate to ${names.estimate?.(entry.to) ?? pointsText(entry.to)}`
+    }
     case 'assignee': {
       const to = asString(entry.to)
       if (to) return `assigned the issue to ${name(names.user, to, 'a removed user')}`
@@ -78,6 +91,16 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       const to = asString(entry.to)
       if (to) return `moved the issue to ${name(names.project, to, 'a removed project')}`
       return `removed the issue from ${name(names.project, asString(entry.from), 'its project')}`
+    }
+    case 'cycle': {
+      const cycleName = names.cycle ?? (() => undefined)
+      const to = asString(entry.to)
+      if (to) return `moved the issue to ${name(cycleName, to, 'a cycle')}`
+      return `removed the issue from ${name(cycleName, asString(entry.from), 'its cycle')}`
+    }
+    case 'due_date': {
+      const to = asString(entry.to)
+      return to ? `set due date to ${formatDueDate(to, todayIso())}` : 'removed due date'
     }
     case 'labels': {
       const from = asList(entry.from)
@@ -93,5 +116,31 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       ].filter(Boolean)
       return parts.join(' and ') || 'changed the labels'
     }
+    case 'relation': {
+      // [role, otherIssueId, otherIdentifier], read from this issue's side.
+      const added = asList(entry.to)
+      const [role, , identifier = 'an issue'] = added.length ? added : asList(entry.from)
+      const relation = RELATION_PHRASES[role as keyof typeof RELATION_PHRASES] ?? 'related to'
+      return added.length
+        ? `marked as ${relation} ${identifier}`
+        : `removed the relation with ${identifier}`
+    }
+    // Identifiers are stored as-is (team keys never change).
+    case 'parent': {
+      const to = asString(entry.to)
+      return to ? `set parent to ${to}` : 'removed parent'
+    }
+    case 'sub_issue': {
+      const to = asString(entry.to)
+      return to ? `added sub-issue ${to}` : `removed sub-issue ${asString(entry.from) ?? ''}`.trim()
+    }
   }
+}
+
+const RELATION_PHRASES = {
+  blocks: 'blocking',
+  blocked_by: 'blocked by',
+  related: 'related to',
+  duplicate_of: 'a duplicate of',
+  duplicated_by: 'duplicated by',
 }

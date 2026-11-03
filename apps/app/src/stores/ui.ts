@@ -1,14 +1,27 @@
+import type { ProjectStatus } from '@linear/contract'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { FavoriteTarget } from '@/features/favorites/favorite-list'
+import type { RouteLocationRaw } from 'vue-router'
 import type { IssuePrefill } from '@/features/issues/prefill'
 
 export type CreateIssueDefaults = {
   teamId?: string
   statusId?: string
   projectId?: string
+  cycleId?: string
   assigneeId?: string
 }
+
+/** Enough to name an issue and fetch it; the issue itself stays in the query cache. */
+export type IssueRef = { id: string; identifier: string }
+
+/**
+ * One breadcrumb segment: plain text, or a link, optionally with the team badge
+ * (`teamInitial`) or a mono identifier before the label.
+ */
+export type Crumb =
+  string | { label: string; to?: RouteLocationRaw; teamInitial?: string; identifier?: string }
 
 /** Transient UI state shared across the layout (never server data). */
 export const useUiStore = defineStore('ui', () => {
@@ -28,13 +41,24 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   /** Breadcrumb a page puts in the panel header; null falls back to the route title. */
-  const breadcrumb = ref<string[] | null>(null)
+  const breadcrumb = ref<Crumb[] | null>(null)
+
+  /** Projects table filter: the statuses shown (empty = all). */
+  const projectStatusFilter = ref<ProjectStatus[]>([])
+  const createProjectOpen = ref(false)
+
+  /** ⌘K command menu and the `?` keyboard shortcuts sheet. */
+  const commandMenuOpen = ref(false)
+  const shortcutsOpen = ref(false)
 
   /**
-   * Set by the sidebar search button; the issue filter bar focuses its search field and clears it.
-   * Stand-in until the command menu (M7-11) takes over search.
+   * The issue keyboard actions apply to: the open issue on its page, or the
+   * focused row in a list. The command menu's issue actions and ⌘⌫ use it.
    */
-  const searchFocusRequested = ref(false)
+  const activeIssue = ref<IssueRef | null>(null)
+
+  /** Issue awaiting the delete confirmation dialog. */
+  const issueToDelete = ref<IssueRef | null>(null)
 
   /** The issue list's Details panel (⌘I); the toolbar toggles it, the panel itself lands in M7-05. */
   const issueDetailsOpen = ref(false)
@@ -48,7 +72,12 @@ export const useUiStore = defineStore('ui', () => {
     createIssuePrefill,
     openCreateIssue,
     breadcrumb,
-    searchFocusRequested,
+    projectStatusFilter,
+    createProjectOpen,
+    commandMenuOpen,
+    shortcutsOpen,
+    activeIssue,
+    issueToDelete,
     favoriteTarget,
     issueDetailsOpen,
   }

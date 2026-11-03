@@ -3,10 +3,17 @@ import type { Issue } from '@linear/contract'
 import { Layers, ListFilter } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed, ref, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
+import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
-import { resolveDropTarget, toBoardColumns, type BoardColumn as Column } from '../board-columns'
+import {
+  boardOrder,
+  resolveDropTarget,
+  toBoardColumns,
+  type BoardColumn as Column,
+} from '../board-columns'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
@@ -18,20 +25,23 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  cycleId?: string
   /** The view tab (team and All issues pages); My issues and project lists have none. */
   view?: 'all' | 'active' | 'backlog'
 }>()
 
 const ui = useUiStore()
 const { active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
-  () => props.workspaceSlug,
-  () => ({
-    teamId: props.teamId,
-    projectId: props.projectId,
-    statusCategories: viewStatusCategories(props.view),
-  }),
-)
+const { query, queryKey, issues, users, labels, statusesByTeam, estimatesByTeam, updateIssue } =
+  useIssueViewData(
+    () => props.workspaceSlug,
+    () => ({
+      teamId: props.teamId,
+      projectId: props.projectId,
+      cycleId: props.cycleId,
+      statusCategories: viewStatusCategories(props.view),
+    }),
+  )
 
 // Pages are newest-first across all statuses, so every column is only complete
 // once every page is in; keep loading in the background. Columns are virtualized.
@@ -47,6 +57,23 @@ const columns = computed(() =>
 const loading = computed(
   () => query.isPending.value || (!!props.teamId && !statusesByTeam.value.has(props.teamId)),
 )
+
+// The detail page steps through the cards in board order (J/K, "1 / 47").
+const router = useRouter()
+const nav = useIssueNavStore()
+function openIssue(issue: Issue) {
+  const statuses = statusesByTeam.value
+  const order = (list: Issue[]) => boardOrder(list, statuses)
+  nav.open(
+    {
+      queryKey: queryKey.value,
+      identifiers: order(issues.value),
+      order,
+      route: router.currentRoute.value.fullPath,
+    },
+    issue.identifier,
+  )
+}
 
 const dragging = ref<Issue | null>(null)
 
@@ -84,6 +111,7 @@ function onDrop(column: Column) {
       :workspace-slug="workspaceSlug"
       :team-id="teamId"
       :project-id="projectId"
+      :cycle-id="cycleId"
       :hide-filter-menu="!!view"
     />
     <div
@@ -130,7 +158,9 @@ function onDrop(column: Column) {
       title="No issues yet"
       description="Create an issue to start tracking work."
     >
-      <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+      <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId, cycleId })"
+        >New issue</Button
+      >
     </EmptyState>
     <div v-else class="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
       <BoardColumn
@@ -138,6 +168,7 @@ function onDrop(column: Column) {
         :key="column.key"
         :column="column"
         :statuses-by-team="statusesByTeam"
+        :estimates-by-team="estimatesByTeam"
         :users="users"
         :labels="labels"
         :dragging-id="dragging?.id ?? null"
@@ -147,7 +178,8 @@ function onDrop(column: Column) {
         @dragstart="onDragStart"
         @dragend="endDrag"
         @drop="onDrop(column)"
-        @create="ui.openCreateIssue({ teamId, projectId, statusId: column.status.id })"
+        @open="openIssue"
+        @create="ui.openCreateIssue({ teamId, projectId, cycleId, statusId: column.status.id })"
       />
     </div>
   </div>

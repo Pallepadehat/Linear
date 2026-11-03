@@ -1,13 +1,25 @@
 <script setup lang="ts">
+import type { Issue } from '@linear/contract'
 import { ChevronDown, Layers, ListFilter, Plus } from '@lucide/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import EstimateIcon from '@/components/common/EstimateIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
+import { pointsText, sumEstimates } from '@/lib/estimates'
+import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
 import { useIssueFilters } from '../composables/useIssueFilters'
-import { groupIssuesByStatus, toListRows, type IssueListRow } from '../group-issues'
+import {
+  groupIssuesByStatus,
+  listOrder,
+  toListRows,
+  type IssueGroup,
+  type IssueListRow,
+} from '../group-issues'
+import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
 import IssueFilterBar from './IssueFilterBar.vue'
@@ -18,6 +30,7 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  cycleId?: string
   assignee?: 'me'
   creator?: 'me'
   /** The view tab (team and All issues pages); My issues and project lists have none. */
@@ -33,11 +46,22 @@ const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
+const {
+  query,
+  queryKey,
+  issues,
+  users,
+  labels,
+  statusesByTeam,
+  cyclesByTeam,
+  estimatesByTeam,
+  updateIssue,
+} = useIssueViewData(
   () => props.workspaceSlug,
   () => ({
     teamId: props.teamId,
     projectId: props.projectId,
+    cycleId: props.cycleId,
     assignee: props.assignee,
     creator: props.creator,
     statusCategories: viewStatusCategories(props.view),
@@ -51,12 +75,32 @@ const viewEmpty = computed(() =>
       : null,
 )
 const collapsed = ref(new Set<string>())
+// Sums come from the cached issues, so optimistic estimate changes show at once.
+const groupEstimate = (group: IssueGroup) =>
+  sumEstimates(group.issues, (teamId) => estimatesByTeam.value.get(teamId)?.scale)
 const rows = computed(() => toListRows(groupIssuesByStatus(issues.value), collapsed.value))
 
 function toggleGroup(key: string) {
   const next = new Set(collapsed.value)
   if (!next.delete(key)) next.add(key)
   collapsed.value = next
+}
+
+// The detail page steps through the issues in the order shown here (J/K, "1 / 47").
+const router = useRouter()
+const nav = useIssueNavStore()
+function openIssue(issue: Issue) {
+  const hidden = new Set(collapsed.value)
+  const order = (list: Issue[]) => listOrder(list, hidden)
+  nav.open(
+    {
+      queryKey: queryKey.value,
+      identifiers: order(issues.value),
+      order,
+      route: router.currentRoute.value.fullPath,
+    },
+    issue.identifier,
+  )
 }
 
 const scrollEl = ref<HTMLElement | null>(null)
@@ -105,6 +149,23 @@ watch([filters, () => props.view], () => {
   if (scrollEl.value) scrollEl.value.scrollTop = 0
 })
 
+// J/K move through the visible rows (collapsed groups are skipped).
+const listedIssues = computed(() =>
+  rows.value.flatMap((row) => (row.type === 'issue' ? [row.issue] : [])),
+)
+const { focusedId, selectedIds } = useIssueListKeyboard(listedIssues, async (issue) => {
+  const index = rows.value.findIndex((row) => row.type === 'issue' && row.issue.id === issue.id)
+  if (index === -1) return
+  virtualizer.value.scrollToIndex(index, { align: 'auto' })
+  // The row may only render after the scroll; then move focus to its link.
+  await nextTick()
+  requestAnimationFrame(() =>
+    scrollEl.value
+      ?.querySelector<HTMLElement>(`[data-issue-id="${issue.id}"] a`)
+      ?.focus({ preventScroll: true }),
+  )
+})
+
 watchEffect(() => {
   const last = virtualRows.value.at(-1)
   if (!last || last.item.index < rows.value.length - PREFETCH_ROWS) return
@@ -118,6 +179,7 @@ watchEffect(() => {
       :workspace-slug="workspaceSlug"
       :team-id="teamId"
       :project-id="projectId"
+      :cycle-id="cycleId"
       :hide-filter-menu="!!view"
     />
     <div v-if="query.isPending.value" class="grid" aria-busy="true" aria-label="Loading issues">
@@ -163,7 +225,9 @@ watchEffect(() => {
           title="No issues yet"
           description="Create an issue to start tracking work."
         >
-          <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+          <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId, cycleId })"
+            >New issue</Button
+          >
         </EmptyState>
       </slot>
     </template>
@@ -194,13 +258,26 @@ watchEffect(() => {
               <StatusIcon :category="row.group.status.category" />
               <span class="font-medium text-ink">{{ row.group.status.name }}</span>
               <span class="text-ink-subtle tabular-nums">{{ row.group.issues.length }}</span>
+              <span
+                v-if="groupEstimate(row.group) > 0"
+                class="ml-1 flex items-center gap-1 text-xs text-ink-subtle tabular-nums"
+                :title="`Estimate: ${pointsText(groupEstimate(row.group))}`"
+              >
+                <EstimateIcon class="size-3.5" />
+                {{ groupEstimate(row.group) }}
+                <span class="sr-only">{{
+                  groupEstimate(row.group) === 1 ? 'point' : 'points'
+                }}</span>
+              </span>
             </button>
             <Button
               v-if="teamId"
               variant="ghost"
               size="icon-xs"
               :aria-label="`New issue in ${row.group.status.name}`"
-              @click="ui.openCreateIssue({ teamId, projectId, statusId: row.group.status.id })"
+              @click="
+                ui.openCreateIssue({ teamId, projectId, cycleId, statusId: row.group.status.id })
+              "
             >
               <Plus aria-hidden="true" />
             </Button>
@@ -209,10 +286,17 @@ watchEffect(() => {
             v-else
             class="flex-1"
             :issue="row.issue"
+            :depth="row.depth"
+            :data-issue-id="row.issue.id"
+            :focused="row.issue.id === focusedId"
+            :selected="selectedIds.has(row.issue.id)"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
+            :cycles="cyclesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"
+            :estimates="estimatesByTeam.get(row.issue.teamId)"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
+            @open="openIssue(row.issue)"
           />
         </div>
       </div>

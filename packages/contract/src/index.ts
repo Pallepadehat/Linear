@@ -3,11 +3,14 @@ import type {
   InferContractRouterInputs,
   InferContractRouterOutputs,
 } from '@orpc/contract'
+import { projectLabelsContract } from './routers/project-labels'
 import { projectsContract } from './routers/projects'
+import { issueRelationsContract } from './routers/relations'
 import { presenceContract } from './routers/presence'
 import { realtimeContract } from './routers/realtime'
 import { activityContract } from './routers/activity'
 import { commentsContract } from './routers/comments'
+import { cyclesContract } from './routers/cycles'
 import { favoritesContract } from './routers/favorites'
 import { githubContract } from './routers/github'
 import { issuesContract } from './routers/issues'
@@ -25,7 +28,10 @@ export const contract = {
   uploads: uploadsContract,
   labels: labelsContract,
   issues: issuesContract,
+  issueRelations: issueRelationsContract,
   projects: projectsContract,
+  cycles: cyclesContract,
+  projectLabels: projectLabelsContract,
   github: githubContract,
   activity: activityContract,
   comments: commentsContract,
@@ -51,6 +57,8 @@ export * from './schemas/users'
 export * from './schemas/workspaces'
 export * from './schemas/activity'
 export * from './schemas/comments'
+export * from './schemas/cycles'
 export * from './schemas/favorites'
 export * from './schemas/realtime'
 export * from './schemas/templates'
+export * from './schemas/relations'

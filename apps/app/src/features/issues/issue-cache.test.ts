@@ -6,6 +6,7 @@ import {
   patchIssue,
   patchIssueInPages,
   removeIssueFromPages,
+  removeRelation,
   toUpdateIssueInput,
 } from './issue-cache'
 
@@ -19,7 +20,7 @@ const status = (name: string, category: WorkflowStatus['category']): WorkflowSta
 const todo = status('Todo', 'unstarted')
 const done = status('Done', 'completed')
 const canceled = status('Canceled', 'canceled')
-const bug = { id: crypto.randomUUID(), name: 'Bug', color: '#eb5757' }
+const bug = { id: crypto.randomUUID(), teamId: null, name: 'Bug', color: '#eb5757' }
 
 function issue(id: string, overrides: Partial<Issue> = {}): Issue {
   const created = new Date('2026-01-01')
@@ -35,10 +36,18 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    cycleId: null,
+    estimate: null,
+    dueDate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: created,
     updatedAt: created,
     completedAt: null,
+    blockedByCount: 0,
+    blockingCount: 0,
+    parentId: null,
+    subIssueProgress: null,
     ...overrides,
   }
 }
@@ -102,6 +111,29 @@ describe('patchIssue', () => {
     expect(patchIssue(a, 'a', (i) => ({ ...i, priority: 2 }))?.priority).toBe(2)
     expect(patchIssue(a, 'b', (i) => ({ ...i, priority: 2 }))).toBe(a)
   })
+
+  it('patches a sub-issue inside its parent and recounts the progress', () => {
+    const parent = {
+      ...issue('p', { subIssueProgress: { done: 0, total: 2 } }),
+      parent: null,
+      children: [issue('a'), issue('b')],
+    }
+    const next = patchIssue(parent, 'a', (i) => ({ ...i, status: done }))
+    expect(next?.children.find((c) => c.id === 'a')?.status).toBe(done)
+    expect(next?.subIssueProgress).toEqual({ done: 1, total: 2 })
+    expect(patchIssue(parent, 'b', (i) => ({ ...i, status: canceled }))?.subIssueProgress).toEqual({
+      done: 0,
+      total: 1,
+    })
+  })
+
+  it('keeps the parent and sub-issues when patching the issue itself', () => {
+    const parent = { ...issue('p'), parent: null, children: [issue('a')] }
+    expect(patchIssue(parent, 'p', (i) => ({ ...issue(i.id), priority: 3 }))).toMatchObject({
+      priority: 3,
+      children: [{ id: 'a' }],
+    })
+  })
 })
 
 describe('toUpdateIssueInput', () => {
@@ -124,10 +156,28 @@ describe('toUpdateIssueInput', () => {
     })
   })
 
+  it('sends cycle changes, including clears', () => {
+    expect(toUpdateIssueInput('tip', 'a', { cycleId: 'c1' })).toMatchObject({ cycleId: 'c1' })
+    expect(toUpdateIssueInput('tip', 'a', { cycleId: null })).toMatchObject({ cycleId: null })
+  })
+
   it('sends title, description and project edits, including clears', () => {
     expect(
       toUpdateIssueInput('tip', 'a', { title: 'New', description: null, projectId: null }),
     ).toEqual({ workspaceSlug: 'tip', id: 'a', title: 'New', description: null, projectId: null })
+  })
+
+  it('sends estimates, including clearing one', () => {
+    expect(toUpdateIssueInput('tip', 'a', { estimate: 3 })).toEqual({
+      workspaceSlug: 'tip',
+      id: 'a',
+      estimate: 3,
+    })
+    expect(toUpdateIssueInput('tip', 'a', { estimate: null })).toEqual({
+      workspaceSlug: 'tip',
+      id: 'a',
+      estimate: null,
+    })
   })
 })
 
@@ -144,5 +194,32 @@ describe('removeIssueFromPages', () => {
     const data = pages([issue('a')])
     expect(removeIssueFromPages(data, 'z')).toBe(data)
     expect(removeIssueFromPages(undefined, 'z')).toBeUndefined()
+  })
+})
+
+describe('removeRelation', () => {
+  it('drops the relation from whichever group lists it', () => {
+    const related = (relationId: string) => ({
+      relationId,
+      id: crypto.randomUUID(),
+      identifier: 'TIP-9',
+      title: 'Other',
+      status: todo,
+    })
+    const detail = {
+      ...issue('a'),
+      parent: null,
+      children: [],
+      relations: {
+        blocks: [related('r1')],
+        blockedBy: [related('r2')],
+        related: [],
+        duplicateOf: [],
+        duplicates: [],
+      },
+    }
+    const next = removeRelation(detail, 'r2')
+    expect(next.relations.blockedBy).toEqual([])
+    expect(next.relations.blocks).toEqual(detail.relations.blocks)
   })
 })

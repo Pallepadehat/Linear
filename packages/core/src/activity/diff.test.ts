@@ -8,7 +8,10 @@ const current: IssueSnapshot = {
   priority: 0,
   assigneeId: null,
   projectId: null,
+  cycleId: null,
+  estimate: null,
   labelIds: ['bug', 'ui'],
+  dueDate: null,
 }
 
 describe('diffIssue', () => {
@@ -28,12 +31,21 @@ describe('diffIssue', () => {
         priority: 2,
         assigneeId: 'u1',
         projectId: null,
+        cycleId: 'c1',
       }),
     ).toEqual([
       { kind: 'title', from: 'Fix login', to: 'Fix sign-in' },
       { kind: 'status', from: 'todo', to: 'done' },
       { kind: 'priority', from: 0, to: 2 },
       { kind: 'assignee', from: null, to: 'u1' },
+      { kind: 'cycle', from: null, to: 'c1' },
+    ])
+  })
+
+  it('records estimate changes, including clearing one', () => {
+    expect(diffIssue(current, { estimate: 3 })).toEqual([{ kind: 'estimate', from: null, to: 3 }])
+    expect(diffIssue({ ...current, estimate: 3 }, { estimate: null })).toEqual([
+      { kind: 'estimate', from: 3, to: null },
     ])
   })
 
@@ -46,6 +58,15 @@ describe('diffIssue', () => {
   it('compares labels as sorted sets', () => {
     expect(diffIssue(current, { labelIds: ['ui', 'feature'] })).toEqual([
       { kind: 'labels', from: ['bug', 'ui'], to: ['feature', 'ui'] },
+    ])
+  })
+
+  it('records due date changes as days, set and cleared', () => {
+    expect(diffIssue(current, { dueDate: '2026-11-07' })).toEqual([
+      { kind: 'due_date', from: null, to: '2026-11-07' },
+    ])
+    expect(diffIssue({ ...current, dueDate: '2026-11-07' }, { dueDate: null })).toEqual([
+      { kind: 'due_date', from: '2026-11-07', to: null },
     ])
   })
 })
