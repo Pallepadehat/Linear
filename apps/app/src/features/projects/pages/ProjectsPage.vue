@@ -17,11 +17,13 @@ import { toPriority } from '@/lib/priorities'
 import { orpc } from '@/lib/orpc'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useUiStore } from '@/stores/ui'
+import HealthIcon from '../components/HealthIcon.vue'
 import ProjectDatePicker from '../components/ProjectDatePicker.vue'
 import ProjectDisplayMenu from '../components/ProjectDisplayMenu.vue'
 import ProjectFilterMenu from '../components/ProjectFilterMenu.vue'
 import ProjectLeadPicker from '../components/ProjectLeadPicker.vue'
 import { PROJECT_COLUMN_LABELS } from '../project-columns'
+import { healthLabel } from '../project-health'
 import { sortProjects, toggleProjectSort, type ProjectSortKey } from '../project-sort'
 import { progressPercent, projectStatusMeta } from '../project-status'
 import { projectListOptions, useUpdateProject, type ProjectChanges } from '../queries'
@@ -202,8 +204,13 @@ const openCreate = () => (ui.createProjectOpen = true)
               </RouterLink>
             </td>
             <td class="hidden px-3 lg:table-cell">
-              <!-- Health arrives with project updates (M9-04). -->
-              <span class="text-ink-tertiary">No updates</span>
+              <span
+                class="flex items-center gap-2"
+                :class="project.health ? 'text-ink-muted' : 'text-ink-subtle'"
+              >
+                <HealthIcon :health="project.health" />
+                {{ healthLabel(project.health) }}
+              </span>
             </td>
             <!-- Pickers sit above the row link so they open instead of navigating. -->
             <td class="px-1">

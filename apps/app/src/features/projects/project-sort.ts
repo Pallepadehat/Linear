@@ -1,4 +1,5 @@
 import type { Project } from '@linear/contract'
+import { healthRank } from './project-health'
 import { PROJECT_STATUSES, progressPercent } from './project-status'
 
 export const PROJECT_SORT_KEYS = [
@@ -20,7 +21,7 @@ const byName = (a: Project, b: Project) =>
   a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
 
 /**
- * A comparable value per column, or null for "empty" (no priority, no lead, no date),
+ * A comparable value per column, or null for "empty" (no health, priority, lead or date),
  * which sorts last in both directions like Linear.
  */
 function sortValue(project: Project, key: ProjectSortKey, lookup: Lookup): string | number | null {
@@ -28,8 +29,8 @@ function sortValue(project: Project, key: ProjectSortKey, lookup: Lookup): strin
     case 'name':
       return project.name
     case 'health':
-      // No health yet (project updates arrive in M9-04): ties fall back to the name.
-      return 0
+      // On track → Off track; projects without updates sort last.
+      return healthRank(project.health)
     case 'priority':
       return project.priority === 0 ? null : project.priority
     case 'lead':

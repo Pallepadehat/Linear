@@ -32,6 +32,8 @@ const project: Project = {
   progress: { completed: 0, total: 0 },
   issueCount: 0,
   currentMilestone: null,
+  health: null,
+  lastUpdateAt: null,
   createdAt: new Date(0),
 }
 
