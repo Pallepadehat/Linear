@@ -11,10 +11,26 @@ const id = '0190a8a4-6f5d-7c8e-9a1b-2c3d4e5f6a7b'
 describe('viewFiltersSchema', () => {
   it('accepts the list filters', () => {
     const filters = { statusIds: [id], priorities: [1, 2], assigneeIds: [null], q: 'bug' }
+    // `labelMode` defaults to "any of".
+    expect(viewFiltersSchema.parse(filters)).toEqual({ ...filters, labelMode: 'any' })
+  })
+
+  it('accepts the filter menu fields and relative date windows', () => {
+    const filters = {
+      statusIdsNot: [id],
+      labelIds: [id],
+      labelMode: 'all',
+      creatorIds: ['me'],
+      createdWithin: 'week',
+      updatedBefore: new Date('2026-10-01T00:00:00.000Z'),
+      content: 'crash',
+      hasPullRequests: false,
+    } as const
     expect(viewFiltersSchema.parse(filters)).toEqual(filters)
   })
 
   it.each([
+    ['an unknown date window', { createdWithin: 'year' }],
     ['a malformed id', { statusIds: ['nope'] }],
     ['an out-of-range priority', { priorities: [9] }],
     ['a page scope field', { teamId: id }],
@@ -45,6 +61,11 @@ describe('parseStoredViewFilters', () => {
     expect(filters.statusIds).toEqual([id])
     expect(filters).not.toHaveProperty('priorities')
     expect(filters).not.toHaveProperty('removedField')
+  })
+
+  it('revives stored date strings', () => {
+    const filters = parseStoredViewFilters({ createdAfter: '2026-10-01T00:00:00.000Z' })
+    expect(filters.createdAfter).toEqual(new Date('2026-10-01T00:00:00.000Z'))
   })
 
   it('reads a non-object as no filters', () => {

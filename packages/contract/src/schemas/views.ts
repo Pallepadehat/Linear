@@ -46,8 +46,22 @@ const NON_VIEW_FILTER_KEYS = {
   excludeSubtreeOf: true,
 } as const
 
-/** The user filters of `issues.list`, as a view stores them. Unknown keys are rejected. */
-export const viewFiltersSchema = issueFiltersSchema.omit(NON_VIEW_FILTER_KEYS).strict()
+/** "Past day / week / month / 3 months", kept relative so a saved view never goes stale. */
+export const viewDatePeriodSchema = z.enum(['day', 'week', 'month', '3months'])
+
+/**
+ * The user filters of `issues.list`, as a view stores them, plus relative date windows
+ * (`…Within`) that the app turns into `…After` bounds when it lists. Unknown keys are
+ * rejected.
+ */
+export const viewFiltersSchema = issueFiltersSchema
+  .omit(NON_VIEW_FILTER_KEYS)
+  .extend({
+    createdWithin: viewDatePeriodSchema.optional(),
+    updatedWithin: viewDatePeriodSchema.optional(),
+    completedWithin: viewDatePeriodSchema.optional(),
+  })
+  .strict()
 
 /** The display options of M7-03 (layout, grouping, ordering + direction, properties…). */
 export const viewDisplaySchema = displayOptionsSchema
@@ -148,6 +162,7 @@ export const updateViewInputSchema = workspaceScopedSchema.extend({
   shared: z.boolean().optional(),
 })
 
+export type ViewDatePeriod = z.infer<typeof viewDatePeriodSchema>
 export type ViewIcon = z.infer<typeof viewIconSchema>
 export type ViewColor = z.infer<typeof viewColorSchema>
 export type ViewScope = z.infer<typeof viewScopeSchema>
