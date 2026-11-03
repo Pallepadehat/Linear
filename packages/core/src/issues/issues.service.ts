@@ -8,15 +8,37 @@ import {
   workspaceMembers,
   type DbOrTx,
 } from '@linear/db'
-import { and, asc, desc, eq, inArray, lt, sql, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  ilike,
+  inArray,
+  isNull,
+  lt,
+  or,
+  sql,
+  type AnyColumn,
+  type SQL,
+} from 'drizzle-orm'
 import { recordActivity, type ActivityActor } from '../activity/activity.service'
 import { diffIssue } from '../activity/diff'
-import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
 import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
 import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
+import {
+  decodeListCursor,
+  encodeListCursor,
+  escapeLike,
+  parseIdentifierQuery,
+  type IssueSort,
+  type SortDirection,
+} from './list-query'
+
 
 export type CreateIssueInput = {
   workspaceId: string
@@ -53,11 +75,22 @@ export type ListIssuesInput = {
   projectId?: string
   assigneeId?: string
   creatorId?: string
+  statusIds?: string[]
+  priorities?: number[]
+  /** `null` matches unassigned issues. */
+  assigneeIds?: (string | null)[]
+  /** `null` matches issues without a project. */
+  projectIds?: (string | null)[]
+  /** Any of these labels. */
+  labelIds?: string[]
+  q?: string
+  sort?: IssueSort
+  direction?: SortDirection
   cursor?: string | null
   limit: number
 }
 
-export type IssueRecord = Awaited<ReturnType<typeof loadIssues>>[number]
+export type IssueRecord = Awaited<ReturnType<typeof withLabels>>[number]
 
 function normalizeTitle(title: string) {
   const trimmed = title.trim()
@@ -166,27 +199,100 @@ export async function getIssueByIdentifier(
 }
 
 /**
- * Newest first. UUIDv7 ids are time-ordered and unique, so the last id of a
- * page is a stable cursor: issues created later sort before it and never
- * shift the pages after it.
+ * Keyset-paginated: each sort orders by its key and then by id, and the cursor
+ * carries both values of the last row, so rows inserted or edited elsewhere in
+ * the list never shift the pages after it.
  */
 export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
-  assertCursor(input.cursor)
-  const rows = await loadIssues(
-    db,
-    input.workspaceId,
-    and(
-      input.teamId ? eq(issues.teamId, input.teamId) : undefined,
-      input.projectId ? eq(issues.projectId, input.projectId) : undefined,
-      input.assigneeId ? eq(issues.assigneeId, input.assigneeId) : undefined,
-      input.creatorId ? eq(issues.creatorId, input.creatorId) : undefined,
-      input.cursor ? lt(issues.id, input.cursor) : undefined,
-    ),
-    input.limit + 1,
+  const sort = input.sort ?? 'createdAt'
+  const direction = input.direction ?? 'desc'
+  const cursor = input.cursor ? decodeListCursor(input.cursor, sort, direction) : null
+  const order = sortOrder(sort, direction)
+
+  const rows = await selectIssueRows(db, input.workspaceId, {
+    where: and(listFilter(input), cursor ? order.after(cursor) : undefined),
+    orderBy: order.orderBy,
+    cursorValue: order.cursorValue,
+    limit: input.limit + 1,
+  })
+  const page = rows.slice(0, input.limit)
+  const last = page.at(-1)
+  const nextCursor =
+    rows.length > input.limit && last
+      ? encodeListCursor(sort, direction, { value: last.cursorValue, id: last.issue.id })
+      : null
+  return { items: await withLabels(db, input.workspaceId, page), nextCursor }
+}
+
+function listFilter(input: ListIssuesInput) {
+  const identifier = input.q ? parseIdentifierQuery(input.q) : null
+  const search = input.q?.trim()
+  return and(
+    input.teamId ? eq(issues.teamId, input.teamId) : undefined,
+    input.projectId ? eq(issues.projectId, input.projectId) : undefined,
+    input.assigneeId ? eq(issues.assigneeId, input.assigneeId) : undefined,
+    input.creatorId ? eq(issues.creatorId, input.creatorId) : undefined,
+    input.statusIds?.length ? inArray(issues.statusId, input.statusIds) : undefined,
+    input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
+    anyOf(issues.assigneeId, input.assigneeIds),
+    anyOf(issues.projectId, input.projectIds),
+    input.labelIds?.length
+      ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
+      : undefined,
+    search
+      ? or(
+          ilike(issues.title, `%${escapeLike(search)}%`),
+          identifier
+            ? and(eq(teams.key, identifier.teamKey), eq(issues.number, identifier.number))
+            : undefined,
+        )
+      : undefined,
   )
-  const items = rows.slice(0, input.limit)
-  const nextCursor = rows.length > input.limit ? (items.at(-1)?.id ?? null) : null
-  return { items, nextCursor }
+}
+
+/** `IN (...)` that also matches NULL when the list contains `null`. */
+function anyOf(column: AnyColumn, values: (string | null)[] | undefined) {
+  if (!values?.length) return undefined
+  const ids = values.filter((value): value is string => value !== null)
+  return or(
+    ids.length ? inArray(column, ids) : undefined,
+    values.includes(null) ? isNull(column) : undefined,
+  )
+}
+
+function sortOrder(sort: IssueSort, direction: SortDirection) {
+  if (sort === 'priority') {
+    // Rank 1 is the first group shown; "No priority" (0) is 5, last in both directions.
+    const rank =
+      direction === 'desc'
+        ? sql<number>`case when ${issues.priority} = 0 then 5 else ${issues.priority} end`
+        : sql<number>`case when ${issues.priority} = 0 then 5 else 5 - ${issues.priority} end`
+    return {
+      // Within a priority, newest first.
+      orderBy: [asc(rank), desc(issues.id)],
+      cursorValue: sql<string>`(${rank})::text`,
+      after: (cursor: { value: string; id: string }) =>
+        or(
+          gt(rank, Number(cursor.value)),
+          and(eq(rank, Number(cursor.value)), lt(issues.id, cursor.id)),
+        ),
+    }
+  }
+  const column = sort === 'createdAt' ? issues.createdAt : issues.updatedAt
+  const dir = direction === 'desc' ? desc : asc
+  const beyond = direction === 'desc' ? lt : gt
+  const micros = sql<string>`(extract(epoch from ${column}) * 1000000)::bigint::text`
+  return {
+    orderBy: [dir(column), dir(issues.id)],
+    cursorValue: micros,
+    after: (cursor: { value: string; id: string }) => {
+      const at = sql`(timestamptz 'epoch' + ${cursor.value}::bigint * interval '1 microsecond')`
+      return or(
+        direction === 'desc' ? sql`${column} < ${at}` : sql`${column} > ${at}`,
+        and(sql`${column} = ${at}`, beyond(issues.id, cursor.id)),
+      )
+    },
+  }
 }
 
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
@@ -283,17 +389,38 @@ export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
 }
 
 /** Issues with their team key, status and labels, scoped to the workspace. */
-async function loadIssues(db: DbOrTx, workspaceId: string, where: SQL | undefined, limit?: number) {
-  const query = db
-    .select({ issue: issues, teamKey: teams.key, status: workflowStatuses })
+async function loadIssues(db: DbOrTx, workspaceId: string, where: SQL | undefined) {
+  return withLabels(db, workspaceId, await selectIssueRows(db, workspaceId, { where }))
+}
+
+type IssueRowsQuery = {
+  where: SQL | undefined
+  orderBy?: SQL[]
+  /** Selected alongside each row so the last one can become the next cursor. */
+  cursorValue?: SQL<string>
+  limit?: number
+}
+
+async function selectIssueRows(db: DbOrTx, workspaceId: string, query: IssueRowsQuery) {
+  const select = db
+    .select({
+      issue: issues,
+      teamKey: teams.key,
+      status: workflowStatuses,
+      cursorValue: query.cursorValue ?? sql<string>`''`,
+    })
     .from(issues)
     .innerJoin(teams, eq(teams.id, issues.teamId))
     .innerJoin(workflowStatuses, eq(workflowStatuses.id, issues.statusId))
-    .where(and(eq(issues.workspaceId, workspaceId), where))
-    .orderBy(desc(issues.id))
-  const rows = limit === undefined ? await query : await query.limit(limit)
-  if (rows.length === 0) return []
+    .where(and(eq(issues.workspaceId, workspaceId), query.where))
+    .orderBy(...(query.orderBy ?? [desc(issues.id)]))
+  return query.limit === undefined ? select : select.limit(query.limit)
+}
 
+type IssueRow = Awaited<ReturnType<typeof selectIssueRows>>[number]
+
+async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
+  if (rows.length === 0) return []
   const attached = await db
     .select({ issueId: issueLabels.issueId, label: labels })
     .from(issueLabels)

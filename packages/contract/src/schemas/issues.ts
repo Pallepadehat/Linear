@@ -70,13 +70,35 @@ export const getIssueByIdentifierInputSchema = workspaceScopedSchema.extend({
   identifier: issueIdentifierSchema,
 })
 
+export const issueSortSchema = z.enum(['createdAt', 'updatedAt', 'priority'])
+/** `desc` = newest / most urgent first. No priority always sorts last. */
+export const sortDirectionSchema = z.enum(['asc', 'desc'])
+
+const filterIdsSchema = z.array(z.uuid()).max(100)
+/** `null` in the list matches issues with no value (unassigned / no project). */
+const nullableFilterIdsSchema = z.array(z.uuid().nullable()).max(100)
+
+/**
+ * Filters combine with AND; values within one filter with OR (labels: any of).
+ * An empty list doesn't filter.
+ */
 export const listIssuesInputSchema = workspaceScopedSchema.extend({
+  /** Scope from the page (team / project view), not a user filter. */
   teamId: z.uuid().optional(),
   projectId: z.uuid().optional(),
   /** `'me'` narrows to issues assigned to the signed-in user (My Issues). */
   assignee: z.literal('me').optional(),
   /** `'me'` narrows to issues the signed-in user created. */
   creator: z.literal('me').optional(),
+  statusIds: filterIdsSchema.optional(),
+  priorities: z.array(issuePrioritySchema).max(5).optional(),
+  assigneeIds: nullableFilterIdsSchema.optional(),
+  projectIds: nullableFilterIdsSchema.optional(),
+  labelIds: filterIdsSchema.optional(),
+  /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
+  q: z.string().trim().max(255).optional(),
+  sort: issueSortSchema.default('createdAt'),
+  direction: sortDirectionSchema.default('desc'),
   /** `nextCursor` from the previous page. */
   cursor: z.string().min(1).nullish(),
   limit: z.number().int().min(1).max(100).default(50),
@@ -93,3 +115,5 @@ export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>
 export type ListIssuesInput = z.input<typeof listIssuesInputSchema>
+export type IssueSort = z.infer<typeof issueSortSchema>
+export type SortDirection = z.infer<typeof sortDirectionSchema>
