@@ -8,6 +8,7 @@ import type {
 import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
 import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
+import { templatesKey } from '@/features/templates/queries'
 import { issueDetailKeys, issueListKey, writeIssueToCaches } from '@/features/issues/queries'
 import { client, orpc } from '@/lib/orpc'
 
@@ -125,6 +126,8 @@ export function createRealtimeEventHandler({
         return void queryClient.invalidateQueries({
           queryKey: orpc.comments.list.key({ input: { issueId: event.issueId } }),
         })
+      case 'template.updated':
+        return void queryClient.invalidateQueries({ queryKey: templatesKey() })
     }
   }
 }
