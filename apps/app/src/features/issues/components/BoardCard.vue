@@ -66,12 +66,11 @@ function setLabels(ids: string[]) {
         @update:model-value="setAssignee"
       />
     </div>
-    <!-- The title link stretches over the whole card; the pickers sit above it. Not
-         draggable itself, so dragging anywhere on the card still moves the card. -->
+    <!-- Stretched link: the whole card opens the issue; pickers sit above it. Not draggable so the card stays the drag source. -->
     <RouterLink
       :to="{ name: 'issue', params: { identifier: issue.identifier } }"
       draggable="false"
-      class="line-clamp-2 pr-1 font-medium break-words text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
+      class="line-clamp-2 cursor-[inherit] pr-1 font-medium break-words text-ink outline-hidden after:absolute after:inset-0 after:rounded-lg after:content-['']"
       @click="emit('open')"
     >
       {{ issue.title }}
