@@ -14,6 +14,10 @@ export type IssueGroup = { key: string; status: WorkflowStatus; issues: Issue[] 
 export type IssueListRow =
   { type: 'group'; key: string; group: IssueGroup } | { type: 'issue'; key: string; issue: Issue }
 
+/** Groups the same-named status of different teams together (e.g. every team's "Todo"). */
+export const statusGroupKey = (status: Pick<WorkflowStatus, 'category' | 'name'>) =>
+  `${status.category}:${status.name}`
+
 /**
  * Groups issues by status. Keyed by category + name rather than status id so the
  * workspace-wide list merges each team's "Todo" into one group.
@@ -21,7 +25,7 @@ export type IssueListRow =
 export function groupIssuesByStatus(issues: Issue[]): IssueGroup[] {
   const groups = new Map<string, IssueGroup>()
   for (const issue of issues) {
-    const key = `${issue.status.category}:${issue.status.name}`
+    const key = statusGroupKey(issue.status)
     const group = groups.get(key)
     if (group) group.issues.push(issue)
     else groups.set(key, { key, status: issue.status, issues: [issue] })
