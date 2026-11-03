@@ -1,4 +1,5 @@
 import type { Activity, CommentThread } from '@linear/contract'
+import { formatDueDate, todayIso } from '@/lib/due-dates'
 import { priorityLabel, toPriority } from '@/lib/priorities'
 
 export type TimelineEntry =
@@ -81,6 +82,10 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       const to = asString(entry.to)
       if (to) return `moved the issue to ${name(names.project, to, 'a removed project')}`
       return `removed the issue from ${name(names.project, asString(entry.from), 'its project')}`
+    }
+    case 'due_date': {
+      const to = asString(entry.to)
+      return to ? `set due date to ${formatDueDate(to, todayIso())}` : 'removed due date'
     }
     case 'labels': {
       const from = asList(entry.from)
