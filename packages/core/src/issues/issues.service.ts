@@ -245,7 +245,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
     await setIssueLabels(tx, input.workspaceId, issue.id, labelIds)
     await subscribeUsers(tx, issue.id, [input.creatorId, assigneeId])
     await syncIssueAttachments(tx, input.workspaceId, issue.id, issue.description)
-    await recordActivity(tx, {
+    const [created] = await recordActivity(tx, {
       workspaceId: input.workspaceId,
       issueId: issue.id,
       actor: { type: 'user', id: input.creatorId },
@@ -259,7 +259,8 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         changes: [{ kind: 'sub_issue', from: null, to: `${teamDefaults.key}-${issue.number}` }],
       })
     }
-    return issue
+    /** The `created` activity entry, the source of the create's notifications. */
+    return { ...issue, createdActivityId: created!.id }
   })
 }
 
@@ -501,7 +502,7 @@ function rankOrder(rank: SQL<number>) {
 }
 
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
-  const parentChange = await db.transaction(async (tx) => {
+  const { parentChange, activity } = await db.transaction(async (tx) => {
     // Locking the row keeps `completedAt` consistent with concurrent status changes.
     const [current] = await tx
       .select()
@@ -605,7 +606,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       await setIssueLabels(tx, input.workspaceId, current.id, labelIds)
     }
     if (newAssigneeId) await subscribeUsers(tx, current.id, [newAssigneeId])
-    await recordActivity(tx, {
+    const recorded = await recordActivity(tx, {
       workspaceId: input.workspaceId,
       issueId: current.id,
       actor: input.actor,
@@ -614,7 +615,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     if (parentChange) {
       await recordParentChange(tx, input.workspaceId, input.actor, current, parentChange)
     }
-    return parentChange
+    return { parentChange, activity: recorded }
   })
   const issue = await getIssue(
     db,
@@ -624,6 +625,8 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
   )
   return {
     ...issue,
+    /** The issue's new activity entries (what actually changed), for notifications. */
+    activity,
     /** Old and new parent ids when the parent changed, so callers can notify both. */
     parentChange: parentChange
       ? { from: parentChange.from?.id ?? null, to: parentChange.to?.id ?? null }

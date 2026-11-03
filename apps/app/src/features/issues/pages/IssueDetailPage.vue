@@ -47,11 +47,15 @@ import {
 } from '../queries'
 import { RELATION_KINDS, relationFor, type RelationKind } from '../relation-kinds'
 
+// The Inbox embeds this page for the selected notification's issue; standalone, the
+// identifier comes from the route.
+const props = defineProps<{ identifier?: string; embedded?: boolean }>()
+
 const route = useRoute()
 const router = useRouter()
 const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
-const identifier = computed(() => String(route.params.identifier))
+const identifier = computed(() => props.identifier ?? String(route.params.identifier))
 
 const issueQuery = useQuery(computed(() => issueByIdentifierOptions(slug.value, identifier.value)))
 const issue = issueQuery.data
@@ -134,6 +138,7 @@ useHotkeys([
   {
     id: 'issue-back',
     run: () => {
+      if (props.embedded) return false
       // Back to where the issue was opened from; a direct link falls back to its team.
       if (window.history.state?.back) router.back()
       else if (team.value)

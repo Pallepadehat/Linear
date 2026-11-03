@@ -20,7 +20,7 @@ import {
   truncateAll,
 } from '@linear/db/testing'
 import { loadRootEnvFile } from '@linear/env'
-import type { RealtimeEvent } from '@linear/queue'
+import type { NotifyPayload, RealtimeEvent } from '@linear/queue'
 import { createMemoryStorage } from '@linear/storage/testing'
 import { and, eq } from 'drizzle-orm'
 import { pino } from 'pino'
@@ -30,6 +30,7 @@ import { processGithubWebhook } from '../src/jobs/github/github-webhook'
 loadRootEnvFile()
 const { db, close } = createDb(testDatabaseUrl(), { max: 2 })
 const published: { workspaceId: string; event: RealtimeEvent }[] = []
+const notified: NotifyPayload[] = []
 const deps = {
   db,
   storage: createMemoryStorage().storage,
@@ -37,10 +38,15 @@ const deps = {
   publish: async (workspaceId: string, event: RealtimeEvent) => {
     published.push({ workspaceId, event })
   },
+  publishToUser: async () => {},
+  notify: async (payload: NotifyPayload) => {
+    notified.push(payload)
+  },
 }
 
 beforeEach(async () => {
   published.length = 0
+  notified.length = 0
   await truncateAll(db)
 })
 afterAll(close)
@@ -307,6 +313,23 @@ describe('github-webhook job', () => {
       event(['status', 'pullRequests']),
       event(['pullRequests']),
       event(['status', 'pullRequests']),
+    ])
+  })
+
+  it('enqueues notify jobs for a new link and each automated status change', async () => {
+    const { workspace, issue, githubRepoId } = await arrange()
+    const opened = await deliver(payload(githubRepoId, 'opened'))
+    await deliver(payload(githubRepoId, 'synchronize'))
+    await deliver(payload(githubRepoId, 'closed', { merged: true }))
+    await processGithubWebhook(deps, opened)
+
+    const [pr] = await db.select().from(pullRequests)
+    const statusEntries = (await githubActivity(issue.id)).map((a) => a.id)
+    const base = { workspaceId: workspace.id, issueId: issue.id, actorId: null }
+    expect(notified).toEqual([
+      { ...base, event: 'pr_linked', deliveryId: opened, pullRequestId: pr!.id },
+      { ...base, event: 'status_changed', activityId: statusEntries[0] },
+      { ...base, event: 'status_changed', activityId: statusEntries[1] },
     ])
   })
 

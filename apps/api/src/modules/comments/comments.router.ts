@@ -15,6 +15,7 @@ import type { Storage } from '@linear/storage'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
 import { imageUrl } from '../../lib/upload-urls'
+import { notify } from '../notifications/notify'
 import { publishChange } from '../realtime/publish'
 import { toCommentDto } from './comments.dto'
 
@@ -78,6 +79,9 @@ export const commentsRouter = {
         issueId: comment.issueId,
         commentId: comment.id,
       })
+      await notify(context, [
+        { issueId: comment.issueId, event: 'commented', commentId: comment.id },
+      ])
       return toCommentDtoWithAvatar(context, comment)
     }),
 

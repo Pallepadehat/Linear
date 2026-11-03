@@ -9,6 +9,7 @@ import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
 import { cyclesKey } from '@/features/cycles/queries'
 import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
+import { notificationsKey } from '@/features/inbox/queries'
 import { templatesKey } from '@/features/templates/queries'
 import {
   issueDetailKeys,
@@ -148,6 +149,10 @@ export function createRealtimeEventHandler({
     })
   }
 
+  function invalidateInbox() {
+    void queryClient.invalidateQueries({ queryKey: notificationsKey() })
+  }
+
   function invalidateIssue(issueId: string) {
     for (const queryKey of issueDetailKeys()) {
       void queryClient.invalidateQueries({
@@ -162,8 +167,12 @@ export function createRealtimeEventHandler({
       case 'issue.created':
         return invalidateSoon('lists', 'projects', 'cycles', 'facets')
       case 'issue.updated':
+        // Inbox rows show the issue's title and status.
+        if (event.fields.includes('title') || event.fields.includes('status')) invalidateInbox()
         return void onIssueUpdated(event.issueId, event.fields)
       case 'issue.deleted':
+        // Its notifications are deleted with it.
+        invalidateInbox()
         queryClient.setQueriesData<InfiniteData<IssuePage>>(
           { queryKey: orpc.issues.list.key({ type: 'infinite' }) },
           (data) => removeIssueFromPages(data, event.issueId),
@@ -189,6 +198,9 @@ export function createRealtimeEventHandler({
         return void queryClient.invalidateQueries({ queryKey: templatesKey() })
       case 'presence.changed':
         return void queryClient.invalidateQueries({ queryKey: orpc.presence.list.key() })
+      case 'notification.created':
+        // Only ever sent to the recipient: refresh the Inbox and the unread badge.
+        return invalidateInbox()
     }
   }
 }
