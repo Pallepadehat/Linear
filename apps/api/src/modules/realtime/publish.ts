@@ -32,6 +32,7 @@ const ISSUE_INPUT_FIELDS = {
   assigneeId: 'assignee',
   projectId: 'project',
   labelIds: 'labels',
+  dueDate: 'dueDate',
 } as const satisfies Record<string, IssueField>
 
 /** The fields an `issues.update` input touches (omitted means unchanged). */

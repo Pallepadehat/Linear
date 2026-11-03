@@ -1,6 +1,6 @@
 import { DomainError } from '../errors'
 
-export const ISSUE_SORTS = ['createdAt', 'updatedAt', 'priority'] as const
+export const ISSUE_SORTS = ['createdAt', 'updatedAt', 'priority', 'dueDate'] as const
 export type IssueSort = (typeof ISSUE_SORTS)[number]
 export type SortDirection = 'asc' | 'desc'
 
@@ -38,7 +38,13 @@ export function decodeListCursor(
     throw invalid
   }
   if (!UUID_PATTERN.test(id)) throw invalid
-  const valid = sort === 'priority' ? /^[1-5]$/.test(value) : /^-?\d{1,20}$/.test(value)
+  const valid =
+    sort === 'priority'
+      ? /^[1-5]$/.test(value)
+      : sort === 'dueDate'
+        ? // No due date sorts as ±infinity so it stays last in both directions.
+          /^(-?infinity|\d{4}-\d{2}-\d{2})$/.test(value)
+        : /^-?\d{1,20}$/.test(value)
   if (!valid) throw invalid
   return { value, id }
 }

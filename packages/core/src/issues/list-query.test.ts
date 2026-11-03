@@ -10,6 +10,8 @@ describe('list cursors', () => {
       value: '1762160000123456',
       id: ID,
     })
+    const due = encodeListCursor('dueDate', 'asc', { value: 'infinity', id: ID })
+    expect(decodeListCursor(due, 'dueDate', 'asc')).toEqual({ value: 'infinity', id: ID })
     const priority = encodeListCursor('priority', 'asc', { value: '5', id: ID })
     expect(decodeListCursor(priority, 'priority', 'asc')).toEqual({ value: '5', id: ID })
   })
@@ -24,6 +26,7 @@ describe('list cursors', () => {
       [ID, 'createdAt'],
       [encodeListCursor('priority', 'desc', { value: '9', id: ID }), 'priority'],
       [encodeListCursor('updatedAt', 'desc', { value: 'now()', id: ID }), 'updatedAt'],
+      [encodeListCursor('dueDate', 'desc', { value: 'tomorrow', id: ID }), 'dueDate'],
       [encodeListCursor('updatedAt', 'desc', { value: '1', id: 'x' }), 'updatedAt'],
     ] as const
     for (const [raw, sort] of cases) {
