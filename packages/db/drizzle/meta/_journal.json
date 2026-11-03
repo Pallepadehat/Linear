@@ -180,8 +180,15 @@
     {
       "idx": 25,
       "version": "7",
-      "when": 1793743254430,
-      "tag": "0025_mentions",
+      "when": 1793743227019,
+      "tag": "0025_project_activity",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793744278326,
+      "tag": "0026_mentions",
       "breakpoints": true
     }
   ]

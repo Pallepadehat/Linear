@@ -82,7 +82,7 @@ watch(
             size="xs"
           />
         </span>
-        <span class="min-w-0">
+        <span class="min-w-0 wrap-anywhere">
           <span class="font-medium text-ink-muted">{{ activityActor(entry.activity, names) }}</span>
           {{ describeActivity(entry.activity, names) }}
           <template v-for="source in [mentionSource(entry.activity)]" :key="source?.issueId">

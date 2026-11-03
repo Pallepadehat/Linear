@@ -1,5 +1,5 @@
 {
-  "id": "b09dd1fa-1081-4465-a434-d4ade674ee03",
+  "id": "b2eaa0ab-c38c-4265-b7e0-e68528374668",
   "prevId": "161b0a8f-3818-4839-a569-a859a67c6e51",
   "version": "7",
   "dialect": "postgresql",
@@ -4860,6 +4860,160 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.project_activity": {
+      "name": "project_activity",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_type": {
+          "name": "actor_type",
+          "type": "activity_actor_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "project_activity_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "project_activity_project_id_id_index": {
+          "name": "project_activity_project_id_id_index",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_activity_workspace_id_index": {
+          "name": "project_activity_workspace_id_index",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "project_activity_workspace_id_workspaces_id_fk": {
+          "name": "project_activity_workspace_id_workspaces_id_fk",
+          "tableFrom": "project_activity",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_activity_project_id_projects_id_fk": {
+          "name": "project_activity_project_id_projects_id_fk",
+          "tableFrom": "project_activity",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_activity_actor_id_users_id_fk": {
+          "name": "project_activity_actor_id_users_id_fk",
+          "tableFrom": "project_activity",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "project_activity_github_has_no_actor": {
+          "name": "project_activity_github_has_no_actor",
+          "value": "\"project_activity\".\"actor_type\" <> 'github' or \"project_activity\".\"actor_id\" is null"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.issue_links": {
       "name": "issue_links",
       "schema": "",
@@ -5316,8 +5470,7 @@
         "parent",
         "sub_issue",
         "relation",
-        "link",
-        "mentioned_in"
+        "link"
       ]
     },
     "public.issue_relation_type": {
@@ -5337,6 +5490,22 @@
         "project",
         "view",
         "team"
+      ]
+    },
+    "public.project_activity_kind": {
+      "name": "project_activity_kind",
+      "schema": "public",
+      "values": [
+        "project.created",
+        "project.status_changed",
+        "project.priority_changed",
+        "project.lead_changed",
+        "project.dates_changed",
+        "milestone.created",
+        "milestone.completed",
+        "project_update.posted",
+        "project.issue_added",
+        "project.issue_removed"
       ]
     },
     "public.notification_type": {

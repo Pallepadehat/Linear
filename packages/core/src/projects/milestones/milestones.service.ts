@@ -1,9 +1,12 @@
 import { issues, projectMilestones, projects, workflowStatuses, type DbOrTx } from '@linear/db'
 import { and, asc, count, eq, inArray, isNotNull, max, sql } from 'drizzle-orm'
+import type { ActivityActor } from '../../activity/activity.service'
+import { recordProjectActivity } from '../../activity/project-activity.service'
 import { DomainError, isUniqueViolation } from '../../errors'
 import { assertProjectDates } from '../project-rules'
 import {
   assertMilestoneInProject,
+  completesMilestone,
   currentMilestoneOf,
   isMilestoneComplete,
   mergeMilestoneOrder,
@@ -140,11 +143,15 @@ async function saving<T>(db: DbOrTx, name: string | undefined, write: (tx: DbOrT
   }
 }
 
-/** Adds a milestone at the end of the project's order. Names are unique per project. */
+/**
+ * Adds a milestone at the end of the project's order and writes `milestone.created` to the
+ * project's feed. Names are unique per project.
+ */
 export async function createMilestone(
   db: DbOrTx,
   workspaceId: string,
   input: MilestoneFields & { projectId: string; name: string },
+  actor: ActivityActor,
 ) {
   const fields = normalize(input)
   await assertProjectExists(db, workspaceId, input.projectId)
@@ -171,6 +178,14 @@ export async function createMilestone(
       })
       .returning()
     if (!inserted) throw new Error('milestone insert returned no row')
+    await recordProjectActivity(tx, {
+      workspaceId,
+      projectId: input.projectId,
+      actor,
+      events: [
+        { kind: 'milestone.created', payload: { milestoneId: inserted.id, name: inserted.name } },
+      ],
+    })
     return inserted
   })
   return getMilestone(db, workspaceId, row.id)
@@ -256,4 +271,38 @@ export async function assertIssueMilestone(
     .from(projectMilestones)
     .where(and(inWorkspace(workspaceId), eq(projectMilestones.id, milestoneId)))
   assertMilestoneInProject(milestone, projectId)
+}
+
+/**
+ * Writes `milestone.completed` when this issue change moved the milestone's last open issue
+ * to done (`completesMilestone`). Call inside the issue's transaction, after the update. The
+ * milestone row is locked before counting, so when two last issues finish at once the second
+ * transaction waits, sees the first one's change and writes the single entry. Returns the
+ * project whose feed got the entry, or null.
+ */
+export async function recordMilestoneCompletion(
+  tx: DbOrTx,
+  workspaceId: string,
+  milestoneId: string,
+  actor: ActivityActor,
+  issue: { wasDone: boolean; isDone: boolean },
+) {
+  if (!issue.isDone || issue.wasDone) return null
+  const [locked] = await tx
+    .select({ id: projectMilestones.id })
+    .from(projectMilestones)
+    .where(and(inWorkspace(workspaceId), eq(projectMilestones.id, milestoneId)))
+    .for('update')
+  if (!locked) return null
+  const milestone = await getMilestone(tx, workspaceId, locked.id)
+  if (!completesMilestone(milestone, issue)) return null
+  await recordProjectActivity(tx, {
+    workspaceId,
+    projectId: milestone.projectId,
+    actor,
+    events: [
+      { kind: 'milestone.completed', payload: { milestoneId: milestone.id, name: milestone.name } },
+    ],
+  })
+  return milestone.projectId
 }
