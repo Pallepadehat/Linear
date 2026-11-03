@@ -37,9 +37,11 @@ import { Command, CommandEmpty, CommandGroup, CommandList } from '@/components/u
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
+import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { issueBranchName, issueUrl } from '@/features/issues/issue-links'
 import { issueByIdentifierOptions, useUpdateIssue } from '@/features/issues/queries'
 import type { IssuePatch } from '@/features/issues/issue-cache'
+import { orderAssignees } from '@/lib/assignee-options'
 import { orpc } from '@/lib/orpc'
 import { PRIORITIES } from '@/lib/priorities'
 import { useUiStore } from '@/stores/ui'
@@ -209,8 +211,18 @@ function setTheme(mode: ThemeMode) {
   close()
 }
 
-const users = computed(
-  () => members.value?.map((m) => ({ id: m.userId, name: m.name, avatarUrl: m.avatarUrl })) ?? [],
+// Same order as the assignee picker: No assignee, you, then team members by name.
+const { data: currentUser } = useCurrentUser()
+const assignees = computed(() =>
+  orderAssignees(
+    members.value?.map((m) => ({
+      id: m.userId,
+      name: m.name,
+      email: m.email,
+      avatarUrl: m.avatarUrl,
+    })) ?? [],
+    currentUser.value?.id,
+  ),
 )
 const themes: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'System', icon: Monitor },
@@ -456,28 +468,44 @@ const groupClass =
             </PickerItem>
           </CommandGroup>
 
-          <CommandGroup v-else-if="page === 'assignee'" :class="groupClass">
-            <PickerItem
-              value="unassigned"
-              :selected="issue?.assigneeId === null"
-              shortcut="0"
-              @select="setAssignee(null)"
-            >
-              <UnassignedIcon />
-              No assignee
-            </PickerItem>
-            <PickerItem
-              v-for="(user, i) in users"
-              :key="user.id"
-              :value="user.id"
-              :selected="user.id === issue?.assigneeId"
-              :shortcut="i < 9 ? String(i + 1) : undefined"
-              @select="setAssignee(user.id)"
-            >
-              <UserAvatar :name="user.name" :src="user.avatarUrl" size="xs" />
-              {{ user.name }}
-            </PickerItem>
-          </CommandGroup>
+          <template v-else-if="page === 'assignee'">
+            <CommandGroup :class="groupClass">
+              <PickerItem
+                value="unassigned"
+                :selected="issue?.assigneeId === null"
+                shortcut="0"
+                @select="setAssignee(null)"
+              >
+                <UnassignedIcon />
+                No assignee
+              </PickerItem>
+              <PickerItem
+                v-if="assignees.me"
+                :value="assignees.me.id"
+                :selected="assignees.me.id === issue?.assigneeId"
+                shortcut="1"
+                @select="setAssignee(assignees.me.id)"
+              >
+                <UserAvatar :name="assignees.me.name" :src="assignees.me.avatarUrl" size="xs" />
+                <span class="truncate">{{ assignees.me.name }}</span>
+                <span hidden>{{ assignees.me.email }}</span>
+              </PickerItem>
+            </CommandGroup>
+            <CommandGroup v-if="assignees.others.length" heading="Team members" :class="groupClass">
+              <PickerItem
+                v-for="{ user, shortcut } in assignees.others"
+                :key="user.id"
+                :value="user.id"
+                :selected="user.id === issue?.assigneeId"
+                :shortcut="shortcut"
+                @select="setAssignee(user.id)"
+              >
+                <UserAvatar :name="user.name" :src="user.avatarUrl" size="xs" />
+                <span class="truncate">{{ user.name }}</span>
+                <span hidden>{{ user.email }}</span>
+              </PickerItem>
+            </CommandGroup>
+          </template>
 
           <CommandGroup v-else-if="page === 'labels'" :class="groupClass">
             <PickerItem

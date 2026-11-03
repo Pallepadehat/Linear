@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useHotkeys } from '@/composables/useHotkeys'
+import { usePresence } from '@/features/presence/usePresence'
 import { useRealtime } from '@/features/realtime/useRealtime'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
@@ -36,7 +37,10 @@ const { data: teams } = useQuery(
 )
 
 // Teammates' changes show up live while the workspace is open.
-useRealtime(() => String(route.params.workspaceSlug ?? ''))
+const workspaceSlug = () => String(route.params.workspaceSlug ?? '')
+const { client: realtimeClient } = useRealtime(workspaceSlug)
+// Teammates see that you're online and which issue you're on.
+usePresence(workspaceSlug, realtimeClient)
 
 const routeTitle = computed(
   () => [...route.matched].reverse().find((r) => r.meta.title)?.meta.title ?? '',
