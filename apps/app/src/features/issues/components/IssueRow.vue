@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import type { Cycle, Issue, Label, WorkflowStatus } from '@linear/contract'
+import { Ban, OctagonAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import CyclePicker from '@/components/common/CyclePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import { assignableCycles } from '@/features/cycles/cycles'
+import type { EstimateSettings } from '@/lib/estimates'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
+import SubIssueProgressRing from './SubIssueProgressRing.vue'
 
 const props = defineProps<{
   issue: Issue
@@ -15,12 +22,27 @@ const props = defineProps<{
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
   labels: Label[]
+  /** The issue team's cycles; empty when the team has cycles off. */
+  cycles?: Cycle[]
+  /** The issue team's estimate scale; no chip while unknown or off. */
+  estimates?: EstimateSettings
+  /** Nesting level when shown under its parent (each level indents the row). */
+  depth?: number
+  /** Keyboard focus (J/K) and selection (X); see `useIssueListKeyboard`. */
+  focused?: boolean
+  selected?: boolean
 }>()
 const emit = defineEmits<{
   update: [patch: IssuePatch]
   /** The issue link was followed, so the list can hand the detail page its prev/next context. */
   open: []
 }>()
+
+const cycleOptions = computed(() => assignableCycles(props.cycles ?? []))
+const issueCycle = computed(() => props.cycles?.find((c) => c.id === props.issue.cycleId) ?? null)
+function setCycle(cycleId: string | null) {
+  if (cycleId !== props.issue.cycleId) emit('update', { cycleId })
+}
 
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
 // The issue's own labels stay pickable even if the workspace list hasn't loaded.
@@ -33,8 +55,14 @@ function setStatus(id: string) {
 function setPriority(priority: number) {
   if (priority !== props.issue.priority) emit('update', { priority })
 }
+function setEstimate(estimate: number | null) {
+  if (estimate !== props.issue.estimate) emit('update', { estimate })
+}
 function setAssignee(assigneeId: string | null) {
   if (assigneeId !== props.issue.assigneeId) emit('update', { assigneeId })
+}
+function setDueDate(dueDate: string | null) {
+  if (dueDate !== props.issue.dueDate) emit('update', { dueDate })
 }
 function setLabels(labels: Label[]) {
   emit('update', { labels })
@@ -44,9 +72,15 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
 </script>
 
 <template>
-  <!-- The title link stretches over the whole row; the pickers sit above it. -->
+  <!-- The title link stretches over the whole row; the pickers sit above it. Their
+       hotkeys (⇧D, P, …) act on this row while focus is in it. -->
   <div
+    :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
+    data-hotkey-scope
     class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
+    :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
+    :data-focused="focused || undefined"
+    :data-selected="selected || undefined"
   >
     <PriorityPicker
       compact
@@ -74,8 +108,35 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       class="ml-1 min-w-0 flex-1 truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
       @click="emit('open')"
     >
+      <span v-if="selected" class="sr-only">Selected,</span>
       {{ issue.title }}
     </RouterLink>
+    <span
+      v-if="issue.subIssueProgress?.total"
+      class="flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-subtle tabular-nums"
+    >
+      <SubIssueProgressRing v-bind="issue.subIssueProgress" />
+      {{ issue.subIssueProgress.done }}/{{ issue.subIssueProgress.total }}
+      <span class="sr-only">sub-issues done</span>
+    </span>
+    <span
+      v-if="issue.blockedByCount"
+      class="flex shrink-0 items-center gap-1 text-xs text-priority-urgent tabular-nums"
+      :title="`Blocked by ${issue.blockedByCount} ${issue.blockedByCount === 1 ? 'issue' : 'issues'}`"
+    >
+      <Ban class="size-3.5" aria-hidden="true" />
+      <span class="sr-only">Blocked by</span>
+      {{ issue.blockedByCount }}
+    </span>
+    <span
+      v-if="issue.blockingCount"
+      class="flex shrink-0 items-center gap-1 text-xs text-ink-subtle tabular-nums"
+      :title="`Blocking ${issue.blockingCount} ${issue.blockingCount === 1 ? 'issue' : 'issues'}`"
+    >
+      <OctagonAlert class="size-3.5" aria-hidden="true" />
+      <span class="sr-only">Blocking</span>
+      {{ issue.blockingCount }}
+    </span>
     <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
       <LabelPicker
         compact
@@ -85,6 +146,29 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
         @update:labels="setLabels"
       />
     </span>
+    <span v-if="issueCycle" class="hidden shrink-0 md:flex">
+      <CyclePicker
+        compact
+        :cycles="cycleOptions"
+        :selected="issueCycle"
+        :model-value="issue.cycleId"
+        @update:model-value="setCycle"
+      />
+    </span>
+    <EstimatePicker
+      v-if="estimates && estimates.scale !== 'off'"
+      compact
+      :scale="estimates.scale"
+      :allow-zero="estimates.allowZero"
+      :model-value="issue.estimate"
+      @update:model-value="setEstimate"
+    />
+    <DueDatePicker
+      row
+      :category="issue.status.category"
+      :model-value="issue.dueDate"
+      @update:model-value="setDueDate"
+    />
     <AssigneePicker
       compact
       :users="users"

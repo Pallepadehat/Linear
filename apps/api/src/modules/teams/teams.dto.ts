@@ -19,5 +19,14 @@ export function toTeamWithStatusesDto(
     defaultStatusId: pickDefaultStatus(own, row.defaultStatusId)?.id ?? null,
     defaultPriority: row.defaultPriority,
     defaultAssigneeId: row.defaultAssigneeId,
+    cyclesEnabled: row.cyclesEnabled,
+    cycleDurationWeeks: row.cycleDurationWeeks,
+    cycleStartWeekday: row.cycleStartWeekday,
+    cycleCooldownWeeks: row.cycleCooldownWeeks,
+    cycleUpcomingCount: row.cycleUpcomingCount,
+    cycleAutoAddStarted: row.cycleAutoAddStarted,
+    cycleRolloverUnfinished: row.cycleRolloverUnfinished,
+    estimateScale: row.estimateScale,
+    estimateAllowZero: row.estimateAllowZero,
   }
 }

@@ -17,10 +17,15 @@ describe('issue filters in the URL', () => {
       priorities: [1, 0],
       assigneeIds: [A, null],
       projectIds: [null],
+      cycleIds: [A, null],
       labelIds: [B],
+      estimates: [3, null, 'any' as const],
+      due: ['overdue' as const, 'noDueDate' as const],
+      subscriberIds: ['me', A],
       q: 'login',
       sort: 'priority' as const,
       direction: 'asc' as const,
+      showSubIssues: false,
     }
     const query = serializeIssueFilters(filters)
     expect(query).toEqual({
@@ -28,10 +33,15 @@ describe('issue filters in the URL', () => {
       priority: '1,0',
       assignee: `${A},none`,
       project: 'none',
+      cycle: `${A},none`,
       label: B,
+      estimate: '3,none,any',
+      due: 'overdue,noDueDate',
+      subscriber: `me,${A}`,
       q: 'login',
       sort: 'priority',
       dir: 'asc',
+      subIssues: 'hide',
     })
     expect(parseIssueFilters(query as Record<string, string>)).toEqual(filters)
   })
@@ -47,18 +57,29 @@ describe('issue filters in the URL', () => {
         status: 'nope,' + A,
         priority: ['9', '2', '2'],
         assignee: 'me',
+        subscriber: 'you,me',
         sort: 'title',
         dir: 'sideways',
+        estimate: 'x,1000,5,-1',
         q: '  spaced  ',
       }),
-    ).toEqual({ ...EMPTY_FILTERS, statusIds: [A], priorities: [2], q: 'spaced' })
+    ).toEqual({
+      ...EMPTY_FILTERS,
+      statusIds: [A],
+      priorities: [2],
+      subscriberIds: ['me'],
+      estimates: [5],
+      q: 'spaced',
+    })
   })
 
   it('knows when a filter is active', () => {
     expect(hasActiveFilters(EMPTY_FILTERS)).toBe(false)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, sort: 'priority' })).toBe(false)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, q: 'x' })).toBe(true)
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, cycleIds: [null] })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, assigneeIds: [null] })).toBe(true)
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, estimates: [null] })).toBe(true)
   })
 
   it('toggles a group of values together', () => {

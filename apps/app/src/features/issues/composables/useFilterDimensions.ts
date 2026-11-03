@@ -1,15 +1,39 @@
-import { CircleDashed, CircleUser, Signal, Tag, Box } from '@lucide/vue'
+import {
+  Bell,
+  Box,
+  CalendarClock,
+  CalendarDays,
+  CalendarRange,
+  CalendarX2,
+  CircleDashed,
+  CircleUser,
+  IterationCcw,
+  Signal,
+  Tag,
+} from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, h, type Component, type MaybeRefOrGetter, toValue } from 'vue'
+import CycleIcon from '@/components/common/CycleIcon.vue'
+import EstimateIcon from '@/components/common/EstimateIcon.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import UnassignedIcon from '@/components/common/UnassignedIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import { cycleName, cyclePercent } from '@/features/cycles/cycles'
+import { cycleListOptions } from '@/features/cycles/queries'
 import { orpc } from '@/lib/orpc'
+import { estimateLabel, estimateValues } from '@/lib/estimates'
 import { PRIORITIES } from '@/lib/priorities'
 import { CATEGORY_ORDER } from '../group-issues'
-import { toggleValues, type IssueFilters } from '../issue-filters'
+import {
+  ANY,
+  ME,
+  toggleValues,
+  type EstimateFilterValue,
+  type IssueFilters,
+} from '../issue-filters'
+import type { IssueDueFilter } from '@linear/contract'
 
 export type FilterOption = {
   /** Unique within the dimension; also the menu item's text value. */
@@ -21,7 +45,16 @@ export type FilterOption = {
 }
 
 export type FilterDimension = {
-  key: 'status' | 'priority' | 'assignee' | 'project' | 'label'
+  key:
+    | 'status'
+    | 'priority'
+    | 'assignee'
+    | 'project'
+    | 'cycle'
+    | 'label'
+    | 'estimate'
+    | 'due'
+    | 'subscriber'
   label: string
   icon: Component
   options: FilterOption[]
@@ -30,7 +63,7 @@ export type FilterDimension = {
   clear: () => void
 }
 
-type Scope = { workspaceSlug: string; teamId?: string; projectId?: string }
+type Scope = { workspaceSlug: string; teamId?: string; projectId?: string; cycleId?: string }
 
 /**
  * The filter menu's dimensions and their options, built from workspace data.
@@ -54,6 +87,18 @@ export function useFilterDimensions(
   )
   const { data: labels } = useQuery(
     computed(() => orpc.labels.list.queryOptions({ input: input.value })),
+  )
+  // Cycles belong to a team, so only a team's views (with cycles on) filter by them.
+  const cycleTeam = computed(() => {
+    const { teamId, cycleId } = toValue(scope)
+    if (!teamId || cycleId) return undefined
+    return teams.value?.find((team) => team.id === teamId && team.cyclesEnabled)
+  })
+  const { data: cycles } = useQuery(
+    computed(() => ({
+      ...cycleListOptions(input.value.workspaceSlug, cycleTeam.value?.id ?? ''),
+      enabled: Boolean(cycleTeam.value),
+    })),
   )
 
   function dimension<T>(
@@ -144,6 +189,16 @@ export function useFilterDimensions(
       })),
     ]
 
+    const cycleOptions = [
+      { key: 'none', label: 'No cycle', icon: () => h(CycleIcon), values: [null] },
+      ...(cycles.value ?? []).map((c) => ({
+        key: c.id,
+        label: cycleName(c),
+        icon: () => h(CycleIcon, { progress: cyclePercent(c.progress) / 100 }),
+        values: [c.id as string | null],
+      })),
+    ]
+
     const labelOptions = (labels.value ?? []).map((l) => ({
       key: l.id,
       label: l.name,
@@ -156,6 +211,53 @@ export function useFilterDimensions(
         }),
       values: [l.id],
     }))
+
+    // Only teams that use estimates; values are the union of their scales.
+    const estimateTeams = (teams.value ?? []).filter(
+      (team) => (!teamId || team.id === teamId) && team.estimateScale !== 'off',
+    )
+    const scales = new Set(estimateTeams.map((team) => team.estimateScale))
+    const [onlyScale] = scales.size === 1 ? [...scales] : []
+    const points = [
+      ...new Set(
+        estimateTeams.flatMap((team) =>
+          estimateValues({ scale: team.estimateScale, allowZero: team.estimateAllowZero }),
+        ),
+      ),
+    ].sort((a, b) => a - b)
+    const estimateIcon = () => h(EstimateIcon)
+    const estimateOptions = [
+      { key: ANY, label: 'Has estimate', icon: estimateIcon, values: [ANY as EstimateFilterValue] },
+      { key: 'none', label: 'No estimate', icon: estimateIcon, values: [null] },
+      ...points.map((value) => ({
+        key: String(value),
+        label: estimateLabel(value, onlyScale ?? 'linear'),
+        icon: estimateIcon,
+        values: [value as EstimateFilterValue],
+      })),
+    ]
+
+    const dueOptions: { key: string; label: string; icon: Component; values: IssueDueFilter[] }[] =
+      [
+        { key: 'overdue', label: 'Overdue', icon: CalendarClock, values: ['overdue'] },
+        {
+          key: 'dueThisWeek',
+          label: 'Due this week',
+          icon: CalendarRange,
+          values: ['dueThisWeek'],
+        },
+        { key: 'noDueDate', label: 'No due date', icon: CalendarX2, values: ['noDueDate'] },
+      ]
+    // "Me" first; it stays the viewer when the URL is shared.
+    const subscriberOptions = [
+      { key: ME, label: 'Me', icon: () => h(CircleUser), values: [ME] },
+      ...(members.value ?? []).map((m) => ({
+        key: m.userId,
+        label: m.name,
+        icon: () => h(UserAvatar, { name: m.name, src: m.avatarUrl, size: 'xs' }),
+        values: [m.userId],
+      })),
+    ]
 
     return [
       dimension(
@@ -195,7 +297,40 @@ export function useFilterDimensions(
               projectOptions,
             ),
           ]),
+      ...(cycleTeam.value
+        ? [
+            dimension(
+              'cycle',
+              'Cycle',
+              IterationCcw,
+              f.cycleIds,
+              (v) => update({ cycleIds: v }),
+              cycleOptions,
+            ),
+          ]
+        : []),
       dimension('label', 'Labels', Tag, f.labelIds, (v) => update({ labelIds: v }), labelOptions),
+      dimension('due', 'Due date', CalendarDays, f.due, (v) => update({ due: v }), dueOptions),
+      dimension(
+        'subscriber',
+        'Subscribers',
+        Bell,
+        f.subscriberIds,
+        (v) => update({ subscriberIds: v }),
+        subscriberOptions,
+      ),
+      ...(estimateTeams.length || f.estimates.length
+        ? [
+            dimension(
+              'estimate',
+              'Estimate',
+              EstimateIcon,
+              f.estimates,
+              (v) => update({ estimates: v }),
+              estimateOptions,
+            ),
+          ]
+        : []),
     ]
   })
 }

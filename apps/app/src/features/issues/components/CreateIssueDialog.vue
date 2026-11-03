@@ -7,6 +7,9 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
+import CyclePicker from '@/components/common/CyclePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import { labelsForTeam } from '@/features/labels/label-options'
@@ -24,10 +27,13 @@ import {
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { assignableCycles } from '@/features/cycles/cycles'
+import { cycleListOptions, cyclesKey } from '@/features/cycles/queries'
 import { projectListOptions, projectsKey } from '@/features/projects/queries'
 import TemplatePicker from '@/features/templates/components/TemplatePicker.vue'
 import { templateListOptions } from '@/features/templates/queries'
 import { errorMessage } from '@/lib/errors'
+import { estimateValues } from '@/lib/estimates'
 import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
@@ -66,7 +72,10 @@ const {
     priority: 0,
     assigneeId: null,
     projectId: null,
+    cycleId: null,
+    estimate: null,
     labelIds: [],
+    dueDate: null,
   },
 })
 // Like Linear, errors show only after pressing Create issue, then clear once fixed.
@@ -123,6 +132,15 @@ const { data: labels } = useQuery(
   computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
 const { data: projects } = useQuery(computed(() => projectListOptions(slug.value)))
+const { data: cycles } = useQuery(
+  computed(() => ({
+    ...cycleListOptions(slug.value, loadedTeam.value?.id ?? ''),
+    enabled: Boolean(loadedTeam.value?.cyclesEnabled),
+  })),
+)
+const cycleOptions = computed(() =>
+  cycles.value?.[0]?.teamId === values.teamId ? assignableCycles(cycles.value ?? []) : [],
+)
 const { data: templates } = useQuery(
   computed(() => ({
     ...templateListOptions(slug.value, values.teamId || undefined),
@@ -181,6 +199,24 @@ const projectId = computed({
     setFieldValue('projectId', id, false)
   },
 })
+const estimate = computed({
+  get: () => values.estimate ?? null,
+  set: (value: number | null) => setFieldValue('estimate', value, false),
+})
+// Hidden while the team's scale is unknown or off.
+const estimates = computed(() =>
+  loadedTeam.value && loadedTeam.value.estimateScale !== 'off'
+    ? { scale: loadedTeam.value.estimateScale, allowZero: loadedTeam.value.estimateAllowZero }
+    : null,
+)
+const dueDate = computed({
+  get: () => values.dueDate ?? null,
+  set: (value: string | null) => setFieldValue('dueDate', value, false),
+})
+const cycleId = computed({
+  get: () => values.cycleId ?? null,
+  set: (id: string | null) => setFieldValue('cycleId', id, false),
+})
 const labelIds = computed({
   get: () => values.labelIds ?? [],
   set: (ids: string[]) => {
@@ -204,6 +240,12 @@ function initialTeamId() {
   const list = teams.value ?? []
   const fromRoute = list.find((t) => t.key === route.params.teamKey)
   return ui.createIssueDefaults.teamId ?? fromRoute?.id ?? list[0]?.id ?? ''
+}
+
+// The requested cycle, else the cycle page being viewed.
+function initialCycleId() {
+  const fromRoute = route.name === 'cycle' ? String(route.params.cycleId) : null
+  return ui.createIssueDefaults.cycleId ?? fromRoute
 }
 
 // The requested project, else the project page being viewed.
@@ -231,6 +273,7 @@ watch(
     markDirty('projectId', project !== null)
     setFieldValue('assigneeId', defaults.assigneeId ?? null, false)
     markDirty('assigneeId', defaults.assigneeId !== undefined)
+    setFieldValue('cycleId', initialCycleId(), false)
     applyPrefill()
   },
   { immediate: true },
@@ -256,6 +299,8 @@ watch(
 function applyPrefill() {
   const team = loadedTeam.value
   if (!team) return
+  // Cycles belong to a team too.
+  if (!team.cyclesEnabled) setFieldValue('cycleId', null, false)
   const memberIds = assignees.value.map((a) => a.id)
   // Skip a default assignee who is no longer a member; the server would reject them.
   const defaultAssignee = team.defaultAssigneeId
@@ -286,9 +331,23 @@ function applyPrefill() {
   })
   for (const field of Object.keys(next) as PrefillField[]) {
     setFieldValue(field, next[field], false)
-  }
+  } // An estimate picked for another team may not be on this team's scale.
+  const picked = values.estimate ?? null
+  if (
+    picked !== null &&
+    !estimateValues({ scale: team.estimateScale, allowZero: team.estimateAllowZero }).includes(
+      picked,
+    )
+  )
+    setFieldValue('estimate', null, false)
 }
 watch([loadedTeam, assignees], applyPrefill)
+// A cycle picked for another team (or one that has ended) is dropped once the team's cycles load.
+watch(cycleOptions, (options) => {
+  const id = values.cycleId
+  if (id && cycles.value?.[0]?.teamId === values.teamId && !options.some((c) => c.id === id))
+    setFieldValue('cycleId', null, false)
+})
 
 const create = useMutation(createIssueMutationOptions())
 
@@ -310,6 +369,7 @@ const onSubmit = handleSubmit(async (form) => {
     await queryClient.invalidateQueries({ queryKey: issueListKey() })
     // Project progress counts the new issue.
     if (issue.projectId) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (issue.cycleId) void queryClient.invalidateQueries({ queryKey: cyclesKey() })
     toast.success(`${issue.identifier} created`, { description: issue.title })
     if (!createMore.value) {
       ui.createIssueOpen = false
@@ -418,6 +478,12 @@ function onKeydown(event: KeyboardEvent) {
           <StatusPicker v-model="statusId" :statuses="statuses" />
           <PriorityPicker v-model="priority" />
           <AssigneePicker v-model="assigneeId" :users="assignees" />
+          <EstimatePicker
+            v-if="estimates"
+            v-model="estimate"
+            :scale="estimates.scale"
+            :allow-zero="estimates.allowZero"
+          />
           <LabelPicker
             v-if="values.teamId"
             v-model="labelIds"
@@ -425,6 +491,8 @@ function onKeydown(event: KeyboardEvent) {
             :team-id="values.teamId"
           />
           <ProjectPicker v-model="projectId" :projects="projects ?? []" />
+          <CyclePicker v-if="loadedTeam?.cyclesEnabled" v-model="cycleId" :cycles="cycleOptions" />
+          <DueDatePicker v-model="dueDate" />
         </div>
         <DialogFooter class="flex-row items-center gap-3 px-4 pt-1 pb-3.5">
           <Button

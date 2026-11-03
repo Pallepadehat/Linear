@@ -18,6 +18,8 @@ describe('team routes', () => {
     ['/tip/team/TIP/issues', 'team-issues'],
     ['/tip/team/TIP/projects', 'team-projects'],
     ['/tip/team/TIP/views', 'team-views'],
+    ['/tip/team/TIP/cycles', 'cycles'],
+    ['/tip/team/TIP/cycle/0192f5a0-0000-7000-8000-000000000001', 'cycle'],
     ['/tip/team/TIP/settings', 'team-settings'],
     ['/tip/inbox', 'inbox'],
     ['/tip/views', 'views'],
@@ -28,7 +30,7 @@ describe('team routes', () => {
   })
 
   it('lazy-loads every team page', () => {
-    for (const name of ['team-issues', 'team-projects', 'team-views']) {
+    for (const name of ['team-issues', 'team-projects', 'team-views', 'cycles', 'cycle']) {
       const record = router.getRoutes().find((r) => r.name === name)
       expect(typeof record?.components?.default).toBe('function')
     }
