@@ -14,8 +14,31 @@ export const projectOptions = (workspaceSlug: string, id: string) =>
 export const projectLabelListOptions = (workspaceSlug: string) =>
   orpc.projectLabels.list.queryOptions({ input: { workspaceSlug } })
 
-/** Matches every project query (list and detail); progress depends on issue changes. */
+/** The latest entries of a project's feed (newest first), for the Activity card. */
+export const projectActivityPreviewOptions = (workspaceSlug: string, projectId: string) =>
+  orpc.projects.activity.queryOptions({ input: { workspaceSlug, projectId, limit: 5 } })
+
+/** Newest-first pages of a project's feed, for the full Activity view. */
+export const projectActivityListOptions = (workspaceSlug: string, projectId: string) =>
+  orpc.projects.activity.infiniteOptions({
+    input: (cursor: string | null) => ({ workspaceSlug, projectId, cursor, limit: 50 }),
+    initialPageParam: null,
+    getNextPageParam: (page) => page.nextCursor,
+  })
+
+/** Matches every project query (list, detail and activity); progress depends on issue changes. */
 export const projectsKey = () => orpc.projects.key()
+
+/** Matches every milestone list; milestone progress depends on issue changes too. */
+export const milestonesKey = () => orpc.milestones.key()
+
+/** Refetches project and milestone progress (both count issues by status and project). */
+export function invalidateProjects(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: projectsKey() }),
+    queryClient.invalidateQueries({ queryKey: milestonesKey() }),
+  ])
+}
 
 /** Writes a saved project into the detail and list caches. */
 export function storeProject(queryClient: QueryClient, workspaceSlug: string, project: Project) {
@@ -79,7 +102,7 @@ export function useUpdateProject(workspaceSlug: MaybeRefOrGetter<string>) {
       // With several changes in flight, refetching after the first would briefly
       // show the server state without the later ones; wait for the last.
       if (queryClient.isMutating({ mutationKey }) > 1) return
-      return queryClient.invalidateQueries({ queryKey: projectsKey() })
+      return invalidateProjects(queryClient)
     },
   })
 }

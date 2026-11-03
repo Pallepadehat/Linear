@@ -4,7 +4,10 @@ import { todayIso } from '@/lib/due-dates'
 
 type QueryValue = LocationQuery[string] | undefined
 
-/** In the URL, `none` stands for "no assignee" / "no project" / "no cycle" / "no estimate". */
+/**
+ * In the URL, `none` stands for "no assignee" / "no project" / "no milestone" / "no cycle" /
+ * "no estimate".
+ */
 export const NONE = 'none'
 /** In the URL, `any` stands for "has an estimate". */
 export const ANY = 'any'
@@ -35,6 +38,8 @@ export type IssueFilters = {
   assigneeIds: (string | null)[]
   /** `null` = no project. */
   projectIds: (string | null)[]
+  /** `null` = no milestone. */
+  milestoneIds: (string | null)[]
   /** `null` = no cycle. */
   cycleIds: (string | null)[]
   labelIds: string[]
@@ -64,6 +69,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   priorities: [],
   assigneeIds: [],
   projectIds: [],
+  milestoneIds: [],
   cycleIds: [],
   labelIds: [],
   creatorIds: [],
@@ -99,6 +105,7 @@ export const FILTER_QUERY_KEYS = [
   // `?status=` is "is", `?status-not=` "is not", `?label-all=` "include all of".
   ...OPERATOR_DIMENSIONS.flatMap((key) => [key, `${key}-not`]),
   'label-all',
+  'milestone',
   'cycle',
   'estimate',
   'due',
@@ -205,6 +212,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     priorities: priority.values,
     assigneeIds: assignee.values,
     projectIds: project.values,
+    milestoneIds: idsOrNone(query.milestone),
     cycleIds: idsOrNone(query.cycle),
     labelIds: label.values,
     creatorIds: creator.values,
@@ -242,6 +250,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     ...withOperatorKey('priority', filters.priorities),
     ...withOperatorKey('assignee', filters.assigneeIds),
     ...withOperatorKey('project', filters.projectIds),
+    milestone: join(filters.milestoneIds),
     cycle: join(filters.cycleIds),
     ...withOperatorKey('label', filters.labelIds),
     ...withOperatorKey('creator', filters.creatorIds),
@@ -281,6 +290,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.priorities.length > 0 ||
     filters.assigneeIds.length > 0 ||
     filters.projectIds.length > 0 ||
+    filters.milestoneIds.length > 0 ||
     filters.cycleIds.length > 0 ||
     filters.labelIds.length > 0 ||
     filters.creatorIds.length > 0 ||
@@ -387,6 +397,7 @@ export function toListInput(
     assigneeIdsNot: assignee.not,
     projectIds: project.is,
     projectIdsNot: project.not,
+    milestoneIds: filters.milestoneIds.length ? filters.milestoneIds : undefined,
     cycleIds: filters.cycleIds.length ? filters.cycleIds : undefined,
     labelIds: label.is,
     labelMode: label.is && ops.label === 'all' ? ('all' as const) : undefined,

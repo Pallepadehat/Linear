@@ -57,6 +57,7 @@ function issue(
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    milestoneId: null,
     cycleId: null,
     estimate: null,
     dueDate: null,

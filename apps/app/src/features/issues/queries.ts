@@ -23,7 +23,7 @@ import { toValue, type MaybeRefOrGetter } from 'vue'
 import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
 import { cyclesKey } from '@/features/cycles/queries'
-import { projectsKey } from '@/features/projects/queries'
+import { invalidateProjects } from '@/features/projects/queries'
 import { client, orpc } from '@/lib/orpc'
 import { patchCommentInPages, toggleReaction } from './comment-cache'
 import {
@@ -159,7 +159,7 @@ function invalidateRelationViews(queryClient: QueryClient) {
     ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
     queryClient.invalidateQueries({ queryKey: issueListKey() }),
     queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
-    queryClient.invalidateQueries({ queryKey: projectsKey() }),
+    invalidateProjects(queryClient),
   ])
 }
 
@@ -261,7 +261,7 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
         ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
         // Project and cycle progress count issues by status, project and cycle.
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
         queryClient.invalidateQueries({ queryKey: cyclesKey() }),
       ])
     },
@@ -303,7 +303,7 @@ export function useDeleteIssue(workspaceSlug: MaybeRefOrGetter<string>) {
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: listKey }),
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
       ])
     },
   })
@@ -384,7 +384,7 @@ export function useBulkUpdateIssues(workspaceSlug: MaybeRefOrGetter<string>) {
         queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
         ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
         queryClient.invalidateQueries({ queryKey: cyclesKey() }),
       ])
     },
@@ -416,7 +416,7 @@ export function useBulkDeleteIssues(workspaceSlug: MaybeRefOrGetter<string>) {
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
       ])
     },
   })

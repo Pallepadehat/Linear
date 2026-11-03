@@ -14,7 +14,7 @@ import {
 import { users } from './auth'
 import { id, timestamps } from './columns'
 import { cycles } from './cycles'
-import { projects } from './projects'
+import { projectMilestones, projects } from './projects'
 import { teams, workflowStatuses } from './teams'
 import { uploads } from './uploads'
 import { workspaces } from './workspaces'
@@ -45,6 +45,8 @@ export const issues = pgTable(
     projectId: uuid().references(() => projects.id, { onDelete: 'set null' }),
     // Same team as the issue, checked in packages/core (docs/domain.md → Cycles).
     cycleId: uuid().references(() => cycles.id, { onDelete: 'set null' }),
+    // A milestone of the issue's project, checked in packages/core (docs/domain.md → Project milestones).
+    milestoneId: uuid().references(() => projectMilestones.id, { onDelete: 'set null' }),
     // Points on the team's estimate scale; null = no estimate (docs/domain.md → Estimates).
     estimate: integer(),
     // Sub-issues: same workspace, never a cycle (packages/core/src/issues/parent.ts).
@@ -61,6 +63,7 @@ export const issues = pgTable(
     index().on(t.assigneeId),
     index().on(t.projectId),
     index().on(t.cycleId),
+    index().on(t.milestoneId),
     index().on(t.parentId),
     // List filters and sorts (issues.list); the id is the keyset tie-breaker.
     index().on(t.workspaceId, t.priority),

@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import type { Cycle, Issue, Label, LinkedPullRequest, WorkflowStatus } from '@linear/contract'
+import type {
+  Cycle,
+  Issue,
+  Label,
+  LinkedPullRequest,
+  Milestone,
+  WorkflowStatus,
+} from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import CyclePicker from '@/components/common/CyclePicker.vue'
 import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
+import MilestonePicker from '@/components/common/MilestonePicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
@@ -23,6 +31,8 @@ const props = defineProps<{
   users: AssigneeOption[]
   labels: Label[]
   projects: ProjectOption[]
+  /** The issue project's milestones, in order. */
+  milestones?: Milestone[]
   /** The team's cycles; the Cycle section only shows when the team has cycles on. */
   cycles?: Cycle[]
   cyclesEnabled?: boolean
@@ -83,6 +93,12 @@ const projectId = computed({
     if (id !== props.issue.projectId) emit('change', { projectId: id })
   },
 })
+const milestoneId = computed({
+  get: () => props.issue.milestoneId,
+  set: (id: string | null) => {
+    if (id !== props.issue.milestoneId) emit('change', { milestoneId: id })
+  },
+})
 const cycleOptions = computed(() => assignableCycles(props.cycles ?? []))
 const issueCycle = computed(() => props.cycles?.find((c) => c.id === props.issue.cycleId) ?? null)
 const cycleId = computed({
@@ -139,6 +155,14 @@ const cycleId = computed({
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>
       <ProjectPicker v-model="projectId" :projects="projects" />
+      <!-- The milestone hangs off the project with a tree line, as in Linear. -->
+      <div v-if="issue.projectId" class="relative pl-6">
+        <span
+          class="pointer-events-none absolute -top-1 left-[15px] h-[calc(50%+4px)] w-2 rounded-bl-md border-b border-l border-hairline-strong"
+          aria-hidden="true"
+        />
+        <MilestonePicker v-model="milestoneId" :milestones="milestones ?? []" />
+      </div>
     </section>
     <section v-if="cyclesEnabled || issue.cycleId" class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Cycle</h2>

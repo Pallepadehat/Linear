@@ -2,7 +2,7 @@
 import { nameSchema } from '@linear/contract'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, ref, watch, watchEffect } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ImageUploadButton from '@/components/common/ImageUploadButton.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
@@ -13,10 +13,13 @@ import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { useUiStore } from '@/stores/ui'
+import ProjectActivityCard from '../components/ProjectActivityCard.vue'
+import ProjectActivityFeed from '../components/ProjectActivityFeed.vue'
 import ProjectDatePicker from '../components/ProjectDatePicker.vue'
 import ProjectLabelsPicker from '../components/ProjectLabelsPicker.vue'
 import ProjectLeadPicker from '../components/ProjectLeadPicker.vue'
 import ProjectMembersPicker from '../components/ProjectMembersPicker.vue'
+import ProjectMilestones from '../components/ProjectMilestones.vue'
 import ProjectProgress from '../components/ProjectProgress.vue'
 import ProjectStatusPicker from '../components/ProjectStatusPicker.vue'
 import ProjectTeamsPicker from '../components/ProjectTeamsPicker.vue'
@@ -31,6 +34,13 @@ const route = useRoute()
 const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const projectId = computed(() => String(route.params.projectId))
+// Interim until the Overview / Activity / Issues tabs (M9-03): `?tab=activity` swaps the
+// issue list for the full feed.
+const showActivity = computed(() => route.query.tab === 'activity')
+const issuesQuery = computed(() => {
+  const { tab: _, ...rest } = route.query
+  return rest
+})
 
 const { data: project, error } = useQuery(
   computed(() => projectOptions(slug.value, projectId.value)),
@@ -192,8 +202,28 @@ const labelIds = computed({
         <ProjectLabelsPicker v-model="labelIds" :labels="labels ?? []" :workspace-slug="slug" />
         <ProjectProgress class="ml-2" :progress="project.progress" />
       </div>
+      <ProjectMilestones :workspace-slug="slug" :project-id="project.id" />
     </section>
-    <h2 class="sr-only">Issues</h2>
-    <IssueList :key="project.id" :workspace-slug="slug" :project-id="project.id" />
+    <div class="flex min-h-0 flex-1">
+      <div v-if="showActivity" class="min-w-0 flex-1 overflow-y-auto px-8 py-5">
+        <RouterLink
+          :to="{ query: issuesQuery }"
+          class="mb-4 inline-block rounded-xs text-xs text-ink-subtle outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          ← Issues
+        </RouterLink>
+        <ProjectActivityFeed :key="project.id" :workspace-slug="slug" :project-id="project.id" />
+      </div>
+      <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col">
+        <h2 class="sr-only">Issues</h2>
+        <IssueList :key="project.id" :workspace-slug="slug" :project-id="project.id" />
+      </div>
+      <aside
+        aria-label="Project panel"
+        class="hidden w-80 shrink-0 overflow-y-auto border-l border-hairline p-4 lg:block"
+      >
+        <ProjectActivityCard :workspace-slug="slug" :project-id="project.id" />
+      </aside>
+    </div>
   </div>
 </template>

@@ -6,6 +6,10 @@ import { toValue } from 'vue'
 import { EMPTY_FILTERS, type IssueFilters } from '@/features/issues/issue-filters'
 import { unreadCountOptions } from '@/features/inbox/queries'
 import { issueFacetsOptions, issueListOptions } from '@/features/issues/queries'
+import {
+  projectActivityListOptions,
+  projectActivityPreviewOptions,
+} from '@/features/projects/queries'
 import { orpc } from '@/lib/orpc'
 import { createRealtimeEventHandler } from './realtime-events'
 import { backoffDelay } from './useRealtime'
@@ -33,6 +37,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    milestoneId: null,
     cycleId: null,
     estimate: null,
     dueDate: null,
@@ -351,7 +356,26 @@ describe('realtime event handler', () => {
     handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
     handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
-    expect(invalidate.mock.calls).toEqual([[{ queryKey: orpc.projects.key() }]])
+    expect(invalidate.mock.calls).toEqual([
+      [{ queryKey: orpc.projects.key() }],
+      [{ queryKey: orpc.milestones.key() }],
+    ])
+  })
+
+  it('marks the project activity card and feed stale on project events', async () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const projectId = crypto.randomUUID()
+    const page = { items: [], nextCursor: null }
+    const preview = projectActivityPreviewOptions('tip', projectId).queryKey
+    const feed = projectActivityListOptions('tip', projectId).queryKey
+    queryClient.setQueryData(preview, page)
+    queryClient.setQueryData(feed, { pages: [page], pageParams: [null] })
+    const keys = [preview, feed]
+    handle({ type: 'project.updated', projectId, ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    for (const queryKey of keys) {
+      expect(queryClient.getQueryState(queryKey)?.isInvalidated).toBe(true)
+    }
   })
 
   it("refetches only that issue's comments on a comment event", () => {

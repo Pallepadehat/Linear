@@ -7,7 +7,7 @@ import type {
 } from '@linear/contract'
 import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
 import { cyclesKey } from '@/features/cycles/queries'
-import { projectsKey } from '@/features/projects/queries'
+import { invalidateProjects } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { notificationsKey } from '@/features/inbox/queries'
 import { templatesKey } from '@/features/templates/queries'
@@ -45,6 +45,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('labels') && (!!input.labelIds?.length || !!input.labelIdsNot?.length)) ||
     ((fields.has('title') || fields.has('description')) && !!input.content) ||
     (fields.has('pullRequests') && input.hasPullRequests !== undefined) ||
+    (fields.has('milestone') && (!!input.milestoneIds?.length || !!input.milestoneId)) ||
     (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
     (fields.has('subscribers') && !!input.subscriberIds?.length) ||
     (fields.has('title') && !!input.q) ||
@@ -61,6 +62,7 @@ const FACET_FIELDS: RealtimeIssueField[] = [
   'labels',
   'priority',
   'project',
+  'milestone',
   'status',
   'title',
   'cycle',
@@ -69,8 +71,8 @@ const FACET_FIELDS: RealtimeIssueField[] = [
   'subscribers',
   'parent',
 ]
-// Fields that change project and cycle progress counts.
-const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project', 'cycle']
+// Fields that change project, milestone and cycle progress counts.
+const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project', 'milestone', 'cycle']
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.
 const COALESCE_MS = 300
 
@@ -102,7 +104,7 @@ export function createRealtimeEventHandler({
     timer = undefined
     if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
     else if (pendingFields.size) invalidateDependentLists(new Set(pendingFields))
-    if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (pending.has('projects')) void invalidateProjects(queryClient)
     if (pending.has('cycles')) void queryClient.invalidateQueries({ queryKey: cyclesKey() })
     if (pending.has('facets')) void queryClient.invalidateQueries({ queryKey: issueFacetsKey() })
     pending.clear()

@@ -34,9 +34,16 @@ import {
   type SQL,
 } from 'drizzle-orm'
 import { recordActivity, type ActivityActor } from '../activity/activity.service'
+import { recordProjectActivity } from '../activity/project-activity.service'
+import { issueProjectEvents } from '../activity/project-diff'
 import { diffIssue } from '../activity/diff'
 import { assignCycle, autoAddCycleId } from '../cycles/cycles.service'
 import { DomainError } from '../errors'
+import {
+  assertIssueMilestone,
+  recordMilestoneCompletion,
+} from '../projects/milestones/milestones.service'
+import { nextIssueMilestone } from '../projects/milestones/rules'
 import { CLOSED_STATUS_CATEGORIES } from '../relations/roles'
 import { subscribeUsers } from '../subscriptions/subscriptions.service'
 import { deleteFavoritesOf } from '../favorites/favorites.service'
@@ -68,6 +75,8 @@ export type CreateIssueInput = {
   /** `null` leaves the issue unassigned even when the team has a default assignee. */
   assigneeId?: string | null
   projectId?: string | null
+  /** Must be a milestone of `projectId`. */
+  milestoneId?: string | null
   /** Must be an open cycle of the issue's team. */
   cycleId?: string | null
   /** Must be on the team's estimate scale; `null` = no estimate. */
@@ -90,6 +99,8 @@ export type UpdateIssueInput = {
   priority?: number
   assigneeId?: string | null
   projectId?: string | null
+  /** A milestone of the issue's (new) project; a project change without one clears it. */
+  milestoneId?: string | null
   cycleId?: string | null
   estimate?: number | null
   labelIds?: string[]
@@ -104,6 +115,7 @@ export type ListIssuesInput = {
   workspaceId: string
   teamId?: string
   projectId?: string
+  milestoneId?: string
   cycleId?: string
   assigneeId?: string
   creatorId?: string
@@ -117,6 +129,8 @@ export type ListIssuesInput = {
   assigneeIds?: (string | null)[]
   /** `null` matches issues without a project. */
   projectIds?: (string | null)[]
+  /** `null` matches issues without a milestone. */
+  milestoneIds?: (string | null)[]
   /** `null` matches issues without a cycle. */
   cycleIds?: (string | null)[]
   /** Any of these labels (`labelMode: 'all'`: all of them). */
@@ -228,6 +242,8 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
     await assertWorkspaceMember(db, input.workspaceId, assigneeId)
   }
   if (input.projectId) await assertProject(db, input.workspaceId, input.projectId)
+  if (input.milestoneId)
+    await assertIssueMilestone(db, input.workspaceId, input.milestoneId, input.projectId ?? null)
   let cycleId = input.cycleId ?? null
   if (cycleId) await assignCycle(db, input.workspaceId, input.teamId, cycleId)
   else if (input.cycleId === undefined && status.category === 'started')
@@ -260,6 +276,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         assigneeId,
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
+        milestoneId: input.milestoneId ?? null,
         cycleId,
         estimate,
         parentId: parent?.id ?? null,
@@ -285,6 +302,18 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         changes: [{ kind: 'sub_issue', from: null, to: `${teamDefaults.key}-${issue.number}` }],
       })
     }
+    await recordIssueProjectChange(
+      tx,
+      input.workspaceId,
+      { type: 'user', id: input.creatorId },
+      null,
+      {
+        issueId: issue.id,
+        projectId: issue.projectId,
+        identifier: `${teamDefaults.key}-${issue.number}`,
+        title: issue.title,
+      },
+    )
     /** The `created` activity entry, the source of the create's notifications. */
     return { ...issue, createdActivityId: created!.id }
   })
@@ -388,6 +417,7 @@ export function listFilter(input: IssueFilterInput) {
   return and(
     input.teamId ? eq(issues.teamId, input.teamId) : undefined,
     input.projectId ? eq(issues.projectId, input.projectId) : undefined,
+    input.milestoneId ? eq(issues.milestoneId, input.milestoneId) : undefined,
     input.cycleId ? eq(issues.cycleId, input.cycleId) : undefined,
     input.assigneeId ? eq(issues.assigneeId, input.assigneeId) : undefined,
     input.creatorId ? eq(issues.creatorId, input.creatorId) : undefined,
@@ -400,6 +430,7 @@ export function listFilter(input: IssueFilterInput) {
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
+    anyOf(issues.milestoneId, input.milestoneIds),
     anyOf(issues.cycleId, input.cycleIds),
     estimateFilter(input.estimates),
     input.showSubIssues === false ? isNull(issues.parentId) : undefined,
@@ -586,121 +617,169 @@ function rankOrder(rank: SQL<number>) {
 }
 
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
-  const { parentChange, activity } = await db.transaction(async (tx) => {
-    // Locking the row keeps `completedAt` consistent with concurrent status changes.
-    const [current] = await tx
-      .select()
-      .from(issues)
-      .where(and(eq(issues.workspaceId, input.workspaceId), eq(issues.id, input.id)))
-      .for('update')
-    if (!current) throw new DomainError('NOT_FOUND', 'Issue not found')
+  const { parentChange, projectChange, feedProjectIds, activity } = await db.transaction(
+    async (tx) => {
+      // Locking the row keeps `completedAt` consistent with concurrent status changes.
+      const [current] = await tx
+        .select()
+        .from(issues)
+        .where(and(eq(issues.workspaceId, input.workspaceId), eq(issues.id, input.id)))
+        .for('update')
+      if (!current) throw new DomainError('NOT_FOUND', 'Issue not found')
 
-    // Always bumped, so a labels-only change still counts as an update.
-    const changes: Partial<typeof issues.$inferInsert> = { updatedAt: new Date() }
-    if (input.title !== undefined) changes.title = normalizeTitle(input.title)
-    if (input.description !== undefined) changes.description = input.description
-    if (input.priority !== undefined) {
-      assertPriority(input.priority)
-      changes.priority = input.priority
-    }
-    let status: Awaited<ReturnType<typeof resolveStatus>> | undefined
-    if (input.dueDate !== undefined) {
-      assertDueDate(input.dueDate)
-      changes.dueDate = input.dueDate
-    }
-    if (input.statusId !== undefined) {
-      status = await resolveStatus(tx, input.workspaceId, current.teamId, input.statusId, null)
-      changes.statusId = status.id
-      changes.completedAt = nextCompletedAt(status.category, current.completedAt)
-    }
-    if (input.assigneeId !== undefined) {
-      if (input.assigneeId) await assertWorkspaceMember(tx, input.workspaceId, input.assigneeId)
-      changes.assigneeId = input.assigneeId
-    }
-    // Re-saving the same assignee doesn't re-subscribe someone who unsubscribed.
-    const newAssigneeId =
-      input.assigneeId && input.assigneeId !== current.assigneeId ? input.assigneeId : null
-    if (input.projectId !== undefined) {
-      if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
-      changes.projectId = input.projectId
-    }
-    if (input.cycleId !== undefined) {
-      if (input.cycleId) await assignCycle(tx, input.workspaceId, current.teamId, input.cycleId)
-      changes.cycleId = input.cycleId
-    } else if (
-      status?.category === 'started' &&
-      status.id !== current.statusId &&
-      !current.cycleId
-    ) {
-      // Auto-add (docs/domain.md → Cycles): only when the cycle isn't being set by hand.
-      const cycleId = await autoAddCycleId(tx, input.workspaceId, current.teamId)
-      if (cycleId) changes.cycleId = cycleId
-    }
-    // Only a changed value is checked, so an issue keeps an estimate that is no
-    // longer on the scale (after a scale change) while other fields are edited.
-    if (input.estimate !== undefined && input.estimate !== current.estimate) {
-      const [team] = await tx
-        .select({
-          estimateScale: teams.estimateScale,
-          estimateAllowZero: teams.estimateAllowZero,
-        })
-        .from(teams)
-        .where(eq(teams.id, current.teamId))
-      if (!team) throw new DomainError('NOT_FOUND', 'Team not found')
-      assertValidEstimate(team, input.estimate)
-      changes.estimate = input.estimate
-    }
-    let parentChange: { from: ParentRef | null; to: ParentRef | null } | null = null
-    if (input.parentId !== undefined && input.parentId !== current.parentId) {
-      const to = input.parentId
-        ? await resolveParent(tx, input.workspaceId, current.id, input.parentId)
-        : null
-      const from = current.parentId
-        ? ((await findIssueRef(tx, input.workspaceId, current.parentId)) ?? null)
-        : null
-      changes.parentId = to?.id ?? null
-      parentChange = { from, to }
-    }
+      // Always bumped, so a labels-only change still counts as an update.
+      const changes: Partial<typeof issues.$inferInsert> = { updatedAt: new Date() }
+      if (input.title !== undefined) changes.title = normalizeTitle(input.title)
+      if (input.description !== undefined) changes.description = input.description
+      if (input.priority !== undefined) {
+        assertPriority(input.priority)
+        changes.priority = input.priority
+      }
+      let status: Awaited<ReturnType<typeof resolveStatus>> | undefined
+      if (input.dueDate !== undefined) {
+        assertDueDate(input.dueDate)
+        changes.dueDate = input.dueDate
+      }
+      if (input.statusId !== undefined) {
+        status = await resolveStatus(tx, input.workspaceId, current.teamId, input.statusId, null)
+        changes.statusId = status.id
+        changes.completedAt = nextCompletedAt(status.category, current.completedAt)
+      }
+      if (input.assigneeId !== undefined) {
+        if (input.assigneeId) await assertWorkspaceMember(tx, input.workspaceId, input.assigneeId)
+        changes.assigneeId = input.assigneeId
+      }
+      // Re-saving the same assignee doesn't re-subscribe someone who unsubscribed.
+      const newAssigneeId =
+        input.assigneeId && input.assigneeId !== current.assigneeId ? input.assigneeId : null
+      if (input.projectId !== undefined) {
+        if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
+        changes.projectId = input.projectId
+      }
+      // Changing or clearing the project clears the milestone (docs/domain.md → Project milestones).
+      const milestone = nextIssueMilestone(current, input)
+      if (milestone.milestoneId) {
+        await assertIssueMilestone(
+          tx,
+          input.workspaceId,
+          milestone.milestoneId,
+          milestone.projectId,
+        )
+      }
+      if (milestone.milestoneId !== undefined) changes.milestoneId = milestone.milestoneId
+      if (input.cycleId !== undefined) {
+        if (input.cycleId) await assignCycle(tx, input.workspaceId, current.teamId, input.cycleId)
+        changes.cycleId = input.cycleId
+      } else if (
+        status?.category === 'started' &&
+        status.id !== current.statusId &&
+        !current.cycleId
+      ) {
+        // Auto-add (docs/domain.md → Cycles): only when the cycle isn't being set by hand.
+        const cycleId = await autoAddCycleId(tx, input.workspaceId, current.teamId)
+        if (cycleId) changes.cycleId = cycleId
+      }
+      // Only a changed value is checked, so an issue keeps an estimate that is no
+      // longer on the scale (after a scale change) while other fields are edited.
+      if (input.estimate !== undefined && input.estimate !== current.estimate) {
+        const [team] = await tx
+          .select({
+            estimateScale: teams.estimateScale,
+            estimateAllowZero: teams.estimateAllowZero,
+          })
+          .from(teams)
+          .where(eq(teams.id, current.teamId))
+        if (!team) throw new DomainError('NOT_FOUND', 'Team not found')
+        assertValidEstimate(team, input.estimate)
+        changes.estimate = input.estimate
+      }
+      let parentChange: { from: ParentRef | null; to: ParentRef | null } | null = null
+      if (input.parentId !== undefined && input.parentId !== current.parentId) {
+        const to = input.parentId
+          ? await resolveParent(tx, input.workspaceId, current.id, input.parentId)
+          : null
+        const from = current.parentId
+          ? ((await findIssueRef(tx, input.workspaceId, current.parentId)) ?? null)
+          : null
+        changes.parentId = to?.id ?? null
+        parentChange = { from, to }
+      }
 
-    const labelIds =
-      input.labelIds === undefined
-        ? undefined
-        : await resolveLabelIds(tx, input.workspaceId, current.teamId, input.labelIds)
-    const currentLabels = await tx
-      .select({ labelId: issueLabels.labelId })
-      .from(issueLabels)
-      .where(
-        and(eq(issueLabels.workspaceId, input.workspaceId), eq(issueLabels.issueId, current.id)),
-      )
-    const activity = diffIssue(
-      { ...current, labelIds: currentLabels.map((row) => row.labelId) },
-      { ...changes, labelIds },
-    )
-
-    await tx.update(issues).set(changes).where(eq(issues.id, current.id))
-    if (input.description !== undefined) {
-      await syncIssueAttachments(tx, input.workspaceId, current.id, input.description)
-    }
-    if (labelIds !== undefined) {
-      await tx
-        .delete(issueLabels)
+      const labelIds =
+        input.labelIds === undefined
+          ? undefined
+          : await resolveLabelIds(tx, input.workspaceId, current.teamId, input.labelIds)
+      const currentLabels = await tx
+        .select({ labelId: issueLabels.labelId })
+        .from(issueLabels)
         .where(
           and(eq(issueLabels.workspaceId, input.workspaceId), eq(issueLabels.issueId, current.id)),
         )
-      await setIssueLabels(tx, input.workspaceId, current.id, labelIds)
-    }
-    if (newAssigneeId) await subscribeUsers(tx, current.id, [newAssigneeId])
-    const recorded = await recordActivity(tx, {
-      workspaceId: input.workspaceId,
-      issueId: current.id,
-      actor: input.actor,
-      changes: activity,
-    })
-    if (parentChange) {
-      await recordParentChange(tx, input.workspaceId, input.actor, current, parentChange)
-    }
-    return { parentChange, activity: recorded }
-  })
+      const activity = diffIssue(
+        { ...current, labelIds: currentLabels.map((row) => row.labelId) },
+        { ...changes, labelIds },
+      )
+
+      await tx.update(issues).set(changes).where(eq(issues.id, current.id))
+      if (input.description !== undefined) {
+        await syncIssueAttachments(tx, input.workspaceId, current.id, input.description)
+      }
+      if (labelIds !== undefined) {
+        await tx
+          .delete(issueLabels)
+          .where(
+            and(
+              eq(issueLabels.workspaceId, input.workspaceId),
+              eq(issueLabels.issueId, current.id),
+            ),
+          )
+        await setIssueLabels(tx, input.workspaceId, current.id, labelIds)
+      }
+      if (newAssigneeId) await subscribeUsers(tx, current.id, [newAssigneeId])
+      const recorded = await recordActivity(tx, {
+        workspaceId: input.workspaceId,
+        issueId: current.id,
+        actor: input.actor,
+        changes: activity,
+      })
+      if (parentChange) {
+        await recordParentChange(tx, input.workspaceId, input.actor, current, parentChange)
+      }
+      let projectChange: { from: string | null; to: string | null } | null = null
+      if (changes.projectId !== undefined && changes.projectId !== current.projectId) {
+        projectChange = { from: current.projectId, to: changes.projectId }
+        const ref = await findIssueRef(tx, input.workspaceId, current.id)
+        if (ref)
+          await recordIssueProjectChange(tx, input.workspaceId, input.actor, current.projectId, {
+            issueId: current.id,
+            projectId: changes.projectId,
+            identifier: ref.identifier,
+            title: changes.title ?? current.title,
+          })
+      }
+      // Moving the milestone's last open issue to done completes it (docs/domain.md → Project activity).
+      const milestoneId =
+        changes.milestoneId === undefined ? current.milestoneId : changes.milestoneId
+      let completedMilestoneProjectId: string | null = null
+      if (status?.category === 'completed' && milestoneId) {
+        const [previous] = await tx
+          .select({ category: workflowStatuses.category })
+          .from(workflowStatuses)
+          .where(eq(workflowStatuses.id, current.statusId))
+        completedMilestoneProjectId = await recordMilestoneCompletion(
+          tx,
+          input.workspaceId,
+          milestoneId,
+          input.actor,
+          { wasDone: previous?.category === 'completed', isDone: true },
+        )
+      }
+      const feedProjectIds = [
+        ...new Set([projectChange?.from, projectChange?.to, completedMilestoneProjectId]),
+      ].filter((id): id is string => Boolean(id))
+      return { parentChange, projectChange, feedProjectIds, activity: recorded }
+    },
+  )
   const issue = await getIssue(
     db,
     input.workspaceId,
@@ -715,6 +794,24 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     parentChange: parentChange
       ? { from: parentChange.from?.id ?? null, to: parentChange.to?.id ?? null }
       : null,
+    /** Old and new project ids when the project changed; both feeds got an entry. */
+    projectChange,
+    /** Projects whose activity feed got an entry (issue moved, milestone completed). */
+    feedProjectIds,
+  }
+}
+
+/** `project.issue_removed` on the old project and `project.issue_added` on the new one. */
+async function recordIssueProjectChange(
+  tx: DbOrTx,
+  workspaceId: string,
+  actor: ActivityActor,
+  fromProjectId: string | null,
+  issue: { issueId: string; projectId: string | null; identifier: string; title: string },
+) {
+  const { projectId, ...ref } = issue
+  for (const { projectId: target, event } of issueProjectEvents(fromProjectId, projectId, ref)) {
+    await recordProjectActivity(tx, { workspaceId, projectId: target, actor, events: [event] })
   }
 }
 
