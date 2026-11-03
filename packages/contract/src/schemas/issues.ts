@@ -270,6 +270,8 @@ export const issueFacetsSchema = z.object({
   labels: z.array(z.object({ id: z.uuid(), count: facetCountSchema })),
   priorities: z.array(z.object({ value: issuePrioritySchema, count: facetCountSchema })),
   projects: z.array(z.object({ id: z.uuid().nullable(), count: facetCountSchema })),
+  /** Per workflow status: the "1 / 2" group counts and the hidden-by-filters footer. */
+  statuses: z.array(z.object({ id: z.uuid(), count: facetCountSchema })),
 })
 
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
