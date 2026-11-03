@@ -39,7 +39,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M2-05  | [x]    | ActivityLog writes for issue changes                                    | M2-02      |
 | M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
 | M2-07  | [x]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
-| M2-08  | [ ]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
+| M2-08  | [x]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
 | M2-09  | [ ]    | Optimistic updates for status, priority, assignee, labels               | M2-07      |
 
 ## M3 — Projects and views
@@ -116,3 +116,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M2-07 · follow-up: issue attachments (paperclip/⌘⇧U/paste/drop, inline images, file chips, `attachment:` refs resolved via membership-checked presigned GETs), Linear's full `/` menu with shortcuts (media, files, code, mermaid diagrams, LaTeX, `+++` collapsible sections), markdown round-trip tests
 2026-11-03 · LIN-39 / M3-02 · projects table (icon, name, teams, progress, status), lazy `/:workspaceSlug/project/:projectId` detail page with in-place edits and the project's issues via `IssueList`, `CreateProjectDialog` (vee-validate + contract schema), shared `ImageUploadButton` for avatar and project icon, `ProjectPicker` in the create issue dialog. Contract: project DTOs gain `progress`/`iconUrl`/`createdAt`; `issues.list` takes `projectId`. Lint, typecheck and all tests pass; checked in light and dark.
 2026-11-03 · LIN-11 / M2-04 · comments table (cascade with issue, migration 0007), `comments.list` (oldest first, cursor) / `create` / `update` (author only) / `delete` (author or owner, per domain.md Roles); DTO carries author name + avatar URL. Integration tests cover create/list, paging, FORBIDDEN edits/deletes, cascade and cross-workspace NOT_FOUND. Lint, typecheck and all tests pass.
+2026-11-03 · LIN-14 / M2-08 · lazy `/:workspaceSlug/issue/:identifier` detail page (rows in the list link to it): editable title, markdown description, combined comments + activity timeline with readable change descriptions, comment composer (⌘↵) that refreshes without reload, properties sidebar (status/priority/assignee/labels/project pickers, created/updated) with optimistic saves, empty "Linked pull requests" placeholder for M4-07, not-found state. Unit tests for timeline merge/wording and relative time. Lint, typecheck and app tests pass; API tests and the in-browser light/dark check not run locally (local Postgres rejected the default credentials).
