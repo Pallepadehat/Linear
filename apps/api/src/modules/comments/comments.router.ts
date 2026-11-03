@@ -1,7 +1,12 @@
+import { MAX_THREAD_REPLIES } from '@linear/contract'
 import {
   createComment,
   deleteComment,
   listComments,
+  reactToComment,
+  resolveThread,
+  unreactToComment,
+  unresolveThread,
   updateComment,
   type CommentRecord,
 } from '@linear/core'
@@ -18,14 +23,14 @@ const inWorkspace = requireWorkspace()
 type Deps = { db: DbOrTx; storage: Storage }
 
 /** Resolves each distinct author's avatar once per page, not once per comment. */
-async function toCommentDtos(deps: Deps, records: CommentRecord[]) {
+async function avatarResolver(deps: Deps, records: CommentRecord[]) {
   const uploadIds = [...new Set(records.map((r) => r.authorAvatarUploadId))]
   const urls = new Map(
     await Promise.all(
       uploadIds.map(async (id) => [id, await imageUrl(deps.db, deps.storage, id)] as const),
     ),
   )
-  return records.map((r) => toCommentDto(r, urls.get(r.authorAvatarUploadId) ?? null))
+  return (r: CommentRecord) => toCommentDto(r, urls.get(r.authorAvatarUploadId) ?? null)
 }
 
 async function toCommentDtoWithAvatar(deps: Deps, record: CommentRecord) {
@@ -39,10 +44,23 @@ export const commentsRouter = {
       const page = await listComments(context.db, {
         workspaceId: context.workspace.id,
         issueId: input.issueId,
+        viewerId: context.user.id,
         cursor: input.cursor,
         limit: input.limit,
+        maxReplies: MAX_THREAD_REPLIES,
       })
-      return { items: await toCommentDtos(context, page.items), nextCursor: page.nextCursor }
+      const toDto = await avatarResolver(
+        context,
+        page.items.flatMap((t) => [t, ...t.replies]),
+      )
+      return {
+        items: page.items.map((thread) => ({
+          ...toDto(thread),
+          replies: thread.replies.map(toDto),
+          replyCount: thread.replyCount,
+        })),
+        nextCursor: page.nextCursor,
+      }
     }),
 
   create: authed.comments.create
@@ -52,6 +70,7 @@ export const commentsRouter = {
         workspaceId: context.workspace.id,
         issueId: input.issueId,
         authorId: context.user.id,
+        parentId: input.parentId,
         body: input.body,
       })
       await publishChange(context, {
@@ -90,5 +109,71 @@ export const commentsRouter = {
       })
       await publishChange(context, { type: 'comment.deleted', issueId, commentId: id })
       return { id }
+    }),
+
+  react: authed.comments.react
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const comment = await reactToComment(context.db, {
+        workspaceId: context.workspace.id,
+        commentId: input.commentId,
+        userId: context.user.id,
+        emoji: input.emoji,
+      })
+      await publishChange(context, {
+        type: 'comment.updated',
+        issueId: comment.issueId,
+        commentId: comment.id,
+      })
+      return toCommentDtoWithAvatar(context, comment)
+    }),
+
+  unreact: authed.comments.unreact
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const comment = await unreactToComment(context.db, {
+        workspaceId: context.workspace.id,
+        commentId: input.commentId,
+        userId: context.user.id,
+        emoji: input.emoji,
+      })
+      await publishChange(context, {
+        type: 'comment.updated',
+        issueId: comment.issueId,
+        commentId: comment.id,
+      })
+      return toCommentDtoWithAvatar(context, comment)
+    }),
+
+  resolveThread: authed.comments.resolveThread
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const comment = await resolveThread(context.db, {
+        workspaceId: context.workspace.id,
+        id: input.id,
+        userId: context.user.id,
+      })
+      await publishChange(context, {
+        type: 'comment.updated',
+        issueId: comment.issueId,
+        commentId: comment.id,
+      })
+      return toCommentDtoWithAvatar(context, comment)
+    }),
+
+  unresolveThread: authed.comments.unresolveThread
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const comment = await unresolveThread(context.db, {
+        workspaceId: context.workspace.id,
+        id: input.id,
+        userId: context.user.id,
+      })
+      await publishChange(context, {
+        type: 'comment.updated',
+        issueId: comment.issueId,
+        commentId: comment.id,
+      })
+      return toCommentDtoWithAvatar(context, comment)
     }),
 }
