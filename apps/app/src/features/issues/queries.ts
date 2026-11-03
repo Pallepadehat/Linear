@@ -58,7 +58,7 @@ function issueFiltersInput(
   filter: IssueListFilter,
   filters: IssueFilters,
 ): IssueFiltersInput {
-  const { q, due, sort: _sort, direction: _direction, ...rest } = filters
+  const { q, due, hasLinks, sort: _sort, direction: _direction, ...rest } = filters
   // Relative due filters are evaluated against the viewer's local day (domain.md).
   const relative = due.some((bucket) => bucket !== 'noDueDate')
   return {
@@ -67,6 +67,8 @@ function issueFiltersInput(
     ...rest,
     ...(due.length && { due }),
     ...(relative && { today: todayIso() }),
+    // Only "Has links" is offered; `false` would mean "has no links".
+    ...(hasLinks && { hasLinks }),
     q: q || undefined,
   }
 }
