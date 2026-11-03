@@ -31,6 +31,7 @@ const ISSUE_INPUT_FIELDS = {
   priority: 'priority',
   assigneeId: 'assignee',
   projectId: 'project',
+  estimate: 'estimate',
   labelIds: 'labels',
 } as const satisfies Record<string, IssueField>
 

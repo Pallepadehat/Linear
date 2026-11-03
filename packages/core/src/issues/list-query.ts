@@ -1,6 +1,6 @@
 import { DomainError } from '../errors'
 
-export const ISSUE_SORTS = ['createdAt', 'updatedAt', 'priority'] as const
+export const ISSUE_SORTS = ['createdAt', 'updatedAt', 'priority', 'estimate'] as const
 export type IssueSort = (typeof ISSUE_SORTS)[number]
 export type SortDirection = 'asc' | 'desc'
 
@@ -38,7 +38,12 @@ export function decodeListCursor(
     throw invalid
   }
   if (!UUID_PATTERN.test(id)) throw invalid
-  const valid = sort === 'priority' ? /^[1-5]$/.test(value) : /^-?\d{1,20}$/.test(value)
+  const valid =
+    sort === 'priority'
+      ? /^[1-5]$/.test(value)
+      : sort === 'estimate'
+        ? /^-?\d{1,3}$/.test(value)
+        : /^-?\d{1,20}$/.test(value)
   if (!valid) throw invalid
   return { value, id }
 }

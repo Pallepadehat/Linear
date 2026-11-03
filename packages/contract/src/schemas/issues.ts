@@ -6,6 +6,12 @@ import { workflowStatusSchema } from './teams'
 /** 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (docs/domain.md → Priorities). */
 export const issuePrioritySchema = z.number().int().min(0).max(4)
 
+/**
+ * Points on the team's estimate scale (docs/domain.md → Estimates); `null` = no
+ * estimate. The server checks the value against the scale.
+ */
+export const issueEstimateSchema = z.number().int().min(0).max(100)
+
 export const issueTitleSchema = z.string().trim().min(1, { message: 'Required' }).max(255)
 export const issueDescriptionSchema = z.string().max(100_000).nullable()
 
@@ -31,6 +37,7 @@ export const issueSchema = z.object({
   assigneeId: z.uuid().nullable(),
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
+  estimate: issueEstimateSchema.nullable(),
   labels: z.array(labelSchema),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -49,6 +56,7 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   /** `null` = unassigned, even when the team has a default assignee. */
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  estimate: issueEstimateSchema.nullable().optional(),
   labelIds: labelIdsSchema.optional(),
 })
 
@@ -61,6 +69,7 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
   priority: issuePrioritySchema.optional(),
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  estimate: issueEstimateSchema.nullable().optional(),
   labelIds: labelIdsSchema.optional(),
 })
 
@@ -70,8 +79,8 @@ export const getIssueByIdentifierInputSchema = workspaceScopedSchema.extend({
   identifier: issueIdentifierSchema,
 })
 
-export const issueSortSchema = z.enum(['createdAt', 'updatedAt', 'priority'])
-/** `desc` = newest / most urgent first. No priority always sorts last. */
+export const issueSortSchema = z.enum(['createdAt', 'updatedAt', 'priority', 'estimate'])
+/** `desc` = newest / most urgent / largest first. No priority and no estimate always sort last. */
 export const sortDirectionSchema = z.enum(['asc', 'desc'])
 
 const filterIdsSchema = z.array(z.uuid()).max(100)
@@ -95,6 +104,11 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   assigneeIds: nullableFilterIdsSchema.optional(),
   projectIds: nullableFilterIdsSchema.optional(),
   labelIds: filterIdsSchema.optional(),
+  /** Estimate values; `null` matches issues without an estimate, `'any'` those with one. */
+  estimates: z
+    .array(z.union([issueEstimateSchema, z.literal('any')]).nullable())
+    .max(20)
+    .optional(),
   /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
   q: z.string().trim().max(255).optional(),
   sort: issueSortSchema.default('createdAt'),

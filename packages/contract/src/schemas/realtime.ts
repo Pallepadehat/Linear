@@ -10,6 +10,7 @@ export const realtimeIssueFieldSchema = z.enum([
   'assignee',
   'project',
   'labels',
+  'estimate',
   'pullRequests',
 ])
 

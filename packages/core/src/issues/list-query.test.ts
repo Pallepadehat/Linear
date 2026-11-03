@@ -12,6 +12,8 @@ describe('list cursors', () => {
     })
     const priority = encodeListCursor('priority', 'asc', { value: '5', id: ID })
     expect(decodeListCursor(priority, 'priority', 'asc')).toEqual({ value: '5', id: ID })
+    const estimate = encodeListCursor('estimate', 'desc', { value: '-8', id: ID })
+    expect(decodeListCursor(estimate, 'estimate', 'desc')).toEqual({ value: '-8', id: ID })
   })
 
   it('rejects other sorts, bad values and garbage', () => {
@@ -23,6 +25,7 @@ describe('list cursors', () => {
       ['not-a-cursor', 'createdAt'],
       [ID, 'createdAt'],
       [encodeListCursor('priority', 'desc', { value: '9', id: ID }), 'priority'],
+      [encodeListCursor('estimate', 'desc', { value: '1e3', id: ID }), 'estimate'],
       [encodeListCursor('updatedAt', 'desc', { value: 'now()', id: ID }), 'updatedAt'],
       [encodeListCursor('updatedAt', 'desc', { value: '1', id: 'x' }), 'updatedAt'],
     ] as const

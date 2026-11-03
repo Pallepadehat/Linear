@@ -20,6 +20,7 @@ export function toIssueDto(record: IssueRecord): Issue {
     assigneeId: record.assigneeId,
     creatorId: record.creatorId,
     projectId: record.projectId,
+    estimate: record.estimate,
     labels: record.labels.map(toLabelDto),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,

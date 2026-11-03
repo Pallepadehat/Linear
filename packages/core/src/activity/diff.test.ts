@@ -8,6 +8,7 @@ const current: IssueSnapshot = {
   priority: 0,
   assigneeId: null,
   projectId: null,
+  estimate: null,
   labelIds: ['bug', 'ui'],
 }
 
@@ -34,6 +35,13 @@ describe('diffIssue', () => {
       { kind: 'status', from: 'todo', to: 'done' },
       { kind: 'priority', from: 0, to: 2 },
       { kind: 'assignee', from: null, to: 'u1' },
+    ])
+  })
+
+  it('records estimate changes, including clearing one', () => {
+    expect(diffIssue(current, { estimate: 3 })).toEqual([{ kind: 'estimate', from: null, to: 3 }])
+    expect(diffIssue({ ...current, estimate: 3 }, { estimate: null })).toEqual([
+      { kind: 'estimate', from: 3, to: null },
     ])
   })
 
