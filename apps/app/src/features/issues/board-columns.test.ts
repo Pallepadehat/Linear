@@ -32,6 +32,7 @@ function issue(id: string, s: WorkflowStatus, teamId = teamA): Issue {
     projectId: null,
     dueDate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: now,
     updatedAt: now,
     completedAt: null,

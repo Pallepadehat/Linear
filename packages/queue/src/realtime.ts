@@ -16,6 +16,7 @@ export const issueFieldSchema = z.enum([
   'labels',
   'dueDate',
   'pullRequests',
+  'subscribers',
 ])
 
 const base = {

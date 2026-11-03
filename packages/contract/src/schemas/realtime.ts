@@ -12,6 +12,7 @@ export const realtimeIssueFieldSchema = z.enum([
   'labels',
   'dueDate',
   'pullRequests',
+  'subscribers',
 ])
 
 const base = {

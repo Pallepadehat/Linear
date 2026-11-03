@@ -34,6 +34,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     projectId: null,
     dueDate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: created,
     updatedAt: created,
     completedAt: null,
