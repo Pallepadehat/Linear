@@ -29,6 +29,8 @@ export type IssueFilters = {
   /** User ids, or `me`. */
   subscriberIds: string[]
   q: string
+  /** Only issues with a web link or a linked PR (domain.md → Links). */
+  hasLinks: boolean
 }
 
 export const EMPTY_FILTERS: IssueFilters = {
@@ -42,6 +44,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   due: [],
   subscriberIds: [],
   q: '',
+  hasLinks: false,
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -84,6 +87,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     ),
     subscriberIds: list(query.subscriber).filter((v) => v === ME || UUID.test(v)),
     q: first(query.q).trim(),
+    hasLinks: first(query.links) === 'has',
   }
 }
 
@@ -102,6 +106,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     due: join(filters.due),
     subscriber: join(filters.subscriberIds),
     q: filters.q.trim() || undefined,
+    links: filters.hasLinks ? 'has' : undefined,
   }
   return Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined))
 }
@@ -117,6 +122,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.estimates.length > 0 ||
     filters.due.length > 0 ||
     filters.subscriberIds.length > 0 ||
+    filters.hasLinks ||
     filters.q !== ''
   )
 }

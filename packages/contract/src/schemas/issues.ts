@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
 import { labelSchema } from './labels'
+import { issueLinkSchema } from './links'
 import { issueRelationsSchema } from './relations'
 import { statusCategorySchema, workflowStatusSchema } from './teams'
 
@@ -78,6 +79,8 @@ export const issueDetailSchema = issueSchema.extend({
     .nullable(),
   children: z.array(issueSchema),
   relations: issueRelationsSchema,
+  /** Web links, oldest first (linked PRs come from `github.pullRequests.listForIssue`). */
+  links: z.array(issueLinkSchema),
 })
 
 const labelIdsSchema = z.array(z.uuid()).max(50)
@@ -214,6 +217,8 @@ export const issueFiltersSchema = workspaceScopedSchema.extend({
   today: isoDateSchema.optional(),
   /** Any of these users is subscribed. */
   subscriberIds: userFilterIdsSchema.optional(),
+  /** `true`: has a web link or a linked PR; `false`: has neither (docs/domain.md → Links). */
+  hasLinks: z.boolean().optional(),
   /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
   q: z.string().trim().max(255).optional(),
   /** `false` leaves out sub-issues (issues with a parent). */

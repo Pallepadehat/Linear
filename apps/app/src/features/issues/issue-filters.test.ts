@@ -23,6 +23,7 @@ describe('issue filters in the URL', () => {
       due: ['overdue' as const, 'noDueDate' as const],
       subscriberIds: ['me', A],
       q: 'login',
+      hasLinks: true,
     }
     const query = serializeIssueFilters(filters)
     expect(query).toEqual({
@@ -36,6 +37,7 @@ describe('issue filters in the URL', () => {
       due: 'overdue,noDueDate',
       subscriber: `me,${A}`,
       q: 'login',
+      links: 'has',
     })
     expect(parseIssueFilters(query as Record<string, string>)).toEqual(filters)
   })
