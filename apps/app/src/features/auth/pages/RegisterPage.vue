@@ -8,7 +8,7 @@ import RegisterForm from '../components/RegisterForm.vue'
     <RegisterForm />
     <p class="text-center text-ink-subtle">
       Already have an account?
-      <RouterLink :to="{ name: 'login' }" class="font-medium text-primary hover:underline"
+      <RouterLink :to="{ name: 'login' }" class="font-medium text-link hover:underline"
         >Log in</RouterLink
       >
     </p>
