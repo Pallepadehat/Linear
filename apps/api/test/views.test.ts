@@ -99,6 +99,23 @@ describe('views', () => {
     })
   })
 
+  it('saves the filter menu fields: operators, creator, dates, content and PRs', async () => {
+    const { member, bug, todo } = await arrange()
+    const filters = {
+      statusIdsNot: [todo.id],
+      labelIds: [bug.id],
+      labelMode: 'all' as const,
+      creatorIds: ['me', member.userId],
+      createdWithin: 'week' as const,
+      updatedBefore: new Date('2026-10-01T00:00:00.000Z'),
+      completedSince: new Date('2026-09-15T00:00:00.000Z'),
+      content: 'crash',
+      hasPullRequests: false,
+    }
+    const view = await member.client.views.create({ ...scope, name: 'Menu', filters, display })
+    expect((await member.client.views.get({ ...scope, id: view.id })).filters).toEqual(filters)
+  })
+
   it('lists team views only for that team, and every view without a team', async () => {
     const { owner, team, ops } = await arrange()
     const create = (name: string, teamId?: string) =>
@@ -164,6 +181,8 @@ describe('views', () => {
       { ...base, filters: { milestoneIds: [foreign.milestone.id] } },
       { ...base, filters: { assigneeIds: [foreign.stranger.userId] } },
       { ...base, filters: { subscriberIds: [foreign.stranger.userId] } },
+      { ...base, filters: { creatorIdsNot: [foreign.stranger.userId] } },
+      { ...base, filters: { labelIdsNot: [foreign.label.id] } },
     ]) {
       await expect(member.client.views.create(input)).rejects.toMatchObject({ code: 'NOT_FOUND' })
     }
