@@ -70,7 +70,9 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       const to = asString(entry.to)
       if (to) return `assigned the issue to ${name(names.user, to, 'a removed user')}`
       const from = asString(entry.from)
-      return from ? `unassigned ${name(names.user, from, 'a removed user')}` : 'removed the assignee'
+      return from
+        ? `unassigned ${name(names.user, from, 'a removed user')}`
+        : 'removed the assignee'
     }
     case 'project': {
       const to = asString(entry.to)

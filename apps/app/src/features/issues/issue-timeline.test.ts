@@ -69,9 +69,9 @@ describe('buildTimeline', () => {
 describe('activityActor', () => {
   it('names the user, GitHub, or a fallback', () => {
     expect(activityActor(activity('created'), names)).toBe('Ada Lovelace')
-    expect(activityActor({ ...activity('status'), actorType: 'github', actorId: null }, names)).toBe(
-      'GitHub',
-    )
+    expect(
+      activityActor({ ...activity('status'), actorType: 'github', actorId: null }, names),
+    ).toBe('GitHub')
     expect(activityActor({ ...activity('created'), actorId: null }, names)).toBe('Someone')
   })
 })
@@ -90,7 +90,10 @@ describe('describeActivity', () => {
     [activity('project', null, 'p1'), 'moved the issue to Launch'],
     [activity('project', 'p1', null), 'removed the issue from Launch'],
     [activity('labels', [], ['l1']), 'added label Bug'],
-    [activity('labels', ['l1'], ['l2', 'l3']), 'added labels Frontend and Docs and removed label Bug'],
+    [
+      activity('labels', ['l1'], ['l2', 'l3']),
+      'added labels Frontend and Docs and removed label Bug',
+    ],
     [activity('labels', ['l1', 'l2', 'l3'], []), 'removed labels Bug, Frontend and Docs'],
   ])('%#: %s', (entry, expected) => {
     expect(describeActivity(entry, names)).toBe(expected)
