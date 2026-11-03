@@ -2,6 +2,7 @@ import {
   issueLabels,
   issueLinks,
   issuePullRequestLinks,
+  pullRequests,
   issueRelations,
   issueSubscriptions,
   issues,
@@ -803,11 +804,15 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
       ),
     )
     .orderBy(asc(labels.name))
-  const progress = await subIssueProgress(
+  const issueIds = rows.map((row) => row.issue.id)
+  const progress = await subIssueProgress(db, workspaceId, issueIds)
+  const projectsById = await projectSummaries(
     db,
     workspaceId,
-    rows.map((row) => row.issue.id),
+    rows.flatMap((row) => (row.issue.projectId ? [row.issue.projectId] : [])),
   )
+  const prs = await pullRequestChips(db, workspaceId, issueIds)
+  const linkCounts = await webLinkCounts(db, workspaceId, issueIds)
 
   return rows.map(({ issue, teamKey, status, isSubscribed, blockedByCount, blockingCount }) => ({
     ...issue,
@@ -818,7 +823,60 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
     blockingCount,
     labels: attached.filter((row) => row.issueId === issue.id).map((row) => row.label),
     subIssueProgress: progress.get(issue.id) ?? null,
+    project: (issue.projectId && projectsById.get(issue.projectId)) || null,
+    pullRequests: prs.get(issue.id) ?? [],
+    linkCount: linkCounts.get(issue.id) ?? 0,
   }))
+}
+
+/** Name and icon of each project, for the issue rows' project chip. */
+async function projectSummaries(db: DbOrTx, workspaceId: string, projectIds: string[]) {
+  const rows = await db
+    .select({ id: projects.id, name: projects.name, iconUploadId: projects.iconUploadId })
+    .from(projects)
+    .where(
+      and(eq(projects.workspaceId, workspaceId), inArray(projects.id, [...new Set(projectIds)])),
+    )
+  return new Map(rows.map((row) => [row.id, row]))
+}
+
+// Open work first, then merged, then closed (docs/domain.md → Issue rows).
+const PR_STATE_RANK = sql<number>`case ${pullRequests.state} when 'open' then 0 when 'draft' then 1 when 'merged' then 2 else 3 end`
+
+/** Each issue's linked PRs as row chips (number + state), in display order. */
+async function pullRequestChips(db: DbOrTx, workspaceId: string, issueIds: string[]) {
+  const rows = await db
+    .select({
+      issueId: issuePullRequestLinks.issueId,
+      number: pullRequests.number,
+      state: pullRequests.state,
+    })
+    .from(issuePullRequestLinks)
+    .innerJoin(pullRequests, eq(pullRequests.id, issuePullRequestLinks.pullRequestId))
+    .where(
+      and(
+        eq(issuePullRequestLinks.workspaceId, workspaceId),
+        inArray(issuePullRequestLinks.issueId, issueIds),
+      ),
+    )
+    .orderBy(PR_STATE_RANK, desc(pullRequests.number))
+  const byIssue = new Map<string, { number: number; state: (typeof rows)[number]['state'] }[]>()
+  for (const { issueId, ...chip } of rows) {
+    const list = byIssue.get(issueId)
+    if (list) list.push(chip)
+    else byIssue.set(issueId, [chip])
+  }
+  return byIssue
+}
+
+/** Web links per issue; issues without any are missing from the map. */
+async function webLinkCounts(db: DbOrTx, workspaceId: string, issueIds: string[]) {
+  const rows = await db
+    .select({ issueId: issueLinks.issueId, count: sql<number>`count(*)::int` })
+    .from(issueLinks)
+    .where(and(eq(issueLinks.workspaceId, workspaceId), inArray(issueLinks.issueId, issueIds)))
+    .groupBy(issueLinks.issueId)
+  return new Map(rows.map((row) => [row.issueId, row.count]))
 }
 
 /**
