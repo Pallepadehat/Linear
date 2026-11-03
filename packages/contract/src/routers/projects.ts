@@ -5,6 +5,8 @@ import {
   createProjectInputSchema,
   updateProjectInputSchema,
   projectIdInputSchema,
+  projectProgressInputSchema,
+  projectProgressReportSchema,
   projectSchema,
 } from '../schemas/projects'
 
@@ -14,4 +16,6 @@ export const projectsContract = {
   create: oc.input(createProjectInputSchema).output(projectSchema),
   update: oc.input(updateProjectInputSchema).output(projectSchema),
   delete: oc.input(projectIdInputSchema).output(z.object({ id: z.uuid() })),
+  /** The Progress card: daily scope / started / completed and per-assignee / label counts. */
+  progress: oc.input(projectProgressInputSchema).output(projectProgressReportSchema),
 }
