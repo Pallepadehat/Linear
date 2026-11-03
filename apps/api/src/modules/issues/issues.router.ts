@@ -19,6 +19,7 @@ import { enqueue } from '@linear/queue'
 import { imageUrl } from '../../lib/upload-urls'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
+import { announceMentions } from '../notifications/mentions'
 import { issueUpdateEvents, notify } from '../notifications/notify'
 import { changedIssueFields, publishChange } from '../realtime/publish'
 import { toIssueDetailDto, toIssueDto } from './issues.dto'
@@ -71,6 +72,9 @@ export const issuesRouter = {
         { ...source, event: 'issue_created_in_team' },
         ...(issue.assigneeId ? [{ ...source, event: 'assigned' as const }] : []),
       ])
+      await announceMentions(context, issue.id, issue.mentions, {
+        activityId: issue.createdActivityId,
+      })
       return toIssueDto(await getIssue(context.db, context.workspace.id, issue.id, context.user.id))
     }),
 
@@ -126,6 +130,13 @@ export const issuesRouter = {
           : []
       await publishSubIssuesChanged(context, parents)
       await notify(context, issueUpdateEvents(issue.id, issue.activity, issue.assigneeId))
+      const described = issue.activity.find((entry) => entry.kind === 'description')
+      await announceMentions(
+        context,
+        issue.id,
+        issue.mentions,
+        described ? { activityId: described.id } : null,
+      )
       return toIssueDto(issue)
     }),
 
