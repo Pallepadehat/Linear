@@ -30,7 +30,13 @@ export function useIssueViewData(
   )
 
   const users = computed(
-    () => members.value?.map((m) => ({ id: m.userId, name: m.name, avatarUrl: m.avatarUrl })) ?? [],
+    () =>
+      members.value?.map((m) => ({
+        id: m.userId,
+        name: m.name,
+        email: m.email,
+        avatarUrl: m.avatarUrl,
+      })) ?? [],
   )
   const issues = computed(() => query.data.value?.pages.flatMap((page) => page.items) ?? [])
 
