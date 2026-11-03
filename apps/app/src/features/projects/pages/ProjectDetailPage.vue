@@ -28,6 +28,10 @@ const ProjectActivityTab = defineAsyncComponent(
   () => import('../components/ProjectActivityTab.vue'),
 )
 const ProjectIssuesTab = defineAsyncComponent(() => import('../components/ProjectIssuesTab.vue'))
+// The chart isn't needed to edit the project, so it loads after the panel.
+const ProjectProgressCard = defineAsyncComponent(
+  () => import('../components/ProjectProgressCard.vue'),
+)
 
 const route = useRoute()
 const router = useRouter()
@@ -106,6 +110,9 @@ function save(changes: ProjectChanges) {
       :labels="labels ?? []"
       @save="save"
     >
+      <template #progress>
+        <ProjectProgressCard bare :workspace-slug="slug" :project-id="project.id" />
+      </template>
       <template #activity>
         <ProjectActivityCard :workspace-slug="slug" :project-id="project.id" />
       </template>

@@ -4,20 +4,20 @@ Exact rules behind PRD FR-02 – FR-14. If code and this doc disagree, one of th
 
 ## Glossary
 
-| Term              | Meaning                                                                                      |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| Workspace         | Tenant boundary. Owns teams, projects, labels, members, GitHub installations, uploads.       |
-| Member            | A user in a workspace with role `owner` or `member`.                                         |
-| Team              | Group inside a workspace that owns issues and has a unique **key** (e.g. `TIP`).             |
-| Issue             | Unit of work. Belongs to exactly one team (and therefore one workspace).                     |
-| Identifier        | Human-readable issue ID: `{teamKey}-{number}`, e.g. `TIP-200`.                               |
-| Workflow status   | A team's status (Backlog, Todo, …). Each status has a **category**.                          |
-| Project           | Optional grouping of issues across a workspace.                                              |
-| Installation      | A GitHub App installation connected to one workspace.                                        |
-| Connected repo    | A GitHub repository from an installation, enabled for a workspace.                           |
-| PR link           | Relationship between an issue and a pull request, of type `closing` or `reference`.          |
-| Delivery          | One GitHub webhook delivery, identified by the `X-GitHub-Delivery` header.                   |
-| Upload            | A file in MinIO with a DB record (`pending` → `ready` → `deleted`).                          |
+| Term            | Meaning                                                                                |
+| --------------- | -------------------------------------------------------------------------------------- |
+| Workspace       | Tenant boundary. Owns teams, projects, labels, members, GitHub installations, uploads. |
+| Member          | A user in a workspace with role `owner` or `member`.                                   |
+| Team            | Group inside a workspace that owns issues and has a unique **key** (e.g. `TIP`).       |
+| Issue           | Unit of work. Belongs to exactly one team (and therefore one workspace).               |
+| Identifier      | Human-readable issue ID: `{teamKey}-{number}`, e.g. `TIP-200`.                         |
+| Workflow status | A team's status (Backlog, Todo, …). Each status has a **category**.                    |
+| Project         | Optional grouping of issues across a workspace.                                        |
+| Installation    | A GitHub App installation connected to one workspace.                                  |
+| Connected repo  | A GitHub repository from an installation, enabled for a workspace.                     |
+| PR link         | Relationship between an issue and a pull request, of type `closing` or `reference`.    |
+| Delivery        | One GitHub webhook delivery, identified by the `X-GitHub-Delivery` header.             |
+| Upload          | A file in MinIO with a DB record (`pending` → `ready` → `deleted`).                    |
 
 ## Roles
 
@@ -65,11 +65,11 @@ Each team gets these defaults on creation:
 
 Each team stores the defaults used when an issue is created without that field (team settings page → Issue defaults; `teams.update`, owner-only):
 
-| Field             | Column                | On team creation |
-| ----------------- | --------------------- | ---------------- |
-| Status            | `default_status_id`   | `Backlog`        |
-| Priority          | `default_priority`    | `0` No priority  |
-| Assignee          | `default_assignee_id` | none             |
+| Field    | Column                | On team creation |
+| -------- | --------------------- | ---------------- |
+| Status   | `default_status_id`   | `Backlog`        |
+| Priority | `default_priority`    | `0` No priority  |
+| Assignee | `default_assignee_id` | none             |
 
 - The default status must belong to the same team (composite FK `teams_default_status_fk`). While it is someone's default, a status can't be deleted.
 - Fallback rule when no default status is stored: `Backlog` by name, else the first `backlog` status (by order), else the first `unstarted` one (`pickDefaultStatus` in `packages/core/src/teams`). Migration 0009 backfilled existing teams with this rule. `teams.get` returns the resolved status, so the app never needs the rule.
@@ -86,7 +86,7 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 - Each team picks an estimate scale (`teams.estimate_scale`, owner-only like other team settings): `off` (default, estimates hidden), `linear` 1–5, `fibonacci` 1, 2, 3, 5, 8, `exponential` 1, 2, 4, 8, 16, `tshirt` XS, S, M, L, XL stored as 1, 2, 3, 5, 8 so they sum like points.
 - `teams.estimate_allow_zero` (default off) adds `0` to any scale; Fibonacci's 0 follows the same flag. A t-shirt `0` is shown as the raw number "0".
 - `issues.estimate` is a nullable integer (`null` = no estimate, DB check 0–100). Create and update accept a value only if it is on the issue team's current scale (`BAD_REQUEST` otherwise, and for any value while the scale is `off`); `null` (clear) is always allowed.
-- Changing the scale or the zero flag keeps existing estimates; the UI shows a value that is no longer on the scale as its raw number. Only a *changed* estimate is validated, so editing other fields of such an issue still works.
+- Changing the scale or the zero flag keeps existing estimates; the UI shows a value that is no longer on the scale as its raw number. Only a _changed_ estimate is validated, so editing other fields of such an issue still works.
 - `issues.list` filter `estimates`: specific values, `null` = no estimate, `'any'` = has an estimate (OR'd). Sort `estimate`: `desc` largest first, `asc` smallest first, no estimate last in both directions, newest first within a value.
 - Activity kind `estimate` with numeric `from`/`to` (null when unset); the timeline reads "set estimate to 3 points" / "removed estimate" (t-shirt teams name the size).
 - Group headers and board columns show the sum of their issues' estimates, counting only issues whose team uses estimates; hidden when the sum is 0.
@@ -115,20 +115,20 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 
 ### Detection sources and link types
 
-| Source                      | Example                          | Link type   |
-| --------------------------- | -------------------------------- | ----------- |
-| Branch name                 | `tip-200-fix-login`, `feat/tip-200` | `closing` |
-| PR title                    | `TIP-200 Fix login validation`   | `closing`   |
-| Body: `fixes`, `closes`, `resolves` (+ `fix`, `close`, `resolve`, `fixed`, `closed`, `resolved`) | `Fixes TIP-200` | `closing` |
-| Body: `refs`, `ref`, `related to`, `part of` | `Refs TIP-200`     | `reference` |
-| Body: bare identifier       | `see TIP-200`                    | `reference` |
+| Source                                                                                           | Example                             | Link type   |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------- | ----------- |
+| Branch name                                                                                      | `tip-200-fix-login`, `feat/tip-200` | `closing`   |
+| PR title                                                                                         | `TIP-200 Fix login validation`      | `closing`   |
+| Body: `fixes`, `closes`, `resolves` (+ `fix`, `close`, `resolve`, `fixed`, `closed`, `resolved`) | `Fixes TIP-200`                     | `closing`   |
+| Body: `refs`, `ref`, `related to`, `part of`                                                     | `Refs TIP-200`                      | `reference` |
+| Body: bare identifier                                                                            | `see TIP-200`                       | `reference` |
 
 - Matching is case-insensitive. Pattern: `\b([A-Za-z][A-Za-z0-9]{1,9})-(\d+)\b`.
 - Branch matching uses each `/`-separated segment: `^([a-z][a-z0-9]{1,9})-(\d+)(?:-|$)`.
 - If the same issue is detected as both `closing` and `reference`, `closing` wins.
 - A body keyword applies only to the identifier directly after it (optionally followed by `:`), e.g. `Fixes TIP-1, TIP-2` closes `TIP-1` and references `TIP-2`. Keywords inside other words (`prefixes`, `unclosed`) don't count.
 - Numbers are normalized (`TIP-0200` = `TIP-200`); `0` is never a valid issue number.
-- The parser (`parsePrIdentifiers` in `packages/core/src/github`) returns candidates only. Branch segments must *start* with the identifier, so `fix-utf-8` is ignored, but text like `utf-8` in a title still yields a `UTF-8` candidate; the team-key lookup below discards it.
+- The parser (`parsePrIdentifiers` in `packages/core/src/github`) returns candidates only. Branch segments must _start_ with the identifier, so `fix-utf-8` is ignored, but text like `utf-8` in a title still yields a `UTF-8` candidate; the team-key lookup below discards it.
 - A candidate is linked only if the team key exists **in the workspace that owns the repository** and the issue number exists. Everything else is ignored silently.
 - On `edited` / `synchronize`, links are recomputed: new ones added, ones that no longer appear removed (unless the PR is already merged — merged links are frozen).
 - Unique: one link per `(issueId, pullRequestId)`.
@@ -155,13 +155,13 @@ Stored state is one of `open`, `draft`, `closed`, `merged`. `merged` is terminal
 
 Automation only moves issues **forward** and never touches `completed` or `canceled` issues. Every automated change writes an `ActivityLog` entry with actor `github` and the PR reference.
 
-| Trigger                                    | Condition on issue                       | Result                         | PRD rule |
-| ------------------------------------------ | ---------------------------------------- | ------------------------------ | -------- |
-| Closing link created on an `open`/`draft` PR | Category `backlog` or `unstarted`      | → first `started` status (In Progress) | A |
-| PR merged                                  | Category not `completed`/`canceled` and **all required PRs merged** | → first `completed` status (Done) | B, C |
-| PR closed without merge                    | any                                      | No status change               | E |
-| Reference link created / PR merged         | any                                      | No status change               | D |
-| User changes status manually               | any                                      | Manual value wins; automation never reverts it | F |
+| Trigger                                      | Condition on issue                                                  | Result                                         | PRD rule |
+| -------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------- | -------- |
+| Closing link created on an `open`/`draft` PR | Category `backlog` or `unstarted`                                   | → first `started` status (In Progress)         | A        |
+| PR merged                                    | Category not `completed`/`canceled` and **all required PRs merged** | → first `completed` status (Done)              | B, C     |
+| PR closed without merge                      | any                                                                 | No status change                               | E        |
+| Reference link created / PR merged           | any                                                                 | No status change                               | D        |
+| User changes status manually                 | any                                                                 | Manual value wins; automation never reverts it | F        |
 
 **Required PRs** for an issue = its `closing` links whose PR is not `closed` (closed-without-merge PRs stop being required). The issue completes when the required set is non-empty and every PR in it is `merged`.
 
@@ -200,12 +200,12 @@ Only `pull_request` events are handled in the MVP; others are stored and marked 
 
 ## Uploads
 
-| Kind               | Owner      | Formats                          | Max   |
-| ------------------ | ---------- | -------------------------------- | ----- |
-| `avatar`           | user       | png, jpeg, webp                  | 2 MB  |
-| `workspace_icon`   | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
-| `project_icon`     | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
-| `attachment`       | workspace  | png, jpeg, webp, gif, pdf, txt, zip | 25 MB |
+| Kind             | Owner     | Formats                             | Max   |
+| ---------------- | --------- | ----------------------------------- | ----- |
+| `avatar`         | user      | png, jpeg, webp                     | 2 MB  |
+| `workspace_icon` | workspace | png, jpeg, webp, svg (sanitized)    | 1 MB  |
+| `project_icon`   | workspace | png, jpeg, webp, svg (sanitized)    | 1 MB  |
+| `attachment`     | workspace | png, jpeg, webp, gif, pdf, txt, zip | 25 MB |
 
 SVG icons are rejected until server-side sanitization exists; until then icons accept png, jpeg, webp only. SVG and HTML are never accepted as attachments.
 
@@ -248,7 +248,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - API semantics: `…Not` lists leave out issues with any of the values; on nullable properties (assignee, project) an excluded value keeps issues without one ("assignee is not Ada" includes unassigned), and `null` in the list excludes those. `labelMode: 'all'` needs every listed label. Date bounds: `createdAfter` / `updatedAfter` / `completedSince` inclusive, `…Before` exclusive; only completed issues have `completedAt`, so the Completed date filter leaves out open issues. It is `completedSince`, not `completedAfter`: that one belongs to the **Completed issues** display option and keeps open issues; when both are set they combine by AND. "Before/after a day" means the viewer's local midnight of that day, and "past …" windows are computed on the client from its clock (rounded to the minute), so the server never guesses a timezone. `creatorIds` / `creatorIdsNot` take `me` like subscribers. Ids from another workspace match nothing.
 - URL (the filters own exactly these keys; clearing a filter drops its key, other params such as `?view=` stay): the operator lives in the key: `?status=` (is), `?status-not=`, `?label-all=`, `?label-not=` (also `priority-`, `assignee-`, `project-`, `creator-`); if both `?x=` and `?x-not=` are present, `?x=` wins. `?creator=<ids|me>`, `?created=past-day|past-week|past-month|past-3months|before-YYYY-MM-DD|after-YYYY-MM-DD` (likewise `updated`, `completed`), `?content=…`, `?pr=yes|no`, `?links=has|none`. Malformed values are dropped.
 - The view toolbar (under the page header) holds the tabs on the left and round icon buttons on the right: Filter (`F`, opens the filter menu; ignored while typing), Display options (see below) and Details (`⌘ I`, opens the Details panel above). Filter chips and search stay in the filter bar below it; pages without the toolbar (My issues, project, cycle) show the Display options button at the end of the filter bar.
-- Descriptions are stored as **markdown** (CommonMark + GFM task lists) with Linear's extensions: `+++ Title … +++` collapsible sections, `$$ … $$` LaTeX blocks, ```` ```mermaid ```` diagrams and `attachment:` references (see Uploads). The editor reads and writes markdown; an empty editor saves no description (`null`). An issue can't be submitted while attachments are still uploading.
+- Descriptions are stored as **markdown** (CommonMark + GFM task lists) with Linear's extensions: `+++ Title … +++` collapsible sections, `$$ … $$` LaTeX blocks, ` ```mermaid ` diagrams and `attachment:` references (see Uploads). The editor reads and writes markdown; an empty editor saves no description (`null`). An issue can't be submitted while attachments are still uploading.
 - The issue list groups loaded issues by the view's grouping (default Status). Status groups are keyed by category + name so the workspace-wide list merges each team's `Todo` into one group, and are ordered `started`, `unstarted`, `backlog`, `completed`, `canceled`, then by status position; issues keep the list's sort order within a group. Group counts show loaded issues until every page is fetched (the next page loads on scroll).
 - **Display options** (sliders button, `IssueDisplayOptions`): one set per view, keyed `team:<id>`, `project:<id>`, `cycle:<id>`, `my` or `all`, kept in the Pinia preferences store (`issue-display-options` in localStorage; parsed field by field on read, so a stale value only resets that field). "Reset" drops the view's entry. The shape is `displayOptionsSchema` in `packages/contract` (saved views, M10-05, reuse it). Defaults: List, grouped by Status ascending, no sub-grouping, ordered by Created newest first, completed issues All, sub-issues shown, empty groups hidden, every property on except Updated.
   - **Layout** List | Board (team and All issues pages; My issues, project and cycle pages stay list-only).
@@ -282,7 +282,6 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Realtime: every milestone create, update, reorder and delete publishes `project.updated` for its project; a delete also publishes `issue.updated` (`milestone`) for each issue that lost it, and an issue update that changes the project lists `milestone` too. Milestone changes on issues are not written to the issue activity log; the project feed gets `milestone.created` and `milestone.completed` (see Project activity).
 - App: the issue properties panel nests a Milestone picker under the Project row (tree line), only while the issue has a project; it lists the project's milestones with progress and saves through the optimistic `useUpdateIssue()` (a project change clears the milestone optimistically too). The milestone filter (`?milestone=<ids|none>`) is offered on a project page, or when the project filter is narrowed to one project. The projects table shows the current milestone as a chip next to the name. The project page has a Milestones section: "+ Milestone" inline add (↵ saves and keeps the row open, Esc cancels), drag to reorder (or Move up/down in the "…" menu), Rename, Set target date and Delete (confirmation). Rename, target date and reorder are optimistic with rollback; create and delete wait for the server. The milestone icon is a diamond whose fill rises with progress (`ink-subtle`, `status-completed` once complete).
 
-
 - An issue may have one parent (`parentId`); any number of issues may share it. The parent must be in the same workspace (otherwise `NOT_FOUND`, so ids can't be probed); teams may differ. An issue can't be its own parent, nor the sub-issue of one of its descendants (`BAD_REQUEST`). Checks run in the write transaction, serialized per workspace by an advisory lock so two concurrent moves can't form a loop.
 - Deleting a parent leaves its sub-issues as top-level issues (`ON DELETE SET NULL`); no activity is written for that, but each sub-issue gets an `issue.updated` (`parent`) event.
 - Progress (`subIssueProgress`, null without sub-issues): `done` counts sub-issues in a `completed` status; canceled ones are left out of `total`. Lists and details show it as `done/total`.
@@ -305,7 +304,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
   - `byAssignee` / `byLabel`: done (`completed`) / total, computed live and not snapshotted. Unassigned issues are a "No assignee" row (`userId` null). An issue with several labels counts under each; unlabeled issues have no label row. Rows are sorted by total, most first.
   - A project in another workspace is `NOT_FOUND`.
 - Chart: completed is stacked under started, with scope as the outline, in `status-completed` / `status-started` / `status-neutral`. The x axis runs from the first point (at least a week back) to the target date, or to today if there is no target or it has passed. A dashed line projects completion from today to the target date at the average daily pace so far (first to last point), capped at scope. It needs a future target and at least two days of history. A dotted line marks today. Hovering, or using the arrow keys while the chart has focus, shows a tooltip with the date and the three counts; a visually hidden table lists every day.
-- The card is `ProjectProgressCard.vue`, a self-contained component loaded with `defineAsyncComponent`. It sits at the top of the project page's right panel, above the Activity card; M9-03 gives it the Overview / right-panel Progress slot. It refetches under `projects.key()`, so the existing issue and `project.updated` invalidations (including realtime) refresh it.
+- The card is `ProjectProgressCard.vue`, a self-contained component loaded with `defineAsyncComponent`. It fills the right panel's **Progress** card (`#progress` slot of `ProjectSidePanel`, with `bare` so the panel card provides the chrome and heading) and has its own **Progress** section on the Overview tab, after Properties and listed in the outline rail. It refetches under `projects.key()`, so the existing issue and `project.updated` invalidations (including realtime) refresh it.
 
 ## Activity
 
@@ -321,7 +320,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - **Tabs:** Overview (default, no param), Activity and Issues at `?tab=overview|activity|issues`; unknown values fall back to Overview. Switching tabs **pushes** a history entry, and other params (issue filters) are kept. Each tab is lazy-loaded.
 - **Overview:** icon tile + upload, name, summary, a properties row (status, priority, lead, start → target date, teams; "…" reveals members and labels), Resources, the "Write first project update" card (a placeholder slot, `#update` on the Overview tab, filled by M9-04), a collapsible description editor (no attachments) and the milestones section. An outline rail (xl screens) jumps to each section.
 - **Issues:** the project's issue list. While a filter is on, each top-level status group reads "shown / total" (for example "Backlog 1 / 2"), and a footer reads "N issues hidden by filters · Clear filters". Both come from `issues.facets` (`statuses`: counts per workflow status) with and without the user's filters, for the same scope and display options; same-named statuses of several teams add up into one group, like the groups themselves.
-- **Right panel:** open by default, toggled from the header; open/closed is a per-browser preference (`project-panel-open` in the Pinia preferences store). Collapsible cards: **Properties** (every project property, optimistic with rollback), **Milestones** (clicking one opens the Issues tab filtered to it, `?tab=issues&milestone=<id>`, pushing history; clicking it again or "Clear filter" removes the filter), **Progress** (`#progress` slot of `ProjectSidePanel`, the progress bar until M9-05's chart) and **Activity** (`#activity` slot: `ProjectActivityCard`, whose "See all" opens the Activity tab, which renders `ProjectActivityFeed`).
+- **Right panel:** open by default, toggled from the header; open/closed is a per-browser preference (`project-panel-open` in the Pinia preferences store). Collapsible cards: **Properties** (every project property, optimistic with rollback), **Milestones** (clicking one opens the Issues tab filtered to it, `?tab=issues&milestone=<id>`, pushing history; clicking it again or "Clear filter" removes the filter), **Progress** (`#progress` slot of `ProjectSidePanel`: `ProjectProgressCard`, M9-05) and **Activity** (`#activity` slot: `ProjectActivityCard`, whose "See all" opens the Activity tab, which renders `ProjectActivityFeed`).
 
 ## Project activity
 
@@ -353,11 +352,11 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 
 Issues in the same workspace can be related (`issue_relations`). Types and stored direction:
 
-| Type        | Stored as                                    | Read from the issue's side                      |
-| ----------- | -------------------------------------------- | ----------------------------------------------- |
-| `blocks`    | `issueId` blocks `relatedIssueId`            | `blocks` (source) / `blockedBy` (target)        |
-| `related`   | once, either way round                       | `related` on both                               |
-| `duplicate` | `issueId` is a duplicate of `relatedIssueId` | `duplicateOf` (source) / `duplicates` (target)  |
+| Type        | Stored as                                    | Read from the issue's side                     |
+| ----------- | -------------------------------------------- | ---------------------------------------------- |
+| `blocks`    | `issueId` blocks `relatedIssueId`            | `blocks` (source) / `blockedBy` (target)       |
+| `related`   | once, either way round                       | `related` on both                              |
+| `duplicate` | `issueId` is a duplicate of `relatedIssueId` | `duplicateOf` (source) / `duplicates` (target) |
 
 - A pair of issues has at most one relation of each type, **in either direction**: repeating it, or creating the reverse (B blocks A when A blocks B, B related to A, B duplicate of A), is `CONFLICT`. Different types between the same pair are allowed. Enforced by the unique constraint plus a unique index on `(least, greatest, type)`.
 - An issue cannot relate to itself (`BAD_REQUEST`; also a DB check). Both issues must be in the workspace, otherwise `NOT_FOUND`. Relations are deleted with either issue (cascade).
@@ -421,7 +420,7 @@ Time-boxed iterations per team (M8-06). Off by default; owners turn them on in t
   1. create missing upcoming cycles;
   2. for each open cycle that has started, record today's point in `scopeSnapshot` / `completedSnapshot` (index = cycle day, missing days are `null`; a rerun on the same day replaces the point);
   3. close ended cycles (`completedAt` = run time), first recording their last-day point, then, with rollover on, moving their unfinished issues (status not completed/canceled) to the team's next open cycle, publishing `issue.updated` with `fields: ['cycle']` and `actorId: null` per moved issue.
-  Every step is idempotent, so a rerun in the same hour (team + hour) changes nothing but the snapshot values. Rollover is not written to the activity log. A team with cycles turned off is skipped; its cycles stay as they are.
+     Every step is idempotent, so a rerun in the same hour (team + hour) changes nothing but the snapshot values. Rollover is not written to the activity log. A team with cycles turned off is skipped; its cycles stay as they are.
 - **Assigning**: `issues.create` / `issues.update` accept `cycleId` (`null` removes it). The cycle must be an open (not completed) cycle of the issue's own team; another team's cycle, a completed one, or one from another workspace is `BAD_REQUEST`. Changes are logged as activity kind `cycle` (from/to cycle ids).
 - **Auto-add**: with cycles and `cycleAutoAddStarted` on, an issue that moves to a different status in the `started` category (or is created in one) and has no cycle joins the current cycle, unless the same request sets `cycleId`. No current cycle (cooldown) means nothing happens. GitHub automation goes through the same update, so a PR opening also auto-adds.
 - **Progress**: `scope` counts every issue in the cycle except canceled ones; `started` and `completed` count the `started` / `completed` categories. Counts are live; the chart uses the daily snapshots.

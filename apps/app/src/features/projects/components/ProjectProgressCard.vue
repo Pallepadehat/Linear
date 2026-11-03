@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import { projectOptions, projectProgressOptions } from '../queries'
 import ProjectProgressBreakdown from './ProjectProgressBreakdown.vue'
 import ProjectProgressChart from './ProjectProgressChart.vue'
 
 // Self-contained so any project surface can mount it (lazily, with defineAsyncComponent):
-// it loads its own data and reads the target date from the cached project.
-const props = defineProps<{ workspaceSlug: string; projectId: string }>()
+// it loads its own data and reads the target date from the cached project. `bare` drops the
+// card chrome and heading for hosts that bring their own (the right panel's Progress card).
+const props = defineProps<{ workspaceSlug: string; projectId: string; bare?: boolean }>()
+const titleId = useId()
 
 const {
   data: progress,
@@ -42,11 +44,13 @@ const legend = computed(() => {
 </script>
 
 <template>
-  <section
-    aria-labelledby="project-progress-title"
-    class="grid gap-3 rounded-lg border border-hairline bg-surface-1 p-3"
+  <component
+    :is="bare ? 'div' : 'section'"
+    :aria-labelledby="bare ? undefined : titleId"
+    class="grid gap-3"
+    :class="bare ? 'px-2 py-1' : 'rounded-lg border border-hairline bg-surface-1 p-3'"
   >
-    <h2 id="project-progress-title" class="text-xs font-medium text-ink-subtle">Progress</h2>
+    <h2 v-if="!bare" :id="titleId" class="text-xs font-medium text-ink-subtle">Progress</h2>
     <div v-if="isPending" class="grid gap-3" aria-hidden="true">
       <div class="h-10 animate-pulse rounded-md bg-surface-2" />
       <div class="h-30 animate-pulse rounded-md bg-surface-2" />
@@ -73,5 +77,5 @@ const legend = computed(() => {
         <ProjectProgressBreakdown :by-assignee="progress.byAssignee" :by-label="progress.byLabel" />
       </template>
     </template>
-  </section>
+  </component>
 </template>
