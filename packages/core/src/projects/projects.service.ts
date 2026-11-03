@@ -15,6 +15,9 @@ import { and, asc, count, eq, inArray, isNotNull, sql, type AnyColumn } from 'dr
 import { DomainError, isUniqueViolation } from '../errors'
 import { assertProjectDates, assertProjectPriority } from './project-rules'
 import { deleteFavoritesOf } from '../favorites/favorites.service'
+import type { ActivityActor } from '../activity/activity.service'
+import { recordProjectActivity } from '../activity/project-activity.service'
+import { diffProject, type ProjectSnapshot } from '../activity/project-diff'
 
 type Changes = {
   name?: string
@@ -156,13 +159,25 @@ async function assertLabels(db: DbOrTx, workspaceId: string, labelIds: string[])
     throw new DomainError('NOT_FOUND', 'Project label not found')
 }
 
-async function saveProject(db: DbOrTx, workspaceId: string, input: Changes, id?: string) {
+async function saveProject(
+  db: DbOrTx,
+  workspaceId: string,
+  actor: ActivityActor,
+  input: Changes,
+  id?: string,
+) {
   return db.transaction(async (tx) => {
-    let current: { startDate: string | null; targetDate: string | null } | undefined
+    let current: ProjectSnapshot | undefined
     if (id) {
       // Serialize link-set replacements so concurrent edits cannot combine their links.
       ;[current] = await tx
-        .select({ startDate: projects.startDate, targetDate: projects.targetDate })
+        .select({
+          status: projects.status,
+          priority: projects.priority,
+          leadId: projects.leadId,
+          startDate: projects.startDate,
+          targetDate: projects.targetDate,
+        })
         .from(projects)
         .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)))
         .for('update')
@@ -271,14 +286,31 @@ async function saveProject(db: DbOrTx, workspaceId: string, input: Changes, id?:
           .insert(projectLabelAssignments)
           .values(labelIds.map((labelId) => ({ workspaceId, projectId, labelId })))
     }
+    await recordProjectActivity(tx, {
+      workspaceId,
+      projectId,
+      actor,
+      events: current ? diffProject(current, changes) : [{ kind: 'project.created', payload: {} }],
+    })
     return getProject(tx, workspaceId, row.id)
   })
 }
-export function createProject(db: DbOrTx, workspaceId: string, input: Changes & { name: string }) {
-  return saveProject(db, workspaceId, input)
+export function createProject(
+  db: DbOrTx,
+  workspaceId: string,
+  input: Changes & { name: string },
+  actor: ActivityActor,
+) {
+  return saveProject(db, workspaceId, actor, input)
 }
-export function updateProject(db: DbOrTx, workspaceId: string, id: string, input: Changes) {
-  return saveProject(db, workspaceId, input, id)
+export function updateProject(
+  db: DbOrTx,
+  workspaceId: string,
+  id: string,
+  input: Changes,
+  actor: ActivityActor,
+) {
+  return saveProject(db, workspaceId, actor, input, id)
 }
 export async function deleteProject(db: DbOrTx, workspaceId: string, id: string) {
   return db.transaction(async (tx) => {

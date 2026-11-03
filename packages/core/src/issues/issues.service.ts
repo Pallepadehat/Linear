@@ -31,6 +31,8 @@ import {
   type SQL,
 } from 'drizzle-orm'
 import { recordActivity, type ActivityActor } from '../activity/activity.service'
+import { recordProjectActivity } from '../activity/project-activity.service'
+import { issueProjectEvents } from '../activity/project-diff'
 import { diffIssue } from '../activity/diff'
 import { assignCycle, autoAddCycleId } from '../cycles/cycles.service'
 import { DomainError } from '../errors'
@@ -252,6 +254,18 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         changes: [{ kind: 'sub_issue', from: null, to: `${teamDefaults.key}-${issue.number}` }],
       })
     }
+    await recordIssueProjectChange(
+      tx,
+      input.workspaceId,
+      { type: 'user', id: input.creatorId },
+      null,
+      {
+        issueId: issue.id,
+        projectId: issue.projectId,
+        identifier: `${teamDefaults.key}-${issue.number}`,
+        title: issue.title,
+      },
+    )
     return issue
   })
 }
@@ -485,7 +499,7 @@ function rankOrder(rank: SQL<number>) {
 }
 
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
-  const parentChange = await db.transaction(async (tx) => {
+  const { parentChange, projectChange } = await db.transaction(async (tx) => {
     // Locking the row keeps `completedAt` consistent with concurrent status changes.
     const [current] = await tx
       .select()
@@ -598,7 +612,19 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     if (parentChange) {
       await recordParentChange(tx, input.workspaceId, input.actor, current, parentChange)
     }
-    return parentChange
+    let projectChange: { from: string | null; to: string | null } | null = null
+    if (changes.projectId !== undefined && changes.projectId !== current.projectId) {
+      projectChange = { from: current.projectId, to: changes.projectId }
+      const ref = await findIssueRef(tx, input.workspaceId, current.id)
+      if (ref)
+        await recordIssueProjectChange(tx, input.workspaceId, input.actor, current.projectId, {
+          issueId: current.id,
+          projectId: changes.projectId,
+          identifier: ref.identifier,
+          title: changes.title ?? current.title,
+        })
+    }
+    return { parentChange, projectChange }
   })
   const issue = await getIssue(
     db,
@@ -612,6 +638,22 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     parentChange: parentChange
       ? { from: parentChange.from?.id ?? null, to: parentChange.to?.id ?? null }
       : null,
+    /** Old and new project ids when the project changed; both feeds got an entry. */
+    projectChange,
+  }
+}
+
+/** `project.issue_removed` on the old project and `project.issue_added` on the new one. */
+async function recordIssueProjectChange(
+  tx: DbOrTx,
+  workspaceId: string,
+  actor: ActivityActor,
+  fromProjectId: string | null,
+  issue: { issueId: string; projectId: string | null; identifier: string; title: string },
+) {
+  const { projectId, ...ref } = issue
+  for (const { projectId: target, event } of issueProjectEvents(fromProjectId, projectId, ref)) {
+    await recordProjectActivity(tx, { workspaceId, projectId: target, actor, events: [event] })
   }
 }
 
