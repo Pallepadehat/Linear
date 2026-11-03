@@ -89,6 +89,10 @@ const projectId = computed({
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>
       <ProjectPicker v-model="projectId" :projects="projects" />
     </section>
+    <section v-if="$slots.relations" class="grid gap-1">
+      <h2 class="px-2 text-xs font-medium text-ink-subtle">Relations</h2>
+      <slot name="relations" />
+    </section>
     <!-- Filled in by M4-07 (linked PRs). -->
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Linked pull requests</h2>

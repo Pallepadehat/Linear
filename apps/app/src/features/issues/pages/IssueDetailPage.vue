@@ -14,6 +14,8 @@ import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
 import IssueProperties from '../components/IssueProperties.vue'
+import IssueRelationMenu from '../components/IssueRelationMenu.vue'
+import IssueRelations from '../components/IssueRelations.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
 import type { IssuePatch } from '../issue-cache'
 import { buildTimeline, type ActivityNames } from '../issue-timeline'
@@ -221,6 +223,7 @@ onBeforeUnmount(commitDescription)
             class="min-h-16 py-1"
           />
         </div>
+        <IssueRelations :issue="issue" :workspace-slug="slug" />
 
         <section aria-labelledby="activity-heading" class="mt-8 grid gap-4">
           <h2 id="activity-heading" class="border-t border-hairline pt-6 font-medium text-ink">
@@ -245,6 +248,10 @@ onBeforeUnmount(commitDescription)
       :labels="labels ?? []"
       :projects="projects ?? []"
       @change="save"
-    />
+    >
+      <template #relations>
+        <IssueRelationMenu :issue="issue" :workspace-slug="slug" />
+      </template>
+    </IssueProperties>
   </div>
 </template>

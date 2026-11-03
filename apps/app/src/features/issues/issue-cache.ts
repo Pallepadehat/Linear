@@ -1,4 +1,4 @@
-import type { Issue, IssuePage, UpdateIssueInput } from '@linear/contract'
+import type { Issue, IssueDetail, IssuePage, UpdateIssueInput } from '@linear/contract'
 import type { InfiniteData } from '@tanstack/vue-query'
 
 /**
@@ -63,11 +63,11 @@ export function removeIssueFromPages(
 }
 
 /** The detail-cache counterpart of `patchIssueInPages`. */
-export function patchIssue(
-  data: Issue | undefined,
+export function patchIssue<T extends Issue>(
+  data: T | undefined,
   id: string,
-  update: (issue: Issue) => Issue,
-): Issue | undefined {
+  update: (issue: T) => T,
+): T | undefined {
   return data?.id === id ? update(data) : data
 }
 
@@ -86,5 +86,22 @@ export function toUpdateIssueInput(
     ...(patch.assigneeId !== undefined && { assigneeId: patch.assigneeId }),
     ...(patch.projectId !== undefined && { projectId: patch.projectId }),
     ...(patch.labels && { labelIds: patch.labels.map((label) => label.id) }),
+  }
+}
+
+/** The detail without the relation `relationId`, on whichever side it was listed. */
+export function removeRelation(detail: IssueDetail, relationId: string): IssueDetail {
+  const without = (list: IssueDetail['relations']['blocks']) =>
+    list.filter((related) => related.relationId !== relationId)
+  const { blocks, blockedBy, related, duplicateOf, duplicates } = detail.relations
+  return {
+    ...detail,
+    relations: {
+      blocks: without(blocks),
+      blockedBy: without(blockedBy),
+      related: without(related),
+      duplicateOf: without(duplicateOf),
+      duplicates: without(duplicates),
+    },
   }
 }

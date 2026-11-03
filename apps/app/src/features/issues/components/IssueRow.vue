@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import { Ban, OctagonAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
@@ -72,6 +73,24 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
     >
       {{ issue.title }}
     </RouterLink>
+    <span
+      v-if="issue.blockedByCount"
+      class="flex shrink-0 items-center gap-1 text-xs text-priority-urgent tabular-nums"
+      :title="`Blocked by ${issue.blockedByCount} ${issue.blockedByCount === 1 ? 'issue' : 'issues'}`"
+    >
+      <Ban class="size-3.5" aria-hidden="true" />
+      {{ issue.blockedByCount }}
+      <span class="sr-only">blocking {{ issue.blockedByCount === 1 ? 'issue' : 'issues' }}</span>
+    </span>
+    <span
+      v-if="issue.blockingCount"
+      class="flex shrink-0 items-center gap-1 text-xs text-ink-subtle tabular-nums"
+      :title="`Blocking ${issue.blockingCount} ${issue.blockingCount === 1 ? 'issue' : 'issues'}`"
+    >
+      <OctagonAlert class="size-3.5" aria-hidden="true" />
+      {{ issue.blockingCount }}
+      <span class="sr-only">blocked {{ issue.blockingCount === 1 ? 'issue' : 'issues' }}</span>
+    </span>
     <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
       <LabelPicker
         compact
