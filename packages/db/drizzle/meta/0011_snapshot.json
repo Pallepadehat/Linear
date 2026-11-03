@@ -1,5 +1,5 @@
 {
-  "id": "c0c7f964-5f5f-478a-aa88-40c45c683ea2",
+  "id": "1a174180-1831-4bf7-9f0c-9208f686d208",
   "prevId": "d104ad48-2659-46f2-a167-9770943ce5d5",
   "version": "7",
   "dialect": "postgresql",
@@ -1403,12 +1403,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "due_date": {
-          "name": "due_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
         "completed_at": {
           "name": "completed_at",
           "type": "timestamp with time zone",
@@ -1550,33 +1544,6 @@
             },
             {
               "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "issues_workspace_id_due_date_id_index": {
-          "name": "issues_workspace_id_due_date_id_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "due_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3046,6 +3013,217 @@
         }
       },
       "isRLSEnabled": false
+    },
+    "public.issue_templates": {
+      "name": "issue_templates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status_id": {
+          "name": "status_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assignee_id": {
+          "name": "assignee_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "label_ids": {
+          "name": "label_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::uuid[]"
+        },
+        "created_by_id": {
+          "name": "created_by_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "issue_templates_team_id_index": {
+          "name": "issue_templates_team_id_index",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "issue_templates_workspace_id_workspaces_id_fk": {
+          "name": "issue_templates_workspace_id_workspaces_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "issue_templates_team_id_teams_id_fk": {
+          "name": "issue_templates_team_id_teams_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "issue_templates_status_id_workflow_statuses_id_fk": {
+          "name": "issue_templates_status_id_workflow_statuses_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "workflow_statuses",
+          "columnsFrom": [
+            "status_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "issue_templates_assignee_id_users_id_fk": {
+          "name": "issue_templates_assignee_id_users_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "users",
+          "columnsFrom": [
+            "assignee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "issue_templates_project_id_projects_id_fk": {
+          "name": "issue_templates_project_id_projects_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "issue_templates_created_by_id_users_id_fk": {
+          "name": "issue_templates_created_by_id_users_id_fk",
+          "tableFrom": "issue_templates",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "issue_templates_workspace_id_team_id_name_unique": {
+          "name": "issue_templates_workspace_id_team_id_name_unique",
+          "nullsNotDistinct": true,
+          "columns": [
+            "workspace_id",
+            "team_id",
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "issue_templates_priority_range": {
+          "name": "issue_templates_priority_range",
+          "value": "\"issue_templates\".\"priority\" is null or \"issue_templates\".\"priority\" between 0 and 4"
+        }
+      },
+      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -3144,8 +3322,7 @@
         "priority",
         "assignee",
         "project",
-        "labels",
-        "due_date"
+        "labels"
       ]
     }
   },

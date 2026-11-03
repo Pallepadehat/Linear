@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { Issue, Label, WorkflowStatus } from '@linear/contract'
-import { GitPullRequest } from '@lucide/vue'
+import type { Issue, Label, LinkedPullRequest, WorkflowStatus } from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
@@ -8,6 +7,7 @@ import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import LinkedPullRequests from '@/features/github/components/LinkedPullRequests.vue'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { fullDate, timeAgo } from '@/lib/relative-time'
 import type { IssuePatch } from '../issue-cache'
@@ -18,6 +18,8 @@ const props = defineProps<{
   users: AssigneeOption[]
   labels: Label[]
   projects: ProjectOption[]
+  /** Undefined while loading. */
+  pullRequests: LinkedPullRequest[] | undefined
 }>()
 const emit = defineEmits<{ change: [patch: IssuePatch] }>()
 
@@ -97,13 +99,9 @@ const projectId = computed({
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>
       <ProjectPicker v-model="projectId" :projects="projects" />
     </section>
-    <!-- Filled in by M4-07 (linked PRs). -->
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Linked pull requests</h2>
-      <p class="flex items-center gap-2 px-2 text-ink-subtle">
-        <GitPullRequest class="size-3.5" aria-hidden="true" />
-        None yet
-      </p>
+      <LinkedPullRequests :pull-requests="pullRequests" />
     </section>
     <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 px-2 text-xs text-ink-subtle">
       <dt>Created</dt>
