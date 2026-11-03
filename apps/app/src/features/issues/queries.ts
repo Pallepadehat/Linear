@@ -10,6 +10,7 @@ import { toValue, type MaybeRefOrGetter } from 'vue'
 import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
 import { projectsKey } from '@/features/projects/queries'
+import { todayIso } from '@/lib/due-dates'
 import { client, orpc } from '@/lib/orpc'
 import {
   applyIssuePatch,
@@ -33,12 +34,16 @@ export function issueListOptions(
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const { q, ...rest } = filters
+  const { q, due, ...rest } = filters
+  // Relative due filters are evaluated against the viewer's local day (domain.md).
+  const relative = due.some((bucket) => bucket !== 'noDueDate')
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
       workspaceSlug,
       ...filter,
       ...rest,
+      ...(due.length && { due }),
+      ...(relative && { today: todayIso() }),
       q: q || undefined,
       cursor,
       limit: PAGE_SIZE,

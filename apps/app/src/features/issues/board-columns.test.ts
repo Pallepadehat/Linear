@@ -30,6 +30,7 @@ function issue(id: string, s: WorkflowStatus, teamId = teamA): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    dueDate: null,
     labels: [],
     createdAt: now,
     updatedAt: now,

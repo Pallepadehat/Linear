@@ -3,6 +3,7 @@ import type { Issue, Label, WorkflowStatus } from '@linear/contract'
 import { GitPullRequest } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
@@ -39,6 +40,12 @@ const assigneeId = computed({
     if (id !== props.issue.assigneeId) emit('change', { assigneeId: id })
   },
 })
+const dueDate = computed({
+  get: () => props.issue.dueDate,
+  set: (value: string | null) => {
+    if (value !== props.issue.dueDate) emit('change', { dueDate: value })
+  },
+})
 const labelIds = computed({
   get: () => props.issue.labels.map((l) => l.id),
   // The issue's own labels stay resolvable even if the workspace list hasn't loaded.
@@ -65,6 +72,7 @@ const projectId = computed({
       <StatusPicker v-model="statusId" :statuses="statuses" />
       <PriorityPicker v-model="priority" />
       <AssigneePicker v-model="assigneeId" :users="users" />
+      <DueDatePicker v-model="dueDate" :category="issue.status.category" />
     </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Labels</h2>

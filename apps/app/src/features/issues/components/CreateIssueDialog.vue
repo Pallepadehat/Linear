@@ -7,6 +7,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
@@ -63,6 +64,7 @@ const {
     assigneeId: null,
     projectId: null,
     labelIds: [],
+    dueDate: null,
   },
 })
 // Like Linear, errors show only after pressing Create issue, then clear once fixed.
@@ -136,6 +138,10 @@ const description = computed({
 const projectId = computed({
   get: () => values.projectId ?? null,
   set: (id: string | null) => setFieldValue('projectId', id, false),
+})
+const dueDate = computed({
+  get: () => values.dueDate ?? null,
+  set: (value: string | null) => setFieldValue('dueDate', value, false),
 })
 const labelIds = computed({
   get: () => values.labelIds ?? [],
@@ -318,6 +324,7 @@ function onKeydown(event: KeyboardEvent) {
           <AssigneePicker v-model="assigneeId" :users="assignees" />
           <LabelPicker v-model="labelIds" :labels="labels ?? []" />
           <ProjectPicker v-model="projectId" :projects="projects ?? []" />
+          <DueDatePicker v-model="dueDate" />
         </div>
         <DialogFooter class="flex-row items-center gap-3 px-4 pt-1 pb-3.5">
           <Button

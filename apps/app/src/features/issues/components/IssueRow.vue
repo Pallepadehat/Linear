@@ -2,6 +2,7 @@
 import type { Issue, Label, WorkflowStatus } from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
@@ -32,6 +33,9 @@ function setPriority(priority: number) {
 function setAssignee(assigneeId: string | null) {
   if (assigneeId !== props.issue.assigneeId) emit('update', { assigneeId })
 }
+function setDueDate(dueDate: string | null) {
+  if (dueDate !== props.issue.dueDate) emit('update', { dueDate })
+}
 function setLabels(ids: string[]) {
   const byId = new Map(labelOptions.value.map((l) => [l.id, l]))
   emit('update', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
@@ -41,8 +45,10 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
 </script>
 
 <template>
-  <!-- The title link stretches over the whole row; the pickers sit above it. -->
+  <!-- The title link stretches over the whole row; the pickers sit above it. Their
+       hotkeys (⇧D, P, …) act on this row while focus is in it. -->
   <div
+    data-hotkey-scope
     class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
   >
     <PriorityPicker
@@ -80,6 +86,12 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
         @update:model-value="setLabels"
       />
     </span>
+    <DueDatePicker
+      row
+      :category="issue.status.category"
+      :model-value="issue.dueDate"
+      @update:model-value="setDueDate"
+    />
     <AssigneePicker
       compact
       :users="users"

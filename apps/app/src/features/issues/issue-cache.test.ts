@@ -35,6 +35,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    dueDate: null,
     labels: [],
     createdAt: created,
     updatedAt: created,

@@ -1,4 +1,14 @@
-import { CircleDashed, CircleUser, Signal, Tag, Box } from '@lucide/vue'
+import {
+  Box,
+  CalendarClock,
+  CalendarDays,
+  CalendarRange,
+  CalendarX2,
+  CircleDashed,
+  CircleUser,
+  Signal,
+  Tag,
+} from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, h, type Component, type MaybeRefOrGetter, toValue } from 'vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
@@ -10,6 +20,7 @@ import { orpc } from '@/lib/orpc'
 import { PRIORITIES } from '@/lib/priorities'
 import { CATEGORY_ORDER } from '../group-issues'
 import { toggleValues, type IssueFilters } from '../issue-filters'
+import type { IssueDueFilter } from '@linear/contract'
 
 export type FilterOption = {
   /** Unique within the dimension; also the menu item's text value. */
@@ -21,7 +32,7 @@ export type FilterOption = {
 }
 
 export type FilterDimension = {
-  key: 'status' | 'priority' | 'assignee' | 'project' | 'label'
+  key: 'status' | 'priority' | 'assignee' | 'project' | 'label' | 'due'
   label: string
   icon: Component
   options: FilterOption[]
@@ -157,6 +168,18 @@ export function useFilterDimensions(
       values: [l.id],
     }))
 
+    const dueOptions: { key: string; label: string; icon: Component; values: IssueDueFilter[] }[] =
+      [
+        { key: 'overdue', label: 'Overdue', icon: CalendarClock, values: ['overdue'] },
+        {
+          key: 'dueThisWeek',
+          label: 'Due this week',
+          icon: CalendarRange,
+          values: ['dueThisWeek'],
+        },
+        { key: 'noDueDate', label: 'No due date', icon: CalendarX2, values: ['noDueDate'] },
+      ]
+
     return [
       dimension(
         'status',
@@ -196,6 +219,7 @@ export function useFilterDimensions(
             ),
           ]),
       dimension('label', 'Labels', Tag, f.labelIds, (v) => update({ labelIds: v }), labelOptions),
+      dimension('due', 'Due date', CalendarDays, f.due, (v) => update({ due: v }), dueOptions),
     ]
   })
 }
