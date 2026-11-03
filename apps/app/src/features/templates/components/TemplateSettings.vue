@@ -89,10 +89,8 @@ const remove = useMutation({
             {{ template.title }}
           </p>
         </div>
-        <span
-          class="rounded-xs border border-hairline px-1.5 py-0.5 text-xs text-ink-subtle"
-          :aria-label="`Scope: ${scopeName(template)}`"
-        >
+        <span class="rounded-xs border border-hairline px-1.5 py-0.5 text-xs text-ink-subtle">
+          <span class="sr-only">Scope:</span>
           {{ scopeName(template) }}
         </span>
         <Button
