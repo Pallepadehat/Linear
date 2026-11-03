@@ -6,12 +6,17 @@ import PickerPopover from './PickerPopover.vue'
 import PriorityIcon from './PriorityIcon.vue'
 
 // `noHotkey` outside issue views, so a picker there doesn't clash with the create dialog's.
-defineProps<{ compact?: boolean; noHotkey?: boolean }>()
+// `triggerText` replaces the current value in the trigger (the bulk action bar).
+defineProps<{ compact?: boolean; noHotkey?: boolean; triggerText?: string }>()
 const model = defineModel<Priority>({ required: true })
+// Fires on every choice, even of the current value (the model only emits changes), so
+// a mixed selection in the bulk action bar can still be set to the shown value.
+const emit = defineEmits<{ pick: [priority: Priority] }>()
 const open = ref(false)
 
 function choose(priority: Priority) {
   model.value = priority
+  emit('pick', priority)
   open.value = false
 }
 </script>
@@ -27,7 +32,7 @@ function choose(priority: Priority) {
   >
     <template #trigger>
       <PriorityIcon :priority="model" />
-      <span :class="{ 'sr-only': compact }">{{ priorityLabel(model) }}</span>
+      <span :class="{ 'sr-only': compact }">{{ triggerText ?? priorityLabel(model) }}</span>
     </template>
     <PickerItem
       v-for="priority in PRIORITIES"
