@@ -1,4 +1,4 @@
-import type { Project } from '@linear/contract'
+import type { Project, ProjectLabel } from '@linear/contract'
 import {
   createProject,
   createProjectLabel,
@@ -8,17 +8,20 @@ import {
   listProjects,
   updateProject,
 } from '@linear/core'
-import type { DbOrTx } from '@linear/db'
+import type { DbOrTx, projectLabels } from '@linear/db'
 import type { Storage } from '@linear/storage'
 import { imageUrl } from '../../lib/upload-urls'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
-import { toLabelDto } from '../labels/labels.dto'
 import { publishChange } from '../realtime/publish'
 
 const inWorkspace = requireWorkspace()
 
 type ProjectRow = Omit<Project, 'iconUrl'>
+
+function toLabelDto(row: typeof projectLabels.$inferSelect): ProjectLabel {
+  return { id: row.id, name: row.name, color: row.color }
+}
 
 async function toDto(db: DbOrTx, storage: Storage, row: ProjectRow): Promise<Project> {
   return {

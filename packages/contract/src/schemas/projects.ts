@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { nameSchema, workspaceScopedSchema } from './common'
 import { issuePrioritySchema } from './issues'
-import { labelColorSchema, labelSchema } from './labels'
+import { labelColorSchema } from './labels'
 
 export const projectStatusSchema = z.enum(['planned', 'in_progress', 'completed', 'canceled'])
 /** A calendar day, `YYYY-MM-DD` (day resolution only; docs/domain.md → Projects). */
@@ -44,7 +44,11 @@ export const updateProjectInputSchema = projectIdInputSchema.extend(
 )
 
 // Project labels are their own workspace-wide set, separate from issue labels.
-export const projectLabelSchema = labelSchema
+export const projectLabelSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  color: z.string(),
+})
 export const createProjectLabelInputSchema = workspaceScopedSchema.extend({
   name: nameSchema,
   color: labelColorSchema,
