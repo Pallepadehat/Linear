@@ -13,6 +13,7 @@ export type IssueSnapshot = {
   assigneeId: string | null
   projectId: string | null
   labelIds: string[]
+  dueDate: string | null
 }
 
 const SCALAR_FIELDS = [
@@ -21,6 +22,7 @@ const SCALAR_FIELDS = [
   ['priority', 'priority'],
   ['assignee', 'assigneeId'],
   ['project', 'projectId'],
+  ['due_date', 'dueDate'],
 ] as const satisfies readonly (readonly [ActivityKind, keyof IssueSnapshot])[]
 
 /**
