@@ -58,7 +58,7 @@ export const SHORTCUTS = {
   'list-prev': { keys: ['k', 'arrowup'], label: 'Move up', scope: 'list' },
   'list-open': { keys: 'enter', label: 'Open focused issue', scope: 'list' },
   'list-select': { keys: 'x', label: 'Select focused issue', scope: 'list' },
-  'list-clear': { keys: 'escape', label: 'Clear focus', scope: 'list' },
+  'list-clear': { keys: 'escape', label: 'Clear focus and selection', scope: 'list' },
   'list-delete': { keys: 'mod+backspace', label: 'Delete focused issue', scope: 'list' },
   'inbox-next': { keys: ['j', 'arrowdown'], label: 'Next notification', scope: 'inbox' },
   'inbox-prev': { keys: ['k', 'arrowup'], label: 'Previous notification', scope: 'inbox' },

@@ -78,6 +78,33 @@ describe('realtime', () => {
     await expect(openSocket({ cookie, origin: 'https://evil.example' })).rejects.toThrow('HTTP 403')
   })
 
+  it('streams one ID-only event per issue for bulk updates and deletes', async () => {
+    const { owner, member, team, issue } = await workspaceWithIssue()
+    const other = await owner.client.issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'Second',
+    })
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    await owner.client.issues.bulkUpdate({
+      workspaceSlug: 'tip',
+      ids: [issue.id, other.id],
+      patch: { priority: 1 },
+    })
+    await owner.client.issues.bulkDelete({ workspaceSlug: 'tip', ids: [issue.id, other.id] })
+
+    const actorId = owner.userId
+    await eventually(() =>
+      expect(events).toEqual([
+        { type: 'issue.updated', issueId: issue.id, fields: ['priority'], actorId },
+        { type: 'issue.updated', issueId: other.id, fields: ['priority'], actorId },
+        { type: 'issue.deleted', issueId: issue.id, actorId },
+        { type: 'issue.deleted', issueId: other.id, actorId },
+      ]),
+    )
+  })
+
   it("streams a teammate's issue and comment changes to members", async () => {
     const { owner, member, issue, statuses } = await workspaceWithIssue()
     const { events } = await subscribe(member.cookie, 'tip')
