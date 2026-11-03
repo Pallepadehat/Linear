@@ -12,7 +12,10 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
 </script>
 
 <template>
-  <div class="mx-2 flex h-full items-center gap-2 rounded-md pr-3 pl-5 hover:bg-surface-2">
+  <RouterLink
+    :to="{ name: 'issue', params: { identifier: issue.identifier } }"
+    class="mx-2 flex h-full items-center gap-2 rounded-md pr-3 pl-5 outline-hidden hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring"
+  >
     <PriorityIcon :priority="toPriority(issue.priority)" />
     <span class="sr-only">Priority: {{ priorityLabel(toPriority(issue.priority)) }}</span>
     <span class="w-16 shrink-0 truncate font-mono text-xs text-ink-subtle">
@@ -47,5 +50,5 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
     >
       {{ dateFormat.format(issue.createdAt) }}
     </time>
-  </div>
+  </RouterLink>
 </template>

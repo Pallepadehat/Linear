@@ -58,6 +58,13 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/features/issues/pages/IssuesPage.vue'),
       },
       {
+        // Identifiers are case-insensitive (`tip-200` opens TIP-200).
+        path: 'issue/:identifier',
+        name: 'issue',
+        meta: { title: 'Issue' },
+        component: () => import('@/features/issues/pages/IssueDetailPage.vue'),
+      },
+      {
         path: 'projects',
         name: 'projects',
         meta: { title: 'Projects' },
