@@ -1,5 +1,5 @@
 import { projectActivity, projectUpdates, projects, users, type DbOrTx } from '@linear/db'
-import { and, desc, eq, inArray, lt, or, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import { recordProjectActivity } from '../../activity/project-activity.service'
 import { assertCursor } from '../../cursor'
 import { DomainError } from '../../errors'
@@ -79,14 +79,13 @@ export async function listProjectUpdates(db: DbOrTx, input: ListProjectUpdatesIn
   let after: SQL | undefined
   if (input.cursor) {
     const [cursor] = await db
-      .select({ id: projectUpdates.id, createdAt: projectUpdates.createdAt })
+      .select({ id: projectUpdates.id })
       .from(projectUpdates)
       .where(and(scope, eq(projectUpdates.id, input.cursor)))
     if (!cursor) throw new DomainError('BAD_REQUEST', 'Invalid cursor')
-    after = or(
-      lt(projectUpdates.createdAt, cursor.createdAt),
-      and(eq(projectUpdates.createdAt, cursor.createdAt), lt(projectUpdates.id, cursor.id)),
-    )
+    // Compared in SQL: timestamps keep microseconds, a JS Date only milliseconds, so a
+    // round-tripped value would skip updates posted in the cursor's millisecond.
+    after = sql`(${projectUpdates.createdAt}, ${projectUpdates.id}) < (select ${projectUpdates.createdAt}, ${projectUpdates.id} from ${projectUpdates} where ${projectUpdates.id} = ${cursor.id})`
   }
 
   const rows = await selectUpdates(db, and(scope, after))

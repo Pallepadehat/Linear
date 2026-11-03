@@ -1,4 +1,6 @@
+import { projectUpdates } from '@linear/db'
 import { addMember } from '@linear/db/testing'
+import { eq, sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { setupTestApp, signUp } from './harness'
 
@@ -115,6 +117,46 @@ describe('project updates', () => {
     await expect(
       owner.client.projectUpdates.list({ ...scope, projectId: project.id, cursor: 'nope' }),
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+  })
+
+  it('pages through updates posted in the same millisecond without skipping any', async () => {
+    const { owner, project } = await tipWithProject()
+    const ids: string[] = []
+    for (const body of ['a', 'b', 'c', 'd', 'e']) {
+      const update = await owner.client.projectUpdates.create({
+        ...scope,
+        projectId: project.id,
+        health: 'on_track',
+        body,
+      })
+      ids.push(update.id)
+    }
+    // Microseconds apart inside one millisecond (a JS Date can't tell them apart), and
+    // two exact ties, which fall back to the id.
+    const offsets = [100, 200, 300, 300, 400]
+    for (const [i, id] of ids.entries()) {
+      await db
+        .update(projectUpdates)
+        .set({
+          createdAt: sql`timestamptz '2026-11-03 10:00:00.123' + make_interval(secs => ${offsets[i]! / 1e6})`,
+        })
+        .where(eq(projectUpdates.id, id))
+    }
+
+    const seen: string[] = []
+    let cursor: string | null = null
+    do {
+      const page: Awaited<ReturnType<typeof owner.client.projectUpdates.list>> =
+        await owner.client.projectUpdates.list({
+          ...scope,
+          projectId: project.id,
+          limit: 2,
+          cursor,
+        })
+      seen.push(...page.items.map((u) => u.body))
+      cursor = page.nextCursor
+    } while (cursor)
+    expect(seen).toEqual(['e', 'd', 'c', 'b', 'a'])
   })
 
   it('lets only the author edit', async () => {
