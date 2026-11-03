@@ -37,6 +37,12 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
     projectId: z.uuid(),
     actorId: base.actorId,
   }),
+  /** A template was created, changed or deleted (docs/domain.md → Templates). */
+  z.object({
+    type: z.literal('template.updated'),
+    templateId: z.uuid(),
+    actorId: z.uuid().nullable(),
+  }),
   z.object({ type: z.literal('presence.changed'), userId: z.uuid() }),
 ])
 

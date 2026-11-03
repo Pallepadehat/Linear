@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createIssueInputSchema } from '@linear/contract'
+import { createIssueInputSchema, type IssueTemplate } from '@linear/contract'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { Loader2, Maximize2, Minimize2, Paperclip, X } from '@lucide/vue'
 import { useForm } from 'vee-validate'
@@ -24,11 +24,14 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { projectListOptions, projectsKey } from '@/features/projects/queries'
+import TemplatePicker from '@/features/templates/components/TemplatePicker.vue'
+import { templateListOptions } from '@/features/templates/queries'
 import { errorMessage } from '@/lib/errors'
 import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { useUiStore } from '@/stores/ui'
+import { prefillFrom, type IssuePrefill, type PrefillField, type PrefillValues } from '../prefill'
 import { createIssueMutationOptions, issueListKey } from '../queries'
 import TeamPicker from './TeamPicker.vue'
 
@@ -74,6 +77,16 @@ watch(title, (value) => {
   if (errors.value.title && value?.trim()) setFieldError('title', undefined)
 })
 
+// Fields set by hand (or by whoever opened the dialog); a template never overwrites them.
+const dirty = new Set<PrefillField>()
+function markDirty(field: PrefillField, isSet = true) {
+  if (isSet) dirty.add(field)
+  else dirty.delete(field)
+}
+// What prefills the dialog: the picked template, or e.g. the issue being copied.
+const prefill = ref<IssuePrefill | null>(null)
+const template = ref<IssueTemplate | null>(null)
+
 const { data: teams } = useQuery(
   computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
@@ -109,43 +122,70 @@ const { data: labels } = useQuery(
   computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
 const { data: projects } = useQuery(computed(() => projectListOptions(slug.value)))
+const { data: templates } = useQuery(
+  computed(() => ({
+    ...templateListOptions(slug.value, values.teamId || undefined),
+    enabled: ui.createIssueOpen && Boolean(values.teamId),
+  })),
+)
+const templateId = computed({
+  get: () => template.value?.id ?? null,
+  set: (id: string | null) => {
+    template.value = templates.value?.find((t) => t.id === id) ?? null
+    prefill.value = template.value
+    applyPrefill()
+  },
+})
 
 // The pickers want concrete values; the form keeps the contract's optional shape.
 const teamId = computed({
   get: () => values.teamId ?? '',
   set: (id: string) => setFieldValue('teamId', id, false),
 })
+// The setters below only run on the user's own picks, so they mark the field dirty.
 const statusId = computed({
   get: () => values.statusId ?? '',
-  set: (id: string) => setFieldValue('statusId', id, false),
+  set: (id: string) => {
+    markDirty('statusId')
+    setFieldValue('statusId', id, false)
+  },
 })
-// Priority and assignee follow the team's defaults until picked by hand.
-const touched = { priority: false, assignee: false }
 const priority = computed({
   get: () => toPriority(values.priority),
   set: (value: Priority) => {
-    touched.priority = true
+    markDirty('priority')
     setFieldValue('priority', value, false)
   },
 })
 const assigneeId = computed({
   get: () => values.assigneeId ?? null,
   set: (id: string | null) => {
-    touched.assignee = true
+    markDirty('assigneeId')
     setFieldValue('assigneeId', id, false)
   },
 })
+// The editor doesn't echo programmatic content, so this is always a user edit; clearing
+// the text hands the field back to the template.
 const description = computed({
   get: () => values.description ?? '',
-  set: (value: string) => setFieldValue('description', value, false),
+  set: (value: string) => {
+    markDirty('description', value.trim() !== '')
+    setFieldValue('description', value, false)
+  },
 })
 const projectId = computed({
   get: () => values.projectId ?? null,
-  set: (id: string | null) => setFieldValue('projectId', id, false),
+  set: (id: string | null) => {
+    markDirty('projectId')
+    setFieldValue('projectId', id, false)
+  },
 })
 const labelIds = computed({
   get: () => values.labelIds ?? [],
-  set: (ids: string[]) => setFieldValue('labelIds', ids, false),
+  set: (ids: string[]) => {
+    markDirty('labelIds')
+    setFieldValue('labelIds', ids, false)
+  },
 })
 
 // The requested team, else the team page being viewed, else the first team.
@@ -167,38 +207,77 @@ watch(
     if (!open) return
     formError.value = null
     resetForm()
+    dirty.clear()
+    template.value = null
+    prefill.value = ui.createIssuePrefill
+    // Values the opener asked for (a group's `+`, a project page) count as picked by hand.
+    const defaults = ui.createIssueDefaults
     setFieldValue('teamId', initialTeamId(), false)
-    setFieldValue('statusId', ui.createIssueDefaults.statusId, false)
-    setFieldValue('projectId', initialProjectId(), false)
-    touched.priority = false
-    touched.assignee = ui.createIssueDefaults.assigneeId !== undefined
-    setFieldValue('assigneeId', ui.createIssueDefaults.assigneeId ?? null, false)
-    applyTeamDefaults()
+    setFieldValue('statusId', defaults.statusId, false)
+    markDirty('statusId', defaults.statusId !== undefined)
+    const project = initialProjectId()
+    setFieldValue('projectId', project, false)
+    markDirty('projectId', project !== null)
+    setFieldValue('assigneeId', defaults.assigneeId ?? null, false)
+    markDirty('assigneeId', defaults.assigneeId !== undefined)
+    applyPrefill()
   },
   { immediate: true },
 )
 watch(teams, () => {
   if (ui.createIssueOpen && !values.teamId) setFieldValue('teamId', initialTeamId(), false)
 })
-// Fills in the team's issue defaults (team settings). Statuses belong to a team, so a
-// team change (or a reset) falls back to that team's default status. Runs on open too:
-// reopening for the same team doesn't change `loadedTeam`.
-function applyTeamDefaults() {
+// A team template doesn't apply to another team; switching teams drops it.
+watch(
+  () => values.teamId,
+  (teamId) => {
+    if (template.value?.teamId && template.value.teamId !== teamId) {
+      template.value = null
+      prefill.value = null
+    }
+  },
+)
+
+// Fills every field not set by hand from the prefill (template or copied issue), else
+// from the team's issue defaults (team settings). Statuses belong to a team, so a team
+// change re-resolves the status. Runs on open too: reopening for the same team doesn't
+// change `loadedTeam`.
+function applyPrefill() {
   const team = loadedTeam.value
   if (!team) return
-  if (!team.statuses.some((s) => s.id === values.statusId))
-    setFieldValue('statusId', team.defaultStatusId ?? undefined, false)
-  if (!touched.priority) setFieldValue('priority', team.defaultPriority, false)
+  const memberIds = assignees.value.map((a) => a.id)
   // Skip a default assignee who is no longer a member; the server would reject them.
-  const assignee = team.defaultAssigneeId
-  if (!touched.assignee)
-    setFieldValue(
-      'assigneeId',
-      assignee && assignees.value.some((a) => a.id === assignee) ? assignee : null,
-      false,
-    )
+  const defaultAssignee = team.defaultAssigneeId
+  const base: PrefillValues = {
+    title: '',
+    description: '',
+    statusId: team.defaultStatusId ?? undefined,
+    priority: team.defaultPriority,
+    assigneeId: defaultAssignee && memberIds.includes(defaultAssignee) ? defaultAssignee : null,
+    projectId: null,
+    labelIds: [],
+  }
+  const current: PrefillValues = {
+    title: values.title ?? '',
+    description: values.description ?? '',
+    statusId: values.statusId,
+    priority: values.priority ?? 0,
+    assigneeId: values.assigneeId ?? null,
+    projectId: values.projectId ?? null,
+    labelIds: values.labelIds ?? [],
+  }
+  const next = prefillFrom(prefill.value, {
+    current,
+    base,
+    dirty,
+    statuses: team.statuses,
+    memberIds,
+  })
+  for (const field of Object.keys(next) as PrefillField[]) {
+    setFieldValue(field, next[field], false)
+  }
 }
-watch([loadedTeam, assignees], applyTeamDefaults)
+watch([loadedTeam, assignees], applyPrefill)
 
 const create = useMutation(createIssueMutationOptions())
 
@@ -225,8 +304,10 @@ const onSubmit = handleSubmit(async (form) => {
       ui.createIssueOpen = false
       return
     }
-    // Keep team, status and the other properties; start a fresh title.
+    // Keep team, status and the other properties; start a fresh title (or the template's).
     resetForm({ values: { ...form, title: '', description: '', labelIds: [] } })
+    for (const field of ['title', 'description', 'labelIds'] as const) dirty.delete(field)
+    applyPrefill()
     await nextTick()
     titleInput.value?.focus()
   } catch (error) {
@@ -264,6 +345,9 @@ function onKeydown(event: KeyboardEvent) {
           <span class="text-ink-tertiary" aria-hidden="true">›</span>
           <DialogTitle class="text-[13px] font-normal text-ink">New issue</DialogTitle>
           <div class="ml-auto flex items-center gap-0.5">
+            <div v-if="templates?.length" class="mr-1 [&_button]:border [&_button]:border-hairline">
+              <TemplatePicker v-model="templateId" :templates="templates" />
+            </div>
             <Button
               type="button"
               variant="ghost"
@@ -296,6 +380,7 @@ function onKeydown(event: KeyboardEvent) {
             :aria-invalid="Boolean(errors.title)"
             :aria-describedby="errors.title ? 'new-issue-title-error' : undefined"
             class="w-full bg-transparent text-lg font-semibold tracking-tight text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
+            @input="markDirty('title', ($event.target as HTMLInputElement).value.trim() !== '')"
             @keydown.enter.exact.prevent="descriptionEditor?.focus()"
           />
           <p
