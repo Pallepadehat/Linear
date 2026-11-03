@@ -388,6 +388,7 @@ describe('realtime event handler', () => {
       [{ queryKey: orpc.projects.key() }],
       [{ queryKey: orpc.milestones.key() }],
       [{ queryKey: orpc.projectLinks.key() }],
+      [{ queryKey: orpc.projectUpdates.key() }],
     ])
   })
 
