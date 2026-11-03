@@ -13,7 +13,6 @@ import { notificationsKey } from '@/features/inbox/queries'
 import { templatesKey } from '@/features/templates/queries'
 import {
   issueDetailKeys,
-  filtersByLinks,
   issueFacetsKey,
   issueListKey,
   writeIssueToCaches,
@@ -28,14 +27,24 @@ const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project', 'cycle']
 function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssueField>) {
   return (
     input.sort === 'updatedAt' ||
+    // Any change bumps `updatedAt`.
+    !!input.updatedAfter ||
+    !!input.updatedBefore ||
     (fields.has('status') &&
       (!!input.statusIds?.length ||
+        !!input.statusIdsNot?.length ||
         !!input.statusCategories?.length ||
+        // Completing or reopening sets or clears `completedAt`.
         !!input.completedAfter ||
+        !!input.completedSince ||
+        !!input.completedBefore ||
         !!input.due?.includes('overdue'))) ||
     (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||
-    (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
-    (fields.has('labels') && !!input.labelIds?.length) ||
+    (fields.has('priority') &&
+      (!!input.priorities?.length || !!input.prioritiesNot?.length || input.sort === 'priority')) ||
+    (fields.has('labels') && (!!input.labelIds?.length || !!input.labelIdsNot?.length)) ||
+    ((fields.has('title') || fields.has('description')) && !!input.content) ||
+    (fields.has('pullRequests') && input.hasPullRequests !== undefined) ||
     (fields.has('milestone') && (!!input.milestoneIds?.length || !!input.milestoneId)) ||
     (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
     (fields.has('subscribers') && !!input.subscriberIds?.length) ||
@@ -118,6 +127,15 @@ export function createRealtimeEventHandler({
     void queryClient.invalidateQueries({ queryKey: issueListKey(), predicate })
   }
 
+  // Other fields (description, links, PRs, …) only matter to counts filtered on them.
+  function invalidateDependentFacets(fields: RealtimeIssueField[]) {
+    const changed = new Set(fields)
+    const predicate = (query: Query) => listDependsOn(listInput(query), changed)
+    if (!queryClient.getQueryCache().findAll({ queryKey: issueFacetsKey(), predicate }).length)
+      return
+    void queryClient.invalidateQueries({ queryKey: issueFacetsKey(), predicate })
+  }
+
   async function onIssueUpdated(issueId: string, fields: RealtimeIssueField[]) {
     void queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) })
     if (fields.includes('subscribers')) invalidateSubscribers(issueId)
@@ -130,9 +148,7 @@ export function createRealtimeEventHandler({
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
     if (fields.some((f) => FACET_FIELDS.includes(f))) invalidateSoon('facets')
-    // Counts filtered by "Has links" change when the issue gains or loses its last link.
-    if (fields.includes('links') || fields.includes('pullRequests'))
-      void queryClient.invalidateQueries({ queryKey: issueFacetsKey(), predicate: filtersByLinks })
+    else invalidateDependentFacets(fields)
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.

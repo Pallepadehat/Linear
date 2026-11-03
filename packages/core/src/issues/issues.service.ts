@@ -2,10 +2,12 @@ import {
   issueLabels,
   issueLinks,
   issuePullRequestLinks,
+  pullRequests,
   issueRelations,
   issueSubscriptions,
   issues,
   projects,
+  projectMilestones,
   labels,
   teams,
   workflowStatuses,
@@ -134,8 +136,31 @@ export type ListIssuesInput = {
   milestoneIds?: (string | null)[]
   /** `null` matches issues without a cycle. */
   cycleIds?: (string | null)[]
-  /** Any of these labels. */
+  /** Any of these labels (`labelMode: 'all'`: all of them). */
   labelIds?: string[]
+  labelMode?: 'any' | 'all'
+  /** Exclusions: issues with any of these values are left out. */
+  statusIdsNot?: string[]
+  prioritiesNot?: number[]
+  /** `null` leaves out unassigned issues; unassigned issues stay otherwise. */
+  assigneeIdsNot?: (string | null)[]
+  /** `null` leaves out issues without a project; they stay otherwise. */
+  projectIdsNot?: (string | null)[]
+  labelIdsNot?: string[]
+  creatorIds?: string[]
+  creatorIdsNot?: string[]
+  /** `…After` is inclusive, `…Before` exclusive. */
+  createdAfter?: Date
+  createdBefore?: Date
+  updatedAfter?: Date
+  updatedBefore?: Date
+  /** Completion date bounds; both leave out open issues (unlike `completedAfter`). */
+  completedSince?: Date
+  completedBefore?: Date
+  /** Title or description contains (case-insensitive). */
+  content?: string
+  /** Has (`true`) or lacks (`false`) a linked pull request. */
+  hasPullRequests?: boolean
   /** Estimate values; `null` matches no estimate, `'any'` any estimate. */
   estimates?: (number | 'any' | null)[]
   /** Any of these buckets; `overdue` and `dueThisWeek` are relative to `today`. */
@@ -398,6 +423,7 @@ function hasLinksFilter(hasLinks: boolean | undefined) {
 export function listFilter(input: IssueFilterInput) {
   const identifier = input.q ? parseIdentifierQuery(input.q) : null
   const search = input.q?.trim()
+  const content = input.content?.trim()
   return and(
     input.teamId ? eq(issues.teamId, input.teamId) : undefined,
     input.projectId ? eq(issues.projectId, input.projectId) : undefined,
@@ -421,10 +447,34 @@ export function listFilter(input: IssueFilterInput) {
     input.excludeSubtreeOf
       ? sql`${issues.id} not in (with recursive subtree(id) as (select ${input.excludeSubtreeOf}::uuid union select child.id from issues child join subtree on child.parent_id = subtree.id) select id from subtree)`
       : undefined,
-    input.labelIds?.length
-      ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
-      : undefined,
+    labelFilter(input.labelIds, input.labelMode),
     dueFilter(input.due, input.today),
+    input.statusIdsNot?.length ? notInArray(issues.statusId, input.statusIdsNot) : undefined,
+    input.prioritiesNot?.length ? notInArray(issues.priority, input.prioritiesNot) : undefined,
+    noneOf(issues.assigneeId, input.assigneeIdsNot),
+    noneOf(issues.projectId, input.projectIdsNot),
+    input.labelIdsNot?.length
+      ? sql`not exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIdsNot)})`
+      : undefined,
+    input.creatorIds?.length ? inArray(issues.creatorId, input.creatorIds) : undefined,
+    input.creatorIdsNot?.length ? notInArray(issues.creatorId, input.creatorIdsNot) : undefined,
+    input.createdAfter ? gte(issues.createdAt, input.createdAfter) : undefined,
+    input.createdBefore ? lt(issues.createdAt, input.createdBefore) : undefined,
+    input.updatedAfter ? gte(issues.updatedAt, input.updatedAfter) : undefined,
+    input.updatedBefore ? lt(issues.updatedAt, input.updatedBefore) : undefined,
+    input.completedSince ? gte(issues.completedAt, input.completedSince) : undefined,
+    input.completedBefore ? lt(issues.completedAt, input.completedBefore) : undefined,
+    content
+      ? or(
+          ilike(issues.title, `%${escapeLike(content)}%`),
+          ilike(issues.description, `%${escapeLike(content)}%`),
+        )
+      : undefined,
+    input.hasPullRequests === undefined
+      ? undefined
+      : input.hasPullRequests
+        ? sql`exists (select 1 from ${issuePullRequestLinks} where ${issuePullRequestLinks.issueId} = ${issues.id} and ${eq(issuePullRequestLinks.workspaceId, input.workspaceId)})`
+        : sql`not exists (select 1 from ${issuePullRequestLinks} where ${issuePullRequestLinks.issueId} = ${issues.id} and ${eq(issuePullRequestLinks.workspaceId, input.workspaceId)})`,
     hasLinksFilter(input.hasLinks),
     input.subscriberIds?.length
       ? sql`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.workspaceId, input.workspaceId)} and ${inArray(issueSubscriptions.userId, input.subscriberIds)})`
@@ -481,6 +531,22 @@ function anyOf(column: AnyColumn, values: (string | null)[] | undefined) {
     ids.length ? inArray(column, ids) : undefined,
     values.includes(null) ? isNull(column) : undefined,
   )
+}
+
+/** `NOT IN (...)` that keeps NULL rows unless the list contains `null`. */
+function noneOf(column: AnyColumn, values: (string | null)[] | undefined) {
+  if (!values?.length) return undefined
+  const ids = values.filter((value): value is string => value !== null)
+  const excluded = ids.length ? notInArray(column, ids) : undefined
+  return values.includes(null) ? and(isNotNull(column), excluded) : or(isNull(column), excluded)
+}
+
+/** Any of the labels, or (`all`) every one of them. */
+function labelFilter(labelIds: string[] | undefined, mode: 'any' | 'all' = 'any') {
+  if (!labelIds?.length) return undefined
+  const has = (ids: string[]) =>
+    sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, ids)})`
+  return mode === 'all' ? and(...[...new Set(labelIds)].map((id) => has([id]))) : has(labelIds)
 }
 
 /** Values OR'd together: specific points, `null` for none, `'any'` for any estimate. */
@@ -921,11 +987,20 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
       ),
     )
     .orderBy(asc(labels.name))
-  const progress = await subIssueProgress(
+  const issueIds = rows.map((row) => row.issue.id)
+  const progress = await subIssueProgress(db, workspaceId, issueIds)
+  const projectsById = await projectSummaries(
     db,
     workspaceId,
-    rows.map((row) => row.issue.id),
+    rows.flatMap((row) => (row.issue.projectId ? [row.issue.projectId] : [])),
   )
+  const milestonesById = await milestoneSummaries(
+    db,
+    workspaceId,
+    rows.flatMap((row) => (row.issue.milestoneId ? [row.issue.milestoneId] : [])),
+  )
+  const prs = await pullRequestChips(db, workspaceId, issueIds)
+  const linkCounts = await webLinkCounts(db, workspaceId, issueIds)
 
   return rows.map(({ issue, teamKey, status, isSubscribed, blockedByCount, blockingCount }) => ({
     ...issue,
@@ -936,7 +1011,75 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
     blockingCount,
     labels: attached.filter((row) => row.issueId === issue.id).map((row) => row.label),
     subIssueProgress: progress.get(issue.id) ?? null,
+    project: (issue.projectId && projectsById.get(issue.projectId)) || null,
+    milestone: (issue.milestoneId && milestonesById.get(issue.milestoneId)) || null,
+    pullRequests: prs.get(issue.id) ?? [],
+    linkCount: linkCounts.get(issue.id) ?? 0,
   }))
+}
+
+/** Name and icon of each project, for the issue rows' project chip. */
+async function projectSummaries(db: DbOrTx, workspaceId: string, projectIds: string[]) {
+  const rows = await db
+    .select({ id: projects.id, name: projects.name, iconUploadId: projects.iconUploadId })
+    .from(projects)
+    .where(
+      and(eq(projects.workspaceId, workspaceId), inArray(projects.id, [...new Set(projectIds)])),
+    )
+  return new Map(rows.map((row) => [row.id, row]))
+}
+
+/** Names of the rows' milestones, for the milestone chip. */
+async function milestoneSummaries(db: DbOrTx, workspaceId: string, milestoneIds: string[]) {
+  const rows = await db
+    .select({ id: projectMilestones.id, name: projectMilestones.name })
+    .from(projectMilestones)
+    .where(
+      and(
+        eq(projectMilestones.workspaceId, workspaceId),
+        inArray(projectMilestones.id, [...new Set(milestoneIds)]),
+      ),
+    )
+  return new Map(rows.map((row) => [row.id, row]))
+}
+
+// Open work first, then merged, then closed (docs/domain.md → Issue rows).
+const PR_STATE_RANK = sql<number>`case ${pullRequests.state} when 'open' then 0 when 'draft' then 1 when 'merged' then 2 else 3 end`
+
+/** Each issue's linked PRs as row chips (number + state), in display order. */
+async function pullRequestChips(db: DbOrTx, workspaceId: string, issueIds: string[]) {
+  const rows = await db
+    .select({
+      issueId: issuePullRequestLinks.issueId,
+      number: pullRequests.number,
+      state: pullRequests.state,
+    })
+    .from(issuePullRequestLinks)
+    .innerJoin(pullRequests, eq(pullRequests.id, issuePullRequestLinks.pullRequestId))
+    .where(
+      and(
+        eq(issuePullRequestLinks.workspaceId, workspaceId),
+        inArray(issuePullRequestLinks.issueId, issueIds),
+      ),
+    )
+    .orderBy(PR_STATE_RANK, desc(pullRequests.number))
+  const byIssue = new Map<string, { number: number; state: (typeof rows)[number]['state'] }[]>()
+  for (const { issueId, ...chip } of rows) {
+    const list = byIssue.get(issueId)
+    if (list) list.push(chip)
+    else byIssue.set(issueId, [chip])
+  }
+  return byIssue
+}
+
+/** Web links per issue; issues without any are missing from the map. */
+async function webLinkCounts(db: DbOrTx, workspaceId: string, issueIds: string[]) {
+  const rows = await db
+    .select({ issueId: issueLinks.issueId, count: sql<number>`count(*)::int` })
+    .from(issueLinks)
+    .where(and(eq(issueLinks.workspaceId, workspaceId), inArray(issueLinks.issueId, issueIds)))
+    .groupBy(issueLinks.issueId)
+  return new Map(rows.map((row) => [row.issueId, row.count]))
 }
 
 /**
