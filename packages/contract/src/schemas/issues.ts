@@ -121,6 +121,37 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
 
 export const issueIdInputSchema = workspaceScopedSchema.extend({ id: z.uuid() })
 
+/** Bulk actions take at most this many issues per call (docs/domain.md → Bulk actions). */
+export const BULK_ISSUE_LIMIT = 250
+const bulkIssueIdsSchema = z.array(z.uuid()).min(1).max(BULK_ISSUE_LIMIT)
+
+/**
+ * The properties a bulk update can set on every selected issue. Omitted fields are
+ * left unchanged; labels are added and removed per issue instead of replaced.
+ */
+export const bulkIssuePatchSchema = z
+  .object({
+    statusId: z.uuid().optional(),
+    priority: issuePrioritySchema.optional(),
+    assigneeId: z.uuid().nullable().optional(),
+    projectId: z.uuid().nullable().optional(),
+    addLabelIds: labelIdsSchema.optional(),
+    removeLabelIds: labelIdsSchema.optional(),
+  })
+  .refine((patch) => Object.values(patch).some((value) => value !== undefined), {
+    message: 'Change at least one property',
+  })
+
+export const bulkUpdateIssuesInputSchema = workspaceScopedSchema.extend({
+  ids: bulkIssueIdsSchema,
+  patch: bulkIssuePatchSchema,
+})
+
+export const bulkDeleteIssuesInputSchema = workspaceScopedSchema.extend({ ids: bulkIssueIdsSchema })
+
+export const bulkUpdateIssuesOutputSchema = z.object({ items: z.array(issueSchema) })
+export const bulkDeleteIssuesOutputSchema = z.object({ ids: z.array(z.uuid()) })
+
 export const getIssueByIdentifierInputSchema = workspaceScopedSchema.extend({
   identifier: issueIdentifierSchema,
 })
@@ -211,6 +242,8 @@ export type SubIssueProgress = NonNullable<Issue['subIssueProgress']>
 export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>
+export type BulkIssuePatch = z.input<typeof bulkIssuePatchSchema>
+export type BulkUpdateIssuesInput = z.input<typeof bulkUpdateIssuesInputSchema>
 export type ListIssuesInput = z.input<typeof listIssuesInputSchema>
 export type IssueSubscriptionInput = z.input<typeof issueSubscriptionInputSchema>
 export type IssueSort = z.infer<typeof issueSortSchema>
