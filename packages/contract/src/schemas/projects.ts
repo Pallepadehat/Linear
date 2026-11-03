@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { nameSchema, workspaceScopedSchema } from './common'
 import { issuePrioritySchema } from './issues'
 import { labelColorSchema } from './labels'
+import { projectHealthSchema } from './project-updates'
 
 export const projectStatusSchema = z.enum(['planned', 'in_progress', 'completed', 'canceled'])
 /** A calendar day, `YYYY-MM-DD` (day resolution only; docs/domain.md → Projects). */
@@ -42,6 +43,10 @@ export const projectSchema = z.object({
   currentMilestone: z
     .object({ id: z.uuid(), name: z.string(), progress: z.number().min(0).max(1) })
     .nullable(),
+  /** The latest update's health; null until the first update is posted. */
+  health: projectHealthSchema.nullable(),
+  /** When the latest update was posted; null when there are none. */
+  lastUpdateAt: z.date().nullable(),
   createdAt: z.date(),
 })
 export const projectIdInputSchema = workspaceScopedSchema.extend({ id: z.uuid() })

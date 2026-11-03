@@ -5,6 +5,7 @@ import type {
 } from '@orpc/contract'
 import { projectLabelsContract } from './routers/project-labels'
 import { projectsContract } from './routers/projects'
+import { projectUpdatesContract } from './routers/project-updates'
 import { issueRelationsContract } from './routers/relations'
 import { issueLinksContract, projectLinksContract } from './routers/links'
 import { presenceContract } from './routers/presence'
@@ -35,6 +36,7 @@ export const contract = {
   issueLinks: issueLinksContract,
   projectLinks: projectLinksContract,
   projects: projectsContract,
+  projectUpdates: projectUpdatesContract,
   milestones: milestonesContract,
   cycles: cyclesContract,
   projectLabels: projectLabelsContract,
@@ -72,5 +74,6 @@ export * from './schemas/realtime'
 export * from './schemas/templates'
 export * from './schemas/relations'
 export * from './schemas/project-activity'
+export * from './schemas/project-updates'
 export * from './schemas/links'
 export * from './schemas/notifications'
