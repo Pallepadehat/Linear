@@ -128,6 +128,8 @@ export function createRealtimeEventHandler({
         })
       case 'template.updated':
         return void queryClient.invalidateQueries({ queryKey: templatesKey() })
+      case 'presence.changed':
+        return void queryClient.invalidateQueries({ queryKey: orpc.presence.list.key() })
     }
   }
 }
