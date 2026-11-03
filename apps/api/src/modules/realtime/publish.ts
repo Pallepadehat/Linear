@@ -41,7 +41,8 @@ const ISSUE_INPUT_FIELDS = {
 
 /**
  * The fields an `issues.update` input touches (omitted means unchanged).
- * Assigning someone may subscribe them, so it touches the subscribers too.
+ * Assigning someone may subscribe them, so it touches the subscribers too; a project
+ * change without a milestone clears the milestone (docs/domain.md → Project milestones).
  */
 export function changedIssueFields(
   input: Partial<Record<keyof typeof ISSUE_INPUT_FIELDS, unknown>>,
@@ -52,5 +53,6 @@ export function changedIssueFields(
     .filter((key) => input[key] !== undefined)
     .map((key) => ISSUE_INPUT_FIELDS[key])
   if (input.assigneeId) fields.push('subscribers')
+  if (input.projectId !== undefined && input.milestoneId === undefined) fields.push('milestone')
   return fields
 }
