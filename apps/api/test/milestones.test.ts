@@ -187,6 +187,29 @@ describe('milestones', () => {
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
   })
 
+  it('clears milestones when a bulk update moves issues to another project', async () => {
+    const { owner, project, issue } = await arrange()
+    const alpha = await owner.client.milestones.create({
+      ...scope,
+      projectId: project.id,
+      name: 'Alpha',
+    })
+    const other = await owner.client.projects.create({ ...scope, name: 'Other' })
+    const ids = [
+      (await issue('One', { milestoneId: alpha.id })).id,
+      (await issue('Two', { milestoneId: alpha.id })).id,
+    ]
+    const moved = await owner.client.issues.bulkUpdate({
+      ...scope,
+      ids,
+      patch: { projectId: other.id },
+    })
+    expect(moved.items.map((i) => [i.projectId, i.milestoneId])).toEqual([
+      [other.id, null],
+      [other.id, null],
+    ])
+  })
+
   it('hides projects and milestones of other workspaces (NOT_FOUND)', async () => {
     const { owner, project, issue } = await arrange()
     const theirs = await outsiderWorkspace()
