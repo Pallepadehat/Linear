@@ -57,6 +57,8 @@ export type IssueFilters = {
   q: string
   sort: IssueSort
   direction: SortDirection
+  /** Only issues with a web link or a linked PR (domain.md → Links). */
+  hasLinks: boolean
   /** Display option: whether issues with a parent are listed (nested under it when loaded). */
   showSubIssues: boolean
 }
@@ -85,6 +87,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   sort: DEFAULT_SORT,
   direction: DEFAULT_DIRECTION,
   showSubIssues: true,
+  hasLinks: false,
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -114,6 +117,7 @@ export const FILTER_QUERY_KEYS = [
   ...DATE_DIMENSIONS,
   'content',
   'pr',
+  'links',
   'q',
   'sort',
   'dir',
@@ -236,6 +240,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
     direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_DIRECTION,
     showSubIssues: first(query.subIssues) !== 'hide',
+    hasLinks: first(query.links) === 'has',
   }
 }
 
@@ -270,6 +275,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
     dir: filters.direction === DEFAULT_DIRECTION ? undefined : filters.direction,
     subIssues: filters.showSubIssues ? undefined : 'hide',
+    links: filters.hasLinks ? 'has' : undefined,
   }
   return Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined))
 }
@@ -291,6 +297,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.completed !== null ||
     filters.content !== '' ||
     filters.hasPullRequests !== null ||
+    filters.hasLinks ||
     filters.q !== ''
   )
 }
@@ -403,6 +410,8 @@ export function toListInput(
     completedBefore: completed.before,
     content: filters.content.trim() || undefined,
     hasPullRequests: filters.hasPullRequests ?? undefined,
+    // Only "Has links" is offered so far; `false` would mean "has no links".
+    hasLinks: filters.hasLinks || undefined,
     q: filters.q || undefined,
     showSubIssues: filters.showSubIssues,
   }

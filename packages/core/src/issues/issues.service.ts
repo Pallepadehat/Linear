@@ -1,5 +1,6 @@
 import {
   issueLabels,
+  issueLinks,
   issuePullRequestLinks,
   issueRelations,
   issueSubscriptions,
@@ -148,6 +149,8 @@ export type ListIssuesInput = {
   today?: IsoDate
   /** Any of these users is subscribed. */
   subscriberIds?: string[]
+  /** `true`: has a web link or a linked PR; `false`: has neither. */
+  hasLinks?: boolean
   /** Who is asking; `isSubscribed` on each issue is for this user. */
   viewerId?: string
   q?: string
@@ -366,6 +369,13 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
   return { items: await withLabels(db, input.workspaceId, page), nextCursor }
 }
 
+/** Web links and linked PRs both count as links (docs/domain.md → Links). */
+function hasLinksFilter(hasLinks: boolean | undefined) {
+  if (hasLinks === undefined) return undefined
+  const any = sql`(exists (select 1 from ${issueLinks} where ${issueLinks.issueId} = ${issues.id}) or exists (select 1 from ${issuePullRequestLinks} where ${issuePullRequestLinks.issueId} = ${issues.id}))`
+  return hasLinks ? any : sql`not ${any}`
+}
+
 /** Expects `teams` and `workflowStatuses` joined on the issue. */
 export function listFilter(input: IssueFilterInput) {
   const identifier = input.q ? parseIdentifierQuery(input.q) : null
@@ -419,6 +429,7 @@ export function listFilter(input: IssueFilterInput) {
       : input.hasPullRequests
         ? sql`exists (select 1 from ${issuePullRequestLinks} where ${issuePullRequestLinks.issueId} = ${issues.id} and ${eq(issuePullRequestLinks.workspaceId, input.workspaceId)})`
         : sql`not exists (select 1 from ${issuePullRequestLinks} where ${issuePullRequestLinks.issueId} = ${issues.id} and ${eq(issuePullRequestLinks.workspaceId, input.workspaceId)})`,
+    hasLinksFilter(input.hasLinks),
     input.subscriberIds?.length
       ? sql`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.workspaceId, input.workspaceId)} and ${inArray(issueSubscriptions.userId, input.subscriberIds)})`
       : undefined,

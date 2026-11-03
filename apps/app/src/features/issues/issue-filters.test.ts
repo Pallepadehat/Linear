@@ -43,6 +43,7 @@ describe('issue filters in the URL', () => {
       sort: 'priority' as const,
       direction: 'asc' as const,
       showSubIssues: false,
+      hasLinks: true,
     }
     const query = serializeIssueFilters(filters)
     expect(query).toEqual({
@@ -65,6 +66,7 @@ describe('issue filters in the URL', () => {
       sort: 'priority',
       dir: 'asc',
       subIssues: 'hide',
+      links: 'has',
     })
     expect(parseIssueFilters(query as Record<string, string>)).toEqual(filters)
   })

@@ -101,6 +101,8 @@ describe('describeActivity', () => {
     [activity('relation', null, ['blocked_by', 'i4', 'TIP-4']), 'marked as blocked by TIP-4'],
     [activity('relation', null, ['duplicate_of', 'i2', 'TIP-2']), 'marked as a duplicate of TIP-2'],
     [activity('relation', ['related', 'i3', 'TIP-3'], null), 'removed the relation with TIP-3'],
+    [activity('link', null, ['Spec', 'https://x.dev']), 'added link Spec'],
+    [activity('link', ['Spec', 'https://x.dev'], null), 'removed link Spec'],
     [
       activity('labels', ['l1'], ['l2', 'l3']),
       'added labels Frontend and Docs and removed label Bug',

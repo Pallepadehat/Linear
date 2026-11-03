@@ -8,6 +8,7 @@ import {
   getIssueFacets,
   getIssueByIdentifier,
   getIssueRelations,
+  listIssueLinks,
   listIssues,
   listSubscribers,
   subscribe,
@@ -79,6 +80,7 @@ export const issuesRouter = {
       return toIssueDetailDto(
         issue,
         await getIssueRelations(context.db, context.workspace.id, issue.id),
+        await listIssueLinks(context.db, context.workspace.id, issue.id),
       )
     }),
 
@@ -96,6 +98,7 @@ export const issuesRouter = {
       return toIssueDetailDto(
         issue,
         await getIssueRelations(context.db, context.workspace.id, issue.id),
+        await listIssueLinks(context.db, context.workspace.id, issue.id),
       )
     }),
 
