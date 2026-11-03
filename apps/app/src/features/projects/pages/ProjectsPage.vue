@@ -10,6 +10,7 @@ import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { useRouteTeam } from '@/features/teams/composables/useRouteTeam'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
 import { toPriority } from '@/lib/priorities'
 import { orpc } from '@/lib/orpc'
@@ -40,8 +41,17 @@ const { data: members } = useQuery(
 )
 const membersById = computed(() => new Map(members.value?.map((m) => [m.userId, m])))
 
+// Also the team projects page (`team/:teamKey/projects`): only that team's projects.
+const { team, notFound } = useRouteTeam('Projects')
+const projects = computed(() => {
+  const all = query.data.value
+  if (!all || !team.value) return all
+  const teamId = team.value.id
+  return all.filter((p) => p.teamIds.includes(teamId))
+})
+
 const rows = computed(() => {
-  const all = query.data.value ?? []
+  const all = projects.value ?? []
   const filtered = statusFilter.value.length
     ? all.filter((p) => statusFilter.value.includes(p.status))
     : all
@@ -91,9 +101,9 @@ function openCreate() {
           aria-current="page"
           class="flex h-7 items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 text-ink"
         >
-          All projects
-          <span v-if="query.data.value" class="text-ink-subtle tabular-nums">
-            {{ query.data.value.length }}
+          {{ team ? `${team.name} projects` : 'All projects' }}
+          <span v-if="projects" class="text-ink-subtle tabular-nums">
+            {{ projects.length }}
           </span>
         </span>
       </nav>
@@ -103,8 +113,9 @@ function openCreate() {
       </div>
     </div>
 
+    <EmptyState v-if="notFound" title="Team not found" />
     <div
-      v-if="query.isPending.value"
+      v-else-if="query.isPending.value"
       class="grid pt-2"
       aria-busy="true"
       aria-label="Loading projects"
@@ -127,7 +138,7 @@ function openCreate() {
       <Button variant="secondary" size="sm" @click="query.refetch()">Retry</Button>
     </EmptyState>
     <EmptyState
-      v-else-if="query.data.value?.length === 0"
+      v-else-if="projects?.length === 0"
       :icon="FolderKanban"
       title="No projects yet"
       description="Projects group related issues across teams."

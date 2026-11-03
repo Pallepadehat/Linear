@@ -18,11 +18,13 @@
   --hairline-tertiary: #c8cad0;
   --ink: #0f1011;
   --ink-muted: #3c4149;
-  --ink-subtle: #6b6f76;
+  --ink-subtle: #686c73;
   --ink-tertiary: #8a8f98;
   --primary-color: #5e6ad2;
   --primary-hover: #4c57c0;
   --primary-focus: #5e69d1;
+  /* Text links: primary, lifted in dark to keep >= 4.5:1 on the canvas. */
+  --link: var(--primary-color);
   --on-primary: #ffffff;
   --success: #1f8a3a;
   /* Form errors; not in the marketing spec (design.md → Known gaps). */
@@ -61,6 +63,7 @@
   --primary-color: #5e6ad2;
   --primary-hover: #828fff;
   --primary-focus: #5e69d1;
+  --link: #828fff;
   --on-primary: #ffffff;
   --success: #27a644;
   --danger: #eb5757;
@@ -130,6 +133,7 @@
   --color-ink-tertiary: var(--ink-tertiary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-focus: var(--primary-focus);
+  --color-link: var(--link);
   --color-on-primary: var(--on-primary);
   --color-success: var(--success);
   --color-danger: var(--danger);
@@ -272,7 +276,7 @@
     @apply border-0 bg-transparent p-0 text-inherit;
   }
   .markdown-body a {
-    @apply cursor-pointer text-primary underline decoration-primary/40 underline-offset-2;
+    @apply cursor-pointer text-link underline decoration-link/40 underline-offset-2;
   }
   .markdown-body hr {
     @apply my-4 border-hairline;

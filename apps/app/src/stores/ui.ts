@@ -26,5 +26,18 @@ export const useUiStore = defineStore('ui', () => {
   /** Projects table filter: the statuses shown (empty = all). */
   const projectStatusFilter = ref<ProjectStatus[]>([])
 
-  return { createIssueOpen, createIssueDefaults, openCreateIssue, breadcrumb, projectStatusFilter }
+  /**
+   * Set by the sidebar search button; the issue filter bar focuses its search field and clears it.
+   * Stand-in until the command menu (M7-11) takes over search.
+   */
+  const searchFocusRequested = ref(false)
+
+  return {
+    createIssueOpen,
+    createIssueDefaults,
+    openCreateIssue,
+    breadcrumb,
+    searchFocusRequested,
+    projectStatusFilter,
+  }
 })
