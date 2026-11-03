@@ -19,3 +19,13 @@ describe('issueFacetsOptions', () => {
     expect(facets.today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 })
+
+describe('hasLinks', () => {
+  it('sends hasLinks only when "Has links" is on, never false', () => {
+    const off = inputOf(issueListOptions('tip', {}, EMPTY_FILTERS).queryKey)
+    expect(off).not.toHaveProperty('hasLinks')
+    const on = { ...EMPTY_FILTERS, hasLinks: true }
+    expect(inputOf(issueListOptions('tip', {}, on).queryKey).hasLinks).toBe(true)
+    expect(inputOf(issueFacetsOptions('tip', {}, on).queryKey).hasLinks).toBe(true)
+  })
+})

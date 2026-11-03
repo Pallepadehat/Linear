@@ -125,6 +125,12 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
         ? `marked as ${relation} ${identifier}`
         : `removed the relation with ${identifier}`
     }
+    case 'link': {
+      // [title, url]
+      const added = asList(entry.to)
+      const [title = 'a link'] = added.length ? added : asList(entry.from)
+      return added.length ? `added link ${title}` : `removed link ${title}`
+    }
     // Identifiers are stored as-is (team keys never change).
     case 'parent': {
       const to = asString(entry.to)

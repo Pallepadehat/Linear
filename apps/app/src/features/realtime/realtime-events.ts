@@ -12,6 +12,7 @@ import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { templatesKey } from '@/features/templates/queries'
 import {
   issueDetailKeys,
+  filtersByLinks,
   issueFacetsKey,
   issueListKey,
   writeIssueToCaches,
@@ -36,6 +37,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
     (fields.has('subscribers') && !!input.subscriberIds?.length) ||
     (fields.has('title') && !!input.q) ||
+    ((fields.has('links') || fields.has('pullRequests')) && input.hasLinks !== undefined) ||
     // Gaining or losing a parent moves the issue in or out of lists that hide sub-issues.
     (fields.has('parent') && (input.showSubIssues === false || !!input.excludeSubtreeOf))
   )
@@ -124,6 +126,9 @@ export function createRealtimeEventHandler({
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
     if (fields.some((f) => FACET_FIELDS.includes(f))) invalidateSoon('facets')
+    // Counts filtered by "Has links" change when the issue gains or loses its last link.
+    if (fields.includes('links') || fields.includes('pullRequests'))
+      void queryClient.invalidateQueries({ queryKey: issueFacetsKey(), predicate: filtersByLinks })
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.

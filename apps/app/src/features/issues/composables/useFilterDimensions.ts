@@ -8,6 +8,7 @@ import {
   CircleDashed,
   CircleUser,
   IterationCcw,
+  Link,
   Signal,
   Tag,
 } from '@lucide/vue'
@@ -55,6 +56,7 @@ export type FilterDimension = {
     | 'estimate'
     | 'due'
     | 'subscriber'
+    | 'links'
   label: string
   icon: Component
   options: FilterOption[]
@@ -318,6 +320,14 @@ export function useFilterDimensions(
         f.subscriberIds,
         (v) => update({ subscriberIds: v }),
         subscriberOptions,
+      ),
+      dimension(
+        'links',
+        'Links',
+        Link,
+        f.hasLinks ? [true] : [],
+        (v) => update({ hasLinks: v.length > 0 }),
+        [{ key: 'has', label: 'Has links', icon: Link, values: [true] }],
       ),
       ...(estimateTeams.length || f.estimates.length
         ? [
