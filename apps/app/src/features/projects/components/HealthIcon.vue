@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { ProjectHealth } from '@linear/contract'
 import { cn } from '@/lib/utils'
+import type { HealthValue } from '../project-health'
 
 // A ring around a dot, colored per health; an empty dashed ring before any update.
-defineProps<{ health: ProjectHealth | null; class?: string }>()
+defineProps<{ health: HealthValue | null; class?: string }>()
 </script>
 
 <template>

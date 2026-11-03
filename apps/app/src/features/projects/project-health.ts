@@ -1,5 +1,13 @@
 import type { ProjectHealth } from '@linear/contract'
 
+/**
+ * `ProjectHealth` spelled out, for component props: vite can't resolve zod-inferred
+ * types in `defineProps`. The check below keeps the two in sync.
+ */
+export type HealthValue = 'on_track' | 'at_risk' | 'off_track'
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
+export const HEALTH_MATCHES_CONTRACT: Same<HealthValue, ProjectHealth> = true
+
 // domain.md → Project updates; colors per docs/design.md → Color in the product.
 export const PROJECT_HEALTHS: { value: ProjectHealth; label: string }[] = [
   { value: 'on_track', label: 'On track' },

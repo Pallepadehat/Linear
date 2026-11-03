@@ -23,6 +23,7 @@ import ProjectMilestones from './ProjectMilestones.vue'
 import ProjectResources from './ProjectResources.vue'
 import ProjectStatusPicker from './ProjectStatusPicker.vue'
 import ProjectTeamsPicker from './ProjectTeamsPicker.vue'
+import ProjectUpdateCard from './ProjectUpdateCard.vue'
 
 const props = defineProps<{
   workspaceSlug: string
@@ -32,10 +33,6 @@ const props = defineProps<{
   labels: ProjectLabel[]
 }>()
 const emit = defineEmits<{ save: [changes: ProjectChanges] }>()
-defineSlots<{
-  /** The "Write first project update" card (M9-04 project updates). */
-  update?: () => unknown
-}>()
 const save = (changes: ProjectChanges) => emit('save', changes)
 
 // Name and summary are drafts while focused, saved on blur (Enter); Esc reverts.
@@ -252,17 +249,7 @@ const pickerRowClass =
       </div>
 
       <div id="project-section-update" tabindex="-1" :class="sectionClass">
-        <slot name="update">
-          <section
-            aria-label="Project update"
-            class="grid gap-1 rounded-lg border border-hairline bg-surface-1 px-4 py-3"
-          >
-            <h2 class="text-[13px] font-medium text-ink">Write first project update</h2>
-            <p class="text-[13px] text-ink-subtle">
-              Updates share the project's progress and health with the team.
-            </p>
-          </section>
-        </slot>
+        <ProjectUpdateCard :workspace-slug="workspaceSlug" :project-id="project.id" />
       </div>
 
       <section
