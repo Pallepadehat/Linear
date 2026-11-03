@@ -40,7 +40,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M2-06  | [x]    | Common UI: StatusIcon, PriorityIcon, UserAvatar, pickers                | M1-10      |
 | M2-07  | [x]    | Issue list (virtualized) + create issue dialog                          | M2-02, M2-06 |
 | M2-08  | [ ]    | Issue detail page: properties sidebar, description, comments, activity  | M2-04, M2-05, M2-06 |
-| M2-09  | [ ]    | Optimistic updates for status, priority, assignee, labels               | M2-07      |
+| M2-09  | [x]    | Optimistic updates for status, priority, assignee, labels               | M2-07      |
 
 ## M3 — Projects and views
 
@@ -117,3 +117,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-11-03 · LIN-39 / M3-02 · projects table (icon, name, teams, progress, status), lazy `/:workspaceSlug/project/:projectId` detail page with in-place edits and the project's issues via `IssueList`, `CreateProjectDialog` (vee-validate + contract schema), shared `ImageUploadButton` for avatar and project icon, `ProjectPicker` in the create issue dialog. Contract: project DTOs gain `progress`/`iconUrl`/`createdAt`; `issues.list` takes `projectId`. Lint, typecheck and all tests pass; checked in light and dark.
 2026-11-03 · LIN-35 / M3-03 · My Issues page with Assigned/Created tabs (URL-synced `?tab=`, keyboard tablist) reusing `IssueList` with a per-tab empty state and "Create issue" (preassigned from Assigned). Contract: `issues.list` takes `assignee: 'me'` / `creator: 'me'`, resolved to the session user; API test covers cross-user and cross-workspace isolation.
 2026-11-03 · LIN-11 / M2-04 · comments table (cascade with issue, migration 0007), `comments.list` (oldest first, cursor) / `create` / `update` (author only) / `delete` (author or owner, per domain.md Roles); DTO carries author name + avatar URL. Integration tests cover create/list, paging, FORBIDDEN edits/deletes, cascade and cross-workspace NOT_FOUND. Lint, typecheck and all tests pass.
+2026-11-03 · LIN-15 / M2-09 · `useUpdateIssue()` patches the infinite list and detail caches optimistically (cancel → snapshot → patch, rollback + toast on error, invalidate after the last in-flight change); compact status/priority/assignee/label pickers on issue rows; pure cache helpers in `issue-cache.ts` with unit tests. Checked with a 3 s delayed and a failing `issues.update` in the browser, light and dark. Lint, typecheck and all tests pass.
