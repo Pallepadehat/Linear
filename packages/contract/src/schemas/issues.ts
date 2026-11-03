@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
 import { labelSchema } from './labels'
+import { issueRelationsSchema } from './relations'
 import { statusCategorySchema, workflowStatusSchema } from './teams'
 
 /** 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (docs/domain.md → Priorities). */
@@ -48,6 +49,9 @@ export const issueSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
   completedAt: z.date().nullable(),
+  /** Open (not completed or canceled) issues blocking this one / blocked by it. */
+  blockedByCount: z.number().int().min(0),
+  blockingCount: z.number().int().min(0),
   parentId: z.uuid().nullable(),
   /**
    * Null without sub-issues. `done` counts completed-category sub-issues; canceled
@@ -58,7 +62,10 @@ export const issueSchema = z.object({
     .nullable(),
 })
 
-/** `issues.get` / `getByIdentifier`: the issue with its parent and sub-issues (oldest first). */
+/**
+ * `issues.get` / `getByIdentifier`: the issue with its parent, sub-issues (oldest first)
+ * and relations.
+ */
 export const issueDetailSchema = issueSchema.extend({
   parent: z
     .object({
@@ -69,6 +76,7 @@ export const issueDetailSchema = issueSchema.extend({
     })
     .nullable(),
   children: z.array(issueSchema),
+  relations: issueRelationsSchema,
 })
 
 const labelIdsSchema = z.array(z.uuid()).max(50)

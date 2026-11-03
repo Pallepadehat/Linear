@@ -194,10 +194,13 @@ describe('issues procedures', () => {
       projectId: null,
       labels: [bug],
       completedAt: null,
+      blockedByCount: 0,
+      blockingCount: 0,
     })
     expect(issue.createdAt).toBeInstanceOf(Date)
 
-    const detail = { ...issue, parent: null, children: [] }
+    const relations = { blocks: [], blockedBy: [], related: [], duplicateOf: [], duplicates: [] }
+    const detail = { ...issue, parent: null, children: [], relations }
     expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual(detail)
     expect(await issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'tip-1' })).toEqual(
       detail,

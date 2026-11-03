@@ -21,6 +21,7 @@ export const issueFieldSchema = z.enum([
   'parent',
   'subIssues',
   'subscribers',
+  'relations',
 ])
 
 const base = {

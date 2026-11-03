@@ -108,6 +108,15 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       ].filter(Boolean)
       return parts.join(' and ') || 'changed the labels'
     }
+    case 'relation': {
+      // [role, otherIssueId, otherIdentifier], read from this issue's side.
+      const added = asList(entry.to)
+      const [role, , identifier = 'an issue'] = added.length ? added : asList(entry.from)
+      const relation = RELATION_PHRASES[role as keyof typeof RELATION_PHRASES] ?? 'related to'
+      return added.length
+        ? `marked as ${relation} ${identifier}`
+        : `removed the relation with ${identifier}`
+    }
     // Identifiers are stored as-is (team keys never change).
     case 'parent': {
       const to = asString(entry.to)
@@ -118,4 +127,12 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       return to ? `added sub-issue ${to}` : `removed sub-issue ${asString(entry.from) ?? ''}`.trim()
     }
   }
+}
+
+const RELATION_PHRASES = {
+  blocks: 'blocking',
+  blocked_by: 'blocked by',
+  related: 'related to',
+  duplicate_of: 'a duplicate of',
+  duplicated_by: 'duplicated by',
 }

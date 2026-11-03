@@ -33,6 +33,8 @@ function issue(id: string, s: WorkflowStatus, parentId: string | null = null): I
     createdAt: now,
     updatedAt: now,
     completedAt: null,
+    blockedByCount: 0,
+    blockingCount: 0,
     parentId,
     subIssueProgress: null,
   }

@@ -120,3 +120,20 @@ export function toUpdateIssueInput(
     ...(patch.dueDate !== undefined && { dueDate: patch.dueDate }),
   }
 }
+
+/** The detail without the relation `relationId`, on whichever side it was listed. */
+export function removeRelation(detail: IssueDetail, relationId: string): IssueDetail {
+  const without = (list: IssueDetail['relations']['blocks']) =>
+    list.filter((related) => related.relationId !== relationId)
+  const { blocks, blockedBy, related, duplicateOf, duplicates } = detail.relations
+  return {
+    ...detail,
+    relations: {
+      blocks: without(blocks),
+      blockedBy: without(blockedBy),
+      related: without(related),
+      duplicateOf: without(duplicateOf),
+      duplicates: without(duplicates),
+    },
+  }
+}

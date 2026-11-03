@@ -135,6 +135,7 @@ const projectId = computed({
         @toggle="(user, subscribe) => emit('subscription', user, subscribe)"
       />
     </section>
+    <!-- Filled in by M4-07 (linked PRs). -->
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Linked pull requests</h2>
       <LinkedPullRequests :pull-requests="pullRequests" />
