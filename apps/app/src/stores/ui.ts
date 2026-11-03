@@ -67,7 +67,6 @@ export const useUiStore = defineStore('ui', () => {
     createIssuePrefill,
     openCreateIssue,
     breadcrumb,
-    searchFocusRequested,
     projectStatusFilter,
     createProjectOpen,
     commandMenuOpen,
