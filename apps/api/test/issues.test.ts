@@ -626,6 +626,50 @@ describe('issues.list filters, sorting and search', () => {
     expect(await ids({ labelIds: [crypto.randomUUID()] })).toEqual([])
   })
 
+  it('filters by status category (view tabs), combined with status ids', async () => {
+    const { issues, created, status, ids } = await seeded()
+    // TIP-2 and TIP-5 are Todo (unstarted); move TIP-4 to In Progress and TIP-3 to Done.
+    await issues.update({
+      workspaceSlug: 'tip',
+      id: created[3]!.id,
+      statusId: status('In Progress').id,
+    })
+    await issues.update({ workspaceSlug: 'tip', id: created[2]!.id, statusId: status('Done').id })
+
+    // Active = started + unstarted, Backlog = backlog.
+    expect(await ids({ statusCategories: ['started', 'unstarted'] })).toEqual([
+      'TIP-5',
+      'TIP-4',
+      'TIP-2',
+    ])
+    expect(await ids({ statusCategories: ['backlog'] })).toEqual(['TIP-1'])
+    expect(await ids({ statusCategories: ['completed'] })).toEqual(['TIP-3'])
+    // An empty list doesn't filter.
+    expect(await ids({ statusCategories: [] })).toHaveLength(5)
+    // AND with status ids: a status outside the categories matches nothing.
+    expect(
+      await ids({ statusCategories: ['started', 'unstarted'], statusIds: [status('Todo').id] }),
+    ).toEqual(['TIP-5', 'TIP-2'])
+    expect(await ids({ statusCategories: ['backlog'], statusIds: [status('Todo').id] })).toEqual([])
+    // Combines with the page scope and other filters too.
+    expect(await ids({ statusCategories: ['unstarted'], priorities: [1] })).toEqual(['TIP-2'])
+    // Unknown categories are rejected by the contract.
+    await expect(
+      issues.list({ workspaceSlug: 'tip', statusCategories: ['doing' as 'started'] }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+
+    // Another workspace's members can't list these issues, by category or otherwise.
+    const stranger = await signUp(app, 'Stranger')
+    await stranger.client.workspaces.create({ name: 'Mine', slug: 'mine' })
+    await expect(
+      stranger.client.issues.list({ workspaceSlug: 'tip', statusCategories: ['backlog'] }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    expect(
+      (await stranger.client.issues.list({ workspaceSlug: 'mine', statusCategories: ['backlog'] }))
+        .items,
+    ).toEqual([])
+  })
+
   it('sorts by created, updated and priority in both directions, with stable cursors', async () => {
     const { issues, created, ids } = await seeded()
 

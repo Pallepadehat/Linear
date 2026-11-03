@@ -35,6 +35,12 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('comment.created'), ...base, commentId: z.uuid() }),
   z.object({ type: z.literal('comment.updated'), ...base, commentId: z.uuid() }),
   z.object({ type: z.literal('comment.deleted'), ...base, commentId: z.uuid() }),
+  z.object({
+    type: z.literal('template.updated'),
+    templateId: z.uuid(),
+    actorId: base.actorId,
+    originId: base.originId,
+  }),
   // A member's presence changed (online/away, viewed issue, went offline); clients refetch.
   z.object({
     type: z.literal('presence.changed'),
