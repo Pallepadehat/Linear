@@ -9,7 +9,13 @@ import { useIssueFilters } from '../composables/useIssueFilters'
 import IssueFilterMenu from './IssueFilterMenu.vue'
 import IssueSortMenu from './IssueSortMenu.vue'
 
-const props = defineProps<{ workspaceSlug: string; teamId?: string; projectId?: string }>()
+const props = defineProps<{
+  workspaceSlug: string
+  teamId?: string
+  projectId?: string
+  /** The view toolbar above shows the Filter button instead. */
+  hideFilterMenu?: boolean
+}>()
 
 const SEARCH_DEBOUNCE_MS = 250
 
@@ -50,7 +56,7 @@ function clearSearch(event: KeyboardEvent) {
     role="toolbar"
     aria-label="Issue filters"
   >
-    <IssueFilterMenu :dimensions="dimensions" />
+    <IssueFilterMenu v-if="!hideFilterMenu" :dimensions="dimensions" />
     <div
       v-for="dimension in activeDimensions"
       :key="dimension.key"
