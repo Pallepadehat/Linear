@@ -270,6 +270,7 @@ watchEffect(() => {
             v-else
             class="flex-1"
             :issue="row.issue"
+            :depth="row.depth"
             :data-issue-id="row.issue.id"
             :focused="row.issue.id === focusedId"
             :selected="selectedIds.has(row.issue.id)"

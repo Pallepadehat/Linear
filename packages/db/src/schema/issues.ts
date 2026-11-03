@@ -9,6 +9,7 @@ import {
   timestamp,
   unique,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { users } from './auth'
 import { id, timestamps } from './columns'
@@ -43,6 +44,8 @@ export const issues = pgTable(
     projectId: uuid().references(() => projects.id, { onDelete: 'set null' }),
     // Points on the team's estimate scale; null = no estimate (docs/domain.md → Estimates).
     estimate: integer(),
+    // Sub-issues: same workspace, never a cycle (packages/core/src/issues/parent.ts).
+    parentId: uuid().references((): AnyPgColumn => issues.id, { onDelete: 'set null' }),
     // A calendar day (YYYY-MM-DD), no time or timezone (docs/domain.md → Due dates).
     dueDate: date({ mode: 'string' }),
     completedAt: timestamp({ withTimezone: true }),
@@ -54,6 +57,7 @@ export const issues = pgTable(
     index().on(t.statusId),
     index().on(t.assigneeId),
     index().on(t.projectId),
+    index().on(t.parentId),
     // List filters and sorts (issues.list); the id is the keyset tie-breaker.
     index().on(t.workspaceId, t.priority),
     index().on(t.workspaceId, t.estimate),

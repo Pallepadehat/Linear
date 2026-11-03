@@ -131,6 +131,25 @@ describe('realtime', () => {
     )
   })
 
+  it('tells both the sub-issue and its parent when the parent changes', async () => {
+    const { owner, member, team, issue } = await workspaceWithIssue()
+    const parent = await owner.client.issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'Parent',
+    })
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    await owner.client.issues.update({ workspaceSlug: 'tip', id: issue.id, parentId: parent.id })
+
+    await eventually(() =>
+      expect(events).toEqual([
+        { type: 'issue.updated', issueId: issue.id, fields: ['parent'], actorId: owner.userId },
+        { type: 'issue.updated', issueId: parent.id, fields: ['subIssues'], actorId: owner.userId },
+      ]),
+    )
+  })
+
   it('skips the echo of a change made by the subscribing tab itself', async () => {
     const { owner, issue } = await workspaceWithIssue()
     const { events } = await subscribe(owner.cookie, 'tip', 'tab-1')

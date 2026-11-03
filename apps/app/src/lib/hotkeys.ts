@@ -59,6 +59,7 @@ export const SHORTCUTS = {
   'issue-prev': { keys: 'k', label: 'Previous issue', scope: 'issue' },
   'issue-back': { keys: 'escape', label: 'Go back', scope: 'issue' },
   'issue-delete': { keys: 'mod+backspace', label: 'Delete issue', scope: 'issue' },
+  'issue-set-parent': { keys: 'mod+shift+p', label: 'Set parent issue', scope: 'issue' },
   'issue-status': { keys: 's', label: 'Change status', scope: 'picker', inDialog: true },
   'issue-priority': { keys: 'p', label: 'Change priority', scope: 'picker', inDialog: true },
   'issue-assignee': { keys: 'a', label: 'Assign to', scope: 'picker', inDialog: true },

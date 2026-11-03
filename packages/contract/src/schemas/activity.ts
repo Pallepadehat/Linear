@@ -15,12 +15,15 @@ export const activityKindSchema = z.enum([
   'labels',
   'estimate',
   'due_date',
+  'parent',
+  'sub_issue',
 ])
 
 /**
  * Per kind: `title` text, `status`/`assignee`/`project` ids, `priority` number,
- * `labels` sorted label ids, `estimate` number or null, `due_date` a `YYYY-MM-DD` day (null when
- * unset). `created` and `description` carry no values.
+ * `labels` sorted label ids, `estimate` number or null, `due_date` a `YYYY-MM-DD` day (null when unset), `parent`
+ * the old/new parent identifier (`TIP-12`), `sub_issue` the added (`to`) or removed
+ * (`from`) sub-issue identifier. `created` and `description` carry no values.
  */
 export const activityValueSchema = z.union([z.string(), z.number(), z.array(z.string())]).nullable()
 
