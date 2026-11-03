@@ -7,6 +7,8 @@ const logLevel = z
 
 const s3 = {
   S3_ENDPOINT: z.url(),
+  // Browser-facing storage URL for presigned links; defaults to S3_ENDPOINT.
+  S3_PUBLIC_ENDPOINT: z.url().optional(),
   S3_REGION: z.string().min(1).default('us-east-1'),
   S3_ACCESS_KEY: z.string().min(1),
   S3_SECRET_KEY: z.string().min(1),

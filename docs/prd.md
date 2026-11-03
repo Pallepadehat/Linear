@@ -1100,6 +1100,7 @@ List procedures use cursor pagination. Errors use oRPC typed errors (`UNAUTHORIZ
 | `BETTER_AUTH_URL`           | api           | `http://localhost:5173`                   |
 | `APP_URL`                   | api           | `http://localhost:5173` (CORS, trusted origins) |
 | `S3_ENDPOINT`               | api, worker   | `http://localhost:9000`                   |
+| `S3_PUBLIC_ENDPOINT`        | api, worker   | optional; browser-facing storage URL for presigned links (defaults to `S3_ENDPOINT`) |
 | `S3_REGION`                 | api, worker   | `us-east-1`                               |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | api, worker | MinIO credentials                     |
 | `S3_BUCKET`                 | api, worker   | `linear-uploads`                          |

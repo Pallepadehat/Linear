@@ -34,6 +34,26 @@ describe('loadApiEnv', () => {
   })
 })
 
+describe('loadApiEnv blank values', () => {
+  it('treats KEY= as unset, as in .env.example', () => {
+    const env = loadApiEnv({
+      ...validApi,
+      S3_PUBLIC_ENDPOINT: '',
+      GITHUB_APP_ID: '',
+      GITHUB_APP_PRIVATE_KEY: '',
+      GITHUB_APP_SLUG: '',
+      GITHUB_APP_CLIENT_ID: '',
+      GITHUB_APP_CLIENT_SECRET: '',
+      GITHUB_WEBHOOK_SECRET: '',
+      PORT: '',
+    })
+    expect(env.S3_PUBLIC_ENDPOINT).toBeUndefined()
+    expect(env.GITHUB_APP_ID).toBeUndefined()
+    expect(env.GITHUB_WEBHOOK_SECRET).toBeUndefined()
+    expect(env.PORT).toBe(3000)
+  })
+})
+
 describe('loadApiEnv GitHub App', () => {
   const app = {
     GITHUB_APP_ID: '1',

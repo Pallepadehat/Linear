@@ -28,15 +28,17 @@ export function createStorage(
   client: S3Client = createS3Client(config),
 ): Storage {
   const Bucket = config.bucket
+  // Signing is offline, but the signature covers the host, so sign for the one the browser sees.
+  const signer = config.publicEndpoint ? createS3Client(config, config.publicEndpoint) : client
   return {
     presignPut: (Key, ContentType, ContentLength) =>
       // Signing type and length makes the URL reject any other file.
-      getSignedUrl(client, new PutObjectCommand({ Bucket, Key, ContentType, ContentLength }), {
+      getSignedUrl(signer, new PutObjectCommand({ Bucket, Key, ContentType, ContentLength }), {
         expiresIn: PRESIGNED_PUT_TTL_SECONDS,
         signableHeaders: new Set(['content-type', 'content-length']),
       }),
     presignGet: (Key) =>
-      getSignedUrl(client, new GetObjectCommand({ Bucket, Key }), {
+      getSignedUrl(signer, new GetObjectCommand({ Bucket, Key }), {
         expiresIn: PRESIGNED_GET_TTL_SECONDS,
       }),
     async head(Key) {
