@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   type AnyPgColumn,
   type PgTableExtraConfigValue,
+  boolean,
   check,
   foreignKey,
   index,
@@ -40,6 +41,14 @@ export const teams = pgTable(
     defaultStatusId: uuid(),
     defaultPriority: integer().notNull().default(0),
     defaultAssigneeId: uuid().references(() => users.id, { onDelete: 'set null' }),
+    // Cycle settings (docs/domain.md → Cycles). Weekday 0 = Sunday, as in JS.
+    cyclesEnabled: boolean().notNull().default(false),
+    cycleDurationWeeks: integer().notNull().default(2),
+    cycleStartWeekday: integer().notNull().default(1),
+    cycleCooldownWeeks: integer().notNull().default(0),
+    cycleUpcomingCount: integer().notNull().default(2),
+    cycleAutoAddStarted: boolean().notNull().default(true),
+    cycleRolloverUnfinished: boolean().notNull().default(true),
     ...timestamps,
   },
   // Annotated: the FK to workflow_statuses makes the two table types refer to each other.
@@ -54,6 +63,10 @@ export const teams = pgTable(
     index().on(t.workspaceId),
     check('teams_key_format', sql`${t.key} ~ '^[A-Z][A-Z0-9]{1,9}$'`),
     check('teams_issue_counter_non_negative', sql`${t.issueCounter} >= 0`),
+    check('teams_cycle_duration_range', sql`${t.cycleDurationWeeks} between 1 and 8`),
+    check('teams_cycle_start_weekday_range', sql`${t.cycleStartWeekday} between 0 and 6`),
+    check('teams_cycle_cooldown_range', sql`${t.cycleCooldownWeeks} between 0 and 2`),
+    check('teams_cycle_upcoming_range', sql`${t.cycleUpcomingCount} between 1 and 6`),
   ],
 )
 

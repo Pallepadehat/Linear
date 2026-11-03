@@ -6,14 +6,15 @@ import type {
   RealtimeIssueField,
 } from '@linear/contract'
 import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
+import { cyclesKey } from '@/features/cycles/queries'
 import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { issueDetailKeys, issueListKey, writeIssueToCaches } from '@/features/issues/queries'
 import { client, orpc } from '@/lib/orpc'
 
-// Fields that decide which lists an issue is in (My Issues, project); a status change
-// only regroups, which the patched copy already does.
-const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project']
+// Fields that decide which lists an issue is in (My Issues, project, cycle); a status
+// change only regroups, which the patched copy already does.
+const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project', 'cycle']
 // Whether a list with this input may gain, lose or reorder an issue when these
 // fields change: only filtered or sorted lists depend on more than membership.
 function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssueField>) {
@@ -27,8 +28,8 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
 }
 const listInput = (query: Query) =>
   (query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input ?? {}
-// Fields that change project progress counts.
-const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project']
+// Fields that change project and cycle progress counts.
+const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project', 'cycle']
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.
 const COALESCE_MS = 300
 
@@ -49,6 +50,7 @@ export function createRealtimeEventHandler({
   workspaceSlug,
   fetchIssue = (id) => client.issues.get({ workspaceSlug, id }),
 }: Deps) {
+  // `projects` covers every progress count: projects and cycles.
   const pending = new Set<'lists' | 'projects'>()
   // Changed fields that only matter to filtered or sorted lists.
   const pendingFields = new Set<RealtimeIssueField>()
@@ -58,7 +60,10 @@ export function createRealtimeEventHandler({
     timer = undefined
     if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
     else if (pendingFields.size) invalidateDependentLists(new Set(pendingFields))
-    if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (pending.has('projects')) {
+      void queryClient.invalidateQueries({ queryKey: projectsKey() })
+      void queryClient.invalidateQueries({ queryKey: cyclesKey() })
+    }
     pending.clear()
     pendingFields.clear()
   }

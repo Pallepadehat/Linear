@@ -17,13 +17,14 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  cycleId?: string
 }>()
 
 const ui = useUiStore()
 const { active: filtered, clear: clearFilters } = useIssueFilters()
 const { query, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
   () => props.workspaceSlug,
-  () => ({ teamId: props.teamId, projectId: props.projectId }),
+  () => ({ teamId: props.teamId, projectId: props.projectId, cycleId: props.cycleId }),
 )
 
 // Pages are newest-first across all statuses, so every column is only complete
@@ -71,7 +72,12 @@ function onDrop(column: Column) {
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <IssueFilterBar :workspace-slug="workspaceSlug" :team-id="teamId" :project-id="projectId" />
+    <IssueFilterBar
+      :workspace-slug="workspaceSlug"
+      :team-id="teamId"
+      :project-id="projectId"
+      :cycle-id="cycleId"
+    />
     <div
       v-if="loading"
       class="flex min-h-0 flex-1 gap-3 overflow-hidden p-3"
@@ -116,7 +122,9 @@ function onDrop(column: Column) {
       title="No issues yet"
       description="Create an issue to start tracking work."
     >
-      <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+      <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId, cycleId })"
+        >New issue</Button
+      >
     </EmptyState>
     <div v-else class="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
       <BoardColumn
@@ -133,7 +141,7 @@ function onDrop(column: Column) {
         @dragstart="onDragStart"
         @dragend="endDrag"
         @drop="onDrop(column)"
-        @create="ui.openCreateIssue({ teamId, projectId, statusId: column.status.id })"
+        @create="ui.openCreateIssue({ teamId, projectId, cycleId, statusId: column.status.id })"
       />
     </div>
   </div>

@@ -29,6 +29,8 @@ export type ActivityNames = {
   status: (id: string) => string | undefined
   user: (id: string) => string | undefined
   project: (id: string) => string | undefined
+  /** Absent where cycles aren't loaded; entries then read "a cycle". */
+  cycle?: (id: string) => string | undefined
   label: (id: string) => string | undefined
 }
 
@@ -78,6 +80,12 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
       const to = asString(entry.to)
       if (to) return `moved the issue to ${name(names.project, to, 'a removed project')}`
       return `removed the issue from ${name(names.project, asString(entry.from), 'its project')}`
+    }
+    case 'cycle': {
+      const cycleName = names.cycle ?? (() => undefined)
+      const to = asString(entry.to)
+      if (to) return `moved the issue to ${name(cycleName, to, 'a cycle')}`
+      return `removed the issue from ${name(cycleName, asString(entry.from), 'its cycle')}`
     }
     case 'labels': {
       const from = asList(entry.from)

@@ -1,11 +1,14 @@
-import { CircleDashed, CircleUser, Signal, Tag, Box } from '@lucide/vue'
+import { CircleDashed, CircleUser, IterationCcw, Signal, Tag, Box } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, h, type Component, type MaybeRefOrGetter, toValue } from 'vue'
+import CycleIcon from '@/components/common/CycleIcon.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import UnassignedIcon from '@/components/common/UnassignedIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import { cycleName, cyclePercent } from '@/features/cycles/cycles'
+import { cycleListOptions } from '@/features/cycles/queries'
 import { orpc } from '@/lib/orpc'
 import { PRIORITIES } from '@/lib/priorities'
 import { CATEGORY_ORDER } from '../group-issues'
@@ -21,7 +24,7 @@ export type FilterOption = {
 }
 
 export type FilterDimension = {
-  key: 'status' | 'priority' | 'assignee' | 'project' | 'label'
+  key: 'status' | 'priority' | 'assignee' | 'project' | 'cycle' | 'label'
   label: string
   icon: Component
   options: FilterOption[]
@@ -30,7 +33,7 @@ export type FilterDimension = {
   clear: () => void
 }
 
-type Scope = { workspaceSlug: string; teamId?: string; projectId?: string }
+type Scope = { workspaceSlug: string; teamId?: string; projectId?: string; cycleId?: string }
 
 /**
  * The filter menu's dimensions and their options, built from workspace data.
@@ -54,6 +57,18 @@ export function useFilterDimensions(
   )
   const { data: labels } = useQuery(
     computed(() => orpc.labels.list.queryOptions({ input: input.value })),
+  )
+  // Cycles belong to a team, so only a team's views (with cycles on) filter by them.
+  const cycleTeam = computed(() => {
+    const { teamId, cycleId } = toValue(scope)
+    if (!teamId || cycleId) return undefined
+    return teams.value?.find((team) => team.id === teamId && team.cyclesEnabled)
+  })
+  const { data: cycles } = useQuery(
+    computed(() => ({
+      ...cycleListOptions(input.value.workspaceSlug, cycleTeam.value?.id ?? ''),
+      enabled: Boolean(cycleTeam.value),
+    })),
   )
 
   function dimension<T>(
@@ -144,6 +159,16 @@ export function useFilterDimensions(
       })),
     ]
 
+    const cycleOptions = [
+      { key: 'none', label: 'No cycle', icon: () => h(CycleIcon), values: [null] },
+      ...(cycles.value ?? []).map((c) => ({
+        key: c.id,
+        label: cycleName(c),
+        icon: () => h(CycleIcon, { progress: cyclePercent(c.progress) / 100 }),
+        values: [c.id as string | null],
+      })),
+    ]
+
     const labelOptions = (labels.value ?? []).map((l) => ({
       key: l.id,
       label: l.name,
@@ -195,6 +220,18 @@ export function useFilterDimensions(
               projectOptions,
             ),
           ]),
+      ...(cycleTeam.value
+        ? [
+            dimension(
+              'cycle',
+              'Cycle',
+              IterationCcw,
+              f.cycleIds,
+              (v) => update({ cycleIds: v }),
+              cycleOptions,
+            ),
+          ]
+        : []),
       dimension('label', 'Labels', Tag, f.labelIds, (v) => update({ labelIds: v }), labelOptions),
     ]
   })

@@ -26,6 +26,7 @@ function issue(id: string, s: WorkflowStatus): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    cycleId: null,
     labels: [],
     createdAt: now,
     updatedAt: now,

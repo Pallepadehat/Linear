@@ -5,9 +5,19 @@ import { computed, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
+import OptionPicker from '@/components/common/OptionPicker.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import { Switch } from '@/components/ui/switch'
+import {
+  WEEKDAYS,
+  assignableCycles,
+  cycleName,
+  cycleRange,
+  previewFirstCycle,
+} from '@/features/cycles/cycles'
+import { cycleListOptions, cyclesKey } from '@/features/cycles/queries'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { errorCode, errorMessage } from '@/lib/errors'
 import { client, orpc } from '@/lib/orpc'
@@ -55,8 +65,14 @@ const update = useMutation({
     toast.error(errorMessage(error))
   },
   onSuccess: (saved) => queryClient.setQueryData(teamOptions.value.queryKey, saved),
-  // The create dialog reads the same query, so it picks up the new defaults.
-  onSettled: () => queryClient.invalidateQueries({ queryKey: orpc.teams.get.key() }),
+  // The create dialog reads the same query, so it picks up the new defaults; the
+  // sidebar (teams.list) shows Cycles only for teams with cycles on.
+  onSettled: () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: orpc.teams.get.key() }),
+      queryClient.invalidateQueries({ queryKey: orpc.teams.list.key() }),
+      queryClient.invalidateQueries({ queryKey: cyclesKey() }),
+    ]),
 })
 
 const defaultStatusId = computed({
@@ -70,6 +86,46 @@ const defaultPriority = computed({
 const defaultAssigneeId = computed({
   get: () => team.value?.defaultAssigneeId ?? null,
   set: (id: string | null) => update.mutate({ defaultAssigneeId: id }),
+})
+
+type CycleSettingKey =
+  'cycleDurationWeeks' | 'cycleStartWeekday' | 'cycleCooldownWeeks' | 'cycleUpcomingCount'
+const setting = (key: CycleSettingKey) =>
+  computed({
+    get: () => team.value?.[key] ?? 0,
+    set: (value: number) => update.mutate({ [key]: value }),
+  })
+const toggle = (key: 'cyclesEnabled' | 'cycleAutoAddStarted' | 'cycleRolloverUnfinished') =>
+  computed({
+    get: () => team.value?.[key] ?? false,
+    set: (value: boolean) => update.mutate({ [key]: value }),
+  })
+const cyclesEnabled = toggle('cyclesEnabled')
+const autoAdd = toggle('cycleAutoAddStarted')
+const rollover = toggle('cycleRolloverUnfinished')
+const duration = setting('cycleDurationWeeks')
+const weekday = setting('cycleStartWeekday')
+const cooldown = setting('cycleCooldownWeeks')
+const upcomingCount = setting('cycleUpcomingCount')
+
+const weeks = (n: number) => (n === 0 ? 'None' : n === 1 ? '1 week' : `${n} weeks`)
+const DURATION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ value: n, label: weeks(n) }))
+const COOLDOWN_OPTIONS = [0, 1, 2].map((n) => ({ value: n, label: weeks(n) }))
+const UPCOMING_OPTIONS = [1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: String(n) }))
+const WEEKDAY_OPTIONS = WEEKDAYS.map((label, value) => ({ value, label }))
+
+const { data: cycles } = useQuery(
+  computed(() => ({
+    ...cycleListOptions(slug.value, team.value?.id ?? ''),
+    enabled: Boolean(team.value?.cyclesEnabled),
+  })),
+)
+// The scheduled current/next cycle once cycles are on; before that, what turning them on would create.
+const preview = computed(() => {
+  if (!team.value) return null
+  const next = team.value.cyclesEnabled ? assignableCycles(cycles.value ?? [])[0] : undefined
+  if (next) return `${cycleName(next)} · ${cycleRange(next)}`
+  return `Cycle 1 · ${cycleRange(previewFirstCycle(team.value))}`
 })
 </script>
 
@@ -110,6 +166,67 @@ const defaultAssigneeId = computed({
           <span class="text-ink-muted">Assignee</span>
           <AssigneePicker v-model="defaultAssigneeId" :users="assignees" no-hotkey />
         </div>
+      </div>
+    </section>
+    <section aria-labelledby="cycles-heading" class="grid gap-3">
+      <div class="grid gap-1">
+        <h2 id="cycles-heading" class="text-xs font-medium tracking-wide text-ink-subtle uppercase">
+          Cycles
+        </h2>
+        <p class="text-ink-subtle">
+          Time-boxed iterations, scheduled automatically. Dates follow UTC days.
+          <template v-if="workspace && !isOwner">Only workspace owners can change them.</template>
+        </p>
+      </div>
+      <div
+        class="divide-y divide-hairline rounded-lg border border-hairline bg-surface-1"
+        :class="{ 'pointer-events-none opacity-60': !isOwner }"
+        :inert="!isOwner || undefined"
+      >
+        <label class="flex items-center justify-between gap-4 px-4 py-2.5">
+          <span class="text-ink-muted">Enable cycles</span>
+          <Switch v-model="cyclesEnabled" />
+        </label>
+        <template v-if="team.cyclesEnabled">
+          <div class="flex items-center justify-between gap-4 px-4 py-2">
+            <span class="text-ink-muted">Cycle length</span>
+            <OptionPicker v-model="duration" label="Cycle length" :options="DURATION_OPTIONS" />
+          </div>
+          <div class="flex items-center justify-between gap-4 px-4 py-2">
+            <span class="text-ink-muted">Starts on</span>
+            <OptionPicker v-model="weekday" label="Start day" :options="WEEKDAY_OPTIONS" />
+          </div>
+          <div class="flex items-center justify-between gap-4 px-4 py-2">
+            <span class="text-ink-muted">Cooldown between cycles</span>
+            <OptionPicker v-model="cooldown" label="Cooldown" :options="COOLDOWN_OPTIONS" />
+          </div>
+          <div class="flex items-center justify-between gap-4 px-4 py-2">
+            <span class="text-ink-muted">Upcoming cycles</span>
+            <OptionPicker
+              v-model="upcomingCount"
+              label="Upcoming cycles"
+              :options="UPCOMING_OPTIONS"
+            />
+          </div>
+          <label class="flex items-center justify-between gap-4 px-4 py-2.5">
+            <span class="grid">
+              <span class="text-ink-muted">Add started issues to the current cycle</span>
+              <span class="text-xs text-ink-subtle">When an issue moves to a started status</span>
+            </span>
+            <Switch v-model="autoAdd" />
+          </label>
+          <label class="flex items-center justify-between gap-4 px-4 py-2.5">
+            <span class="grid">
+              <span class="text-ink-muted">Move unfinished issues to the next cycle</span>
+              <span class="text-xs text-ink-subtle">When a cycle ends</span>
+            </span>
+            <Switch v-model="rollover" />
+          </label>
+        </template>
+        <p class="flex items-center justify-between gap-4 px-4 py-2.5 text-ink-subtle">
+          <span>{{ team.cyclesEnabled ? 'Current or next cycle' : 'First cycle' }}</span>
+          <span class="text-ink-muted tabular-nums">{{ preview }}</span>
+        </p>
       </div>
     </section>
   </div>

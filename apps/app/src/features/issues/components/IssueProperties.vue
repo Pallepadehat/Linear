@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import type { Cycle, Issue, Label, WorkflowStatus } from '@linear/contract'
 import { GitPullRequest } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import CyclePicker from '@/components/common/CyclePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import { assignableCycles } from '@/features/cycles/cycles'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { fullDate, timeAgo } from '@/lib/relative-time'
 import type { IssuePatch } from '../issue-cache'
@@ -17,6 +19,9 @@ const props = defineProps<{
   users: AssigneeOption[]
   labels: Label[]
   projects: ProjectOption[]
+  /** The team's cycles; the Cycle section only shows when the team has cycles on. */
+  cycles?: Cycle[]
+  cyclesEnabled?: boolean
 }>()
 const emit = defineEmits<{ change: [patch: IssuePatch] }>()
 
@@ -51,6 +56,14 @@ const projectId = computed({
   get: () => props.issue.projectId,
   set: (id: string | null) => {
     if (id !== props.issue.projectId) emit('change', { projectId: id })
+  },
+})
+const cycleOptions = computed(() => assignableCycles(props.cycles ?? []))
+const issueCycle = computed(() => props.cycles?.find((c) => c.id === props.issue.cycleId) ?? null)
+const cycleId = computed({
+  get: () => props.issue.cycleId,
+  set: (id: string | null) => {
+    if (id !== props.issue.cycleId) emit('change', { cycleId: id })
   },
 })
 </script>
@@ -88,6 +101,10 @@ const projectId = computed({
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>
       <ProjectPicker v-model="projectId" :projects="projects" />
+    </section>
+    <section v-if="cyclesEnabled || issue.cycleId" class="grid gap-1">
+      <h2 class="px-2 text-xs font-medium text-ink-subtle">Cycle</h2>
+      <CyclePicker v-model="cycleId" :cycles="cycleOptions" :selected="issueCycle" />
     </section>
     <!-- Filled in by M4-07 (linked PRs). -->
     <section class="grid gap-1">

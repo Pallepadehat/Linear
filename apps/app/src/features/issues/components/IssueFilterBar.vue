@@ -9,7 +9,12 @@ import { useIssueFilters } from '../composables/useIssueFilters'
 import IssueFilterMenu from './IssueFilterMenu.vue'
 import IssueSortMenu from './IssueSortMenu.vue'
 
-const props = defineProps<{ workspaceSlug: string; teamId?: string; projectId?: string }>()
+const props = defineProps<{
+  workspaceSlug: string
+  teamId?: string
+  projectId?: string
+  cycleId?: string
+}>()
 
 const SEARCH_DEBOUNCE_MS = 250
 

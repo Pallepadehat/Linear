@@ -89,6 +89,8 @@ describe('describeActivity', () => {
     [activity('assignee', 'u2', null), 'unassigned Grace Hopper'],
     [activity('project', null, 'p1'), 'moved the issue to Launch'],
     [activity('project', 'p1', null), 'removed the issue from Launch'],
+    [activity('cycle', null, 'c1'), 'moved the issue to a cycle'],
+    [activity('cycle', 'c1', null), 'removed the issue from its cycle'],
     [activity('labels', [], ['l1']), 'added label Bug'],
     [
       activity('labels', ['l1'], ['l2', 'l3']),

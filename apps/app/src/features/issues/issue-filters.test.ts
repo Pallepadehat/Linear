@@ -17,6 +17,7 @@ describe('issue filters in the URL', () => {
       priorities: [1, 0],
       assigneeIds: [A, null],
       projectIds: [null],
+      cycleIds: [A, null],
       labelIds: [B],
       q: 'login',
       sort: 'priority' as const,
@@ -28,6 +29,7 @@ describe('issue filters in the URL', () => {
       priority: '1,0',
       assignee: `${A},none`,
       project: 'none',
+      cycle: `${A},none`,
       label: B,
       q: 'login',
       sort: 'priority',
@@ -58,6 +60,7 @@ describe('issue filters in the URL', () => {
     expect(hasActiveFilters(EMPTY_FILTERS)).toBe(false)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, sort: 'priority' })).toBe(false)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, q: 'x' })).toBe(true)
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, cycleIds: [null] })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, assigneeIds: [null] })).toBe(true)
   })
 

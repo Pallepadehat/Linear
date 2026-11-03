@@ -32,6 +32,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    cycleId: null,
     labels: [],
     createdAt: created,
     updatedAt: created,
@@ -91,6 +92,20 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.created', issueId: 'c', ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect(listInvalidations()).toHaveLength(1)
+  })
+
+  it('refetches lists and cycle progress when an issue changes cycle', async () => {
+    const fetchIssue = vi.fn(async (id: string) => issue(id))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    const keys = () =>
+      invalidate.mock.calls.map(([filters]) => JSON.stringify(toValue(filters)?.queryKey))
+
+    // A rollover by the cycles job: no actor.
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['cycle'], actorId: null })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(keys()).toContain(JSON.stringify(orpc.issues.list.key()))
+    expect(keys()).toContain(JSON.stringify(orpc.cycles.key()))
   })
 
   it('refetches only the filtered or sorted lists a change can affect', async () => {

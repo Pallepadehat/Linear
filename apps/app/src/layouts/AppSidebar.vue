@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { CircleUser, FolderKanban, Layers, Settings, SquarePen, Users } from '@lucide/vue'
+import {
+  CircleUser,
+  FolderKanban,
+  IterationCcw,
+  Layers,
+  Settings,
+  SquarePen,
+  Users,
+} from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
@@ -56,19 +64,29 @@ const itemClass =
     </nav>
     <nav aria-labelledby="sidebar-teams" class="grid gap-px">
       <h2 id="sidebar-teams" class="px-2 pb-1 text-xs font-medium text-ink-subtle">Your teams</h2>
-      <RouterLink
-        v-for="team in teams"
-        :key="team.id"
-        :to="{ name: 'team', params: { workspaceSlug: slug, teamKey: team.key } }"
-        :class="itemClass"
-      >
-        <span
-          class="inline-flex size-4 shrink-0 items-center justify-center rounded-xs bg-surface-4 text-[9px] font-semibold text-ink-muted"
-          aria-hidden="true"
-          >{{ team.name.charAt(0).toUpperCase() }}</span
+      <template v-for="team in teams" :key="team.id">
+        <RouterLink
+          :to="{ name: 'team', params: { workspaceSlug: slug, teamKey: team.key } }"
+          :class="itemClass"
         >
-        <span class="truncate">{{ team.name }}</span>
-      </RouterLink>
+          <span
+            class="inline-flex size-4 shrink-0 items-center justify-center rounded-xs bg-surface-4 text-[9px] font-semibold text-ink-muted"
+            aria-hidden="true"
+            >{{ team.name.charAt(0).toUpperCase() }}</span
+          >
+          <span class="truncate">{{ team.name }}</span>
+        </RouterLink>
+        <!-- Until the team sections (Issues / Projects / Views) land, Cycles nests under the team. -->
+        <RouterLink
+          v-if="team.cyclesEnabled"
+          :to="{ name: 'cycles', params: { workspaceSlug: slug, teamKey: team.key } }"
+          :class="[itemClass, 'pl-8']"
+          :aria-label="`${team.name} cycles`"
+        >
+          <IterationCcw class="size-4 shrink-0" aria-hidden="true" />
+          Cycles
+        </RouterLink>
+      </template>
       <p v-if="teams && teams.length === 0" class="px-2 text-xs text-ink-tertiary">No teams yet</p>
     </nav>
     <div class="mt-auto">

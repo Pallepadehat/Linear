@@ -35,6 +35,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    cycleId: null,
     labels: [],
     createdAt: created,
     updatedAt: created,
@@ -122,6 +123,11 @@ describe('toUpdateIssueInput', () => {
       assigneeId: null,
       labelIds: [],
     })
+  })
+
+  it('sends cycle changes, including clears', () => {
+    expect(toUpdateIssueInput('tip', 'a', { cycleId: 'c1' })).toMatchObject({ cycleId: 'c1' })
+    expect(toUpdateIssueInput('tip', 'a', { cycleId: null })).toMatchObject({ cycleId: null })
   })
 
   it('sends title, description and project edits, including clears', () => {

@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import type { Cycle, Issue, Label, WorkflowStatus } from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import CyclePicker from '@/components/common/CyclePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import { assignableCycles } from '@/features/cycles/cycles'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
 
@@ -15,8 +17,16 @@ const props = defineProps<{
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
   labels: Label[]
+  /** The issue team's cycles; empty when the team has cycles off. */
+  cycles?: Cycle[]
 }>()
 const emit = defineEmits<{ update: [patch: IssuePatch] }>()
+
+const cycleOptions = computed(() => assignableCycles(props.cycles ?? []))
+const issueCycle = computed(() => props.cycles?.find((c) => c.id === props.issue.cycleId) ?? null)
+function setCycle(cycleId: string | null) {
+  if (cycleId !== props.issue.cycleId) emit('update', { cycleId })
+}
 
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
 // The issue's own labels stay pickable even if the workspace list hasn't loaded.
@@ -78,6 +88,15 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
         :labels="labelOptions"
         :model-value="labelIds"
         @update:model-value="setLabels"
+      />
+    </span>
+    <span v-if="issueCycle" class="hidden shrink-0 md:flex">
+      <CyclePicker
+        compact
+        :cycles="cycleOptions"
+        :selected="issueCycle"
+        :model-value="issue.cycleId"
+        @update:model-value="setCycle"
       />
     </span>
     <AssigneePicker

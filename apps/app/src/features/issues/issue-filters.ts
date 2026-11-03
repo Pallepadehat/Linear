@@ -3,7 +3,7 @@ import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 
 type QueryValue = LocationQuery[string] | undefined
 
-/** In the URL, `none` stands for "no assignee" / "no project". */
+/** In the URL, `none` stands for "no assignee" / "no project" / "no cycle". */
 export const NONE = 'none'
 
 export type IssueFilters = {
@@ -13,6 +13,8 @@ export type IssueFilters = {
   assigneeIds: (string | null)[]
   /** `null` = no project. */
   projectIds: (string | null)[]
+  /** `null` = no cycle. */
+  cycleIds: (string | null)[]
   labelIds: string[]
   q: string
   sort: IssueSort
@@ -27,6 +29,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   priorities: [],
   assigneeIds: [],
   projectIds: [],
+  cycleIds: [],
   labelIds: [],
   q: '',
   sort: DEFAULT_SORT,
@@ -65,6 +68,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
       .map(Number),
     assigneeIds: idsOrNone(query.assignee),
     projectIds: idsOrNone(query.project),
+    cycleIds: idsOrNone(query.cycle),
     labelIds: ids(query.label),
     q: first(query.q).trim(),
     sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
@@ -81,6 +85,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     priority: join(filters.priorities),
     assignee: join(filters.assigneeIds),
     project: join(filters.projectIds),
+    cycle: join(filters.cycleIds),
     label: join(filters.labelIds),
     q: filters.q.trim() || undefined,
     sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
@@ -95,6 +100,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.priorities.length > 0 ||
     filters.assigneeIds.length > 0 ||
     filters.projectIds.length > 0 ||
+    filters.cycleIds.length > 0 ||
     filters.labelIds.length > 0 ||
     filters.q !== ''
   )

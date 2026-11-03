@@ -31,6 +31,7 @@ export const issueSchema = z.object({
   assigneeId: z.uuid().nullable(),
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
+  cycleId: z.uuid().nullable(),
   labels: z.array(labelSchema),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -49,6 +50,8 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   /** `null` = unassigned, even when the team has a default assignee. */
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  /** An open cycle of the issue's team. */
+  cycleId: z.uuid().nullable().optional(),
   labelIds: labelIdsSchema.optional(),
 })
 
@@ -61,6 +64,8 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
   priority: issuePrioritySchema.optional(),
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  /** An open cycle of the issue's team. */
+  cycleId: z.uuid().nullable().optional(),
   labelIds: labelIdsSchema.optional(),
 })
 
@@ -75,7 +80,7 @@ export const issueSortSchema = z.enum(['createdAt', 'updatedAt', 'priority'])
 export const sortDirectionSchema = z.enum(['asc', 'desc'])
 
 const filterIdsSchema = z.array(z.uuid()).max(100)
-/** `null` in the list matches issues with no value (unassigned / no project). */
+/** `null` in the list matches issues with no value (unassigned / no project / no cycle). */
 const nullableFilterIdsSchema = z.array(z.uuid().nullable()).max(100)
 
 /**
@@ -86,6 +91,7 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   /** Scope from the page (team / project view), not a user filter. */
   teamId: z.uuid().optional(),
   projectId: z.uuid().optional(),
+  cycleId: z.uuid().optional(),
   /** `'me'` narrows to issues assigned to the signed-in user (My Issues). */
   assignee: z.literal('me').optional(),
   /** `'me'` narrows to issues the signed-in user created. */
@@ -94,6 +100,7 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   priorities: z.array(issuePrioritySchema).max(5).optional(),
   assigneeIds: nullableFilterIdsSchema.optional(),
   projectIds: nullableFilterIdsSchema.optional(),
+  cycleIds: nullableFilterIdsSchema.optional(),
   labelIds: filterIdsSchema.optional(),
   /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
   q: z.string().trim().max(255).optional(),

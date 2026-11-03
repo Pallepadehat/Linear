@@ -17,6 +17,7 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  cycleId?: string
   assignee?: 'me'
   creator?: 'me'
 }>()
@@ -30,15 +31,17 @@ const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
-  () => props.workspaceSlug,
-  () => ({
-    teamId: props.teamId,
-    projectId: props.projectId,
-    assignee: props.assignee,
-    creator: props.creator,
-  }),
-)
+const { query, issues, users, labels, statusesByTeam, cyclesByTeam, updateIssue } =
+  useIssueViewData(
+    () => props.workspaceSlug,
+    () => ({
+      teamId: props.teamId,
+      projectId: props.projectId,
+      cycleId: props.cycleId,
+      assignee: props.assignee,
+      creator: props.creator,
+    }),
+  )
 const collapsed = ref(new Set<string>())
 const rows = computed(() => toListRows(groupIssuesByStatus(issues.value), collapsed.value))
 
@@ -103,7 +106,12 @@ watchEffect(() => {
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <IssueFilterBar :workspace-slug="workspaceSlug" :team-id="teamId" :project-id="projectId" />
+    <IssueFilterBar
+      :workspace-slug="workspaceSlug"
+      :team-id="teamId"
+      :project-id="projectId"
+      :cycle-id="cycleId"
+    />
     <div v-if="query.isPending.value" class="grid" aria-busy="true" aria-label="Loading issues">
       <div
         v-for="i in 8"
@@ -139,7 +147,9 @@ watchEffect(() => {
           title="No issues yet"
           description="Create an issue to start tracking work."
         >
-          <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+          <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId, cycleId })"
+            >New issue</Button
+          >
         </EmptyState>
       </slot>
     </template>
@@ -176,7 +186,9 @@ watchEffect(() => {
               variant="ghost"
               size="icon-xs"
               :aria-label="`New issue in ${row.group.status.name}`"
-              @click="ui.openCreateIssue({ teamId, projectId, statusId: row.group.status.id })"
+              @click="
+                ui.openCreateIssue({ teamId, projectId, cycleId, statusId: row.group.status.id })
+              "
             >
               <Plus aria-hidden="true" />
             </Button>
@@ -186,6 +198,7 @@ watchEffect(() => {
             class="flex-1"
             :issue="row.issue"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
+            :cycles="cyclesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"

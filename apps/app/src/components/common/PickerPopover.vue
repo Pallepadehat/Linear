@@ -12,7 +12,7 @@ import PickerInput from './PickerInput.vue'
 // keyboard-navigable list. Arrow keys move, Enter selects, a number key picks
 // that option while the filter is empty, Escape closes and returns focus.
 // `current` is the selected option's value, highlighted when the list opens.
-// `hotkey` opens the picker from anywhere outside a text field. `compact` pickers
+// `hotkey` (`S`, or `Shift+C`) opens the picker from anywhere outside a text field. `compact` pickers
 // (one per list row) get an icon-sized trigger and only show the hotkey hint:
 // a global key can't tell which of many rows it is meant for.
 const props = defineProps<{
@@ -30,8 +30,11 @@ const trigger = useTemplateRef<{ $el: HTMLElement }>('trigger')
 
 useEventListener(document, 'keydown', (event: KeyboardEvent) => {
   if (!props.hotkey || props.compact || open.value || event.defaultPrevented) return
-  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
-  if (event.key.toUpperCase() !== props.hotkey) return
+  // `Shift+C` style hotkeys need Shift; plain ones must not have it.
+  const shift = props.hotkey.startsWith('Shift+')
+  const key = shift ? props.hotkey.slice('Shift+'.length) : props.hotkey
+  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey !== shift) return
+  if (event.key.toUpperCase() !== key) return
   const target = event.target
   if (
     target instanceof HTMLElement &&
