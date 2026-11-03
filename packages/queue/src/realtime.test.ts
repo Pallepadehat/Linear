@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { realtimeChannel, realtimeEventSchema, workspaceIdOfChannel } from './realtime'
+import {
+  realtimeChannel,
+  realtimeEventSchema,
+  userChannel,
+  userEventSchema,
+  userIdOfChannel,
+  workspaceIdOfChannel,
+} from './realtime'
 
 const id = '01936b2e-0000-7000-8000-000000000001'
 
@@ -20,5 +27,18 @@ describe('realtime events', () => {
     }
     expect(realtimeEventSchema.parse({ ...event, title: 'leak' })).toEqual(event)
     expect(() => realtimeEventSchema.parse({ ...event, fields: ['secret'] })).toThrow()
+  })
+})
+
+describe('user events', () => {
+  it('round-trips the user id through the channel name', () => {
+    expect(userChannel(id)).toBe(`user:${id}`)
+    expect(userIdOfChannel(userChannel(id))).toBe(id)
+    expect(userIdOfChannel(realtimeChannel(id))).toBeNull()
+  })
+
+  it('accepts ID-only notification events', () => {
+    const event = { type: 'notification.created', workspaceId: id, notificationId: id }
+    expect(userEventSchema.parse({ ...event, summary: 'leak' })).toEqual(event)
   })
 })

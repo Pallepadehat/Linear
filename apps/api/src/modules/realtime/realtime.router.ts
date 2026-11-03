@@ -13,7 +13,14 @@ export const realtimeRouter = {
       // Registered before the stream starts (a generator body runs lazily), so a
       // heartbeat sent right after subscribing is already accepted.
       connection?.workspaces.set(workspace.id, (connection.workspaces.get(workspace.id) ?? 0) + 1)
-      return stream(context.realtime, connection, workspace.id, input.clientId, signal)
+      return stream(
+        context.realtime,
+        connection,
+        workspace.id,
+        context.user.id,
+        input.clientId,
+        signal,
+      )
     }),
 }
 
@@ -21,13 +28,14 @@ async function* stream(
   realtime: RealtimeHub,
   connection: RealtimeConnection | undefined,
   workspaceId: string,
+  userId: string,
   clientId: string | undefined,
   signal: AbortSignal | undefined,
 ) {
   try {
-    for await (const event of realtime.events(workspaceId, signal)) {
+    for await (const event of realtime.events(workspaceId, userId, signal)) {
       // The tab that made the change already applied it optimistically.
-      if (clientId && event.originId === clientId) continue
+      if (clientId && 'originId' in event && event.originId === clientId) continue
       yield toClientEvent(event)
     }
   } finally {

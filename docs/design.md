@@ -319,7 +319,7 @@ Lavender stays scarce on chrome, but the product uses a small semantic palette, 
 | PR closed (not merged)  | `priority-urgent`        | Closed pull request icon              |
 | Favorited star          | `status-started`         | Filled star in the page header        |
 
-Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon and selected/active states. Never as a section or card fill.
+Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon, selected/active states and the Inbox unread dot. Never as a section or card fill.
 
 ### Components
 
@@ -355,7 +355,9 @@ Lavender in the app is allowed for: primary actions, focus rings, the brand mark
 
 **Key caps.** 20px tall, min 20px wide, `{rounded.xs}`, `hairline-strong` border, 12px `ink-muted`; chords read "G then I" with "then" in `ink-tertiary`; ⌘ ⌥ ⇧ ⌫ on macOS, Ctrl/Alt/Shift/Backspace elsewhere.
 
-**Keyboard shortcuts sheet (?).** Right side sheet, 360px, `floating` surface with a hairline left edge. Title "Keyboard shortcuts" (15px semibold), a 28px search field, then groups per scope (General, Issue list, Issue, Issue properties) with 12px `ink-subtle` headings and 32px rows: label left, key caps right ("or" between alternatives).
+**Keyboard shortcuts sheet (?).** Right side sheet, 360px, `floating` surface with a hairline left edge. Title "Keyboard shortcuts" (15px semibold), a 28px search field, then groups per scope (General, Issue list, Inbox, Issue, Issue properties) with 12px `ink-subtle` headings and 32px rows: label left, key caps right ("or" between alternatives).
+
+**Inbox.** Two panes under the panel header: a 360px notification list with a hairline right edge, and the selected issue's detail page. The list header is 44px with a hairline below: All / Unread as 24px pill toggles (active on `surface-3`), then icon buttons Remind me (alarm clock), Archive and "…". Rows are 56px, inset 8px, `{rounded.md}`, hover `surface-2`, selected `surface-3`: 20px actor avatar (GitHub mark in `ink-muted` for automation); line 1 the identifier (JetBrains Mono 12px `ink-subtle`) and title (13px; medium `ink` while unread, `ink-muted` once read); line 2 a 12px status icon and the summary (12px `ink-subtle`); right column the short age (12px `ink-subtle`, tabular) over an 8px lavender unread dot. Remind me is a `floating` menu with each choice's resolved time as its shortcut text.
 
 **Focused list row.** J/K focus shows the row on `surface-2` (same as hover) and moves DOM focus to its link (focus ring when keyboard-driven); X-selected rows sit on `surface-3`.
 

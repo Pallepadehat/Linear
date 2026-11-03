@@ -1,5 +1,7 @@
 import type { ContractClient, RealtimeEvent } from '@linear/contract'
 import { addMember } from '@linear/db/testing'
+import { createRedisConnection, createUserEventPublisher } from '@linear/queue'
+import { randomUUID } from 'node:crypto'
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/websocket'
 import type { AddressInfo } from 'node:net'
@@ -289,6 +291,33 @@ describe('realtime', () => {
         { type: 'issue.created', issueId: own.id, actorId: outsider.userId },
       ]),
     )
+  })
+
+  it("sends notification.created only to the recipient's sockets in that workspace", async () => {
+    const { owner, member, workspace } = await workspaceWithIssue()
+    const ownerStream = await subscribe(owner.cookie, 'tip')
+    const memberStream = await subscribe(member.cookie, 'tip')
+    const redis = createRedisConnection(process.env.REDIS_URL ?? 'redis://localhost:6379')
+    const publishToUser = createUserEventPublisher(redis)
+    const notificationId = randomUUID()
+
+    await publishToUser(member.userId, {
+      type: 'notification.created',
+      workspaceId: workspace.id,
+      notificationId,
+    })
+    // The same user's notification in another workspace stays out of this stream.
+    await publishToUser(member.userId, {
+      type: 'notification.created',
+      workspaceId: randomUUID(),
+      notificationId: randomUUID(),
+    })
+    redis.disconnect()
+
+    await eventually(() =>
+      expect(memberStream.events).toEqual([{ type: 'notification.created', notificationId }]),
+    )
+    expect(ownerStream.events).toEqual([])
   })
 
   it('announces template changes by id only', async () => {
