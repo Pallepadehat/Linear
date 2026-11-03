@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { Bell, BellOff } from '@lucide/vue'
+import { BellOff, BellPlus } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import IconButton from '@/components/common/IconButton.vue'
 
 // The issue page's bell: subscribes the signed-in user, or unsubscribes them.
 // ⇧S toggles it from anywhere outside a text field.
@@ -28,24 +27,12 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 </script>
 
 <template>
-  <Tooltip>
-    <TooltipTrigger as-child>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        :aria-label="label"
-        :aria-pressed="subscribed"
-        aria-keyshortcuts="Shift+S"
-        :class="subscribed ? 'text-ink' : 'text-ink-subtle'"
-        @click="emit('toggle')"
-      >
-        <BellOff v-if="subscribed" aria-hidden="true" />
-        <Bell v-else aria-hidden="true" />
-      </Button>
-    </TooltipTrigger>
-    <TooltipContent side="bottom" class="flex items-center gap-2">
-      {{ label }}
-      <kbd class="font-sans text-xs opacity-70">⇧S</kbd>
-    </TooltipContent>
-  </Tooltip>
+  <!-- Distinct from the header's notifications bell: the icon names the action. -->
+  <IconButton
+    :icon="subscribed ? BellOff : BellPlus"
+    :label="label"
+    shortcut="⇧S"
+    :aria-pressed="subscribed"
+    @click="emit('toggle')"
+  />
 </template>
