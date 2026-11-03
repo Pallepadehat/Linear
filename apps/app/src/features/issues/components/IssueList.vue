@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ChevronDown, Layers, Plus } from '@lucide/vue'
+import { ChevronDown, Layers, ListFilter, Plus } from '@lucide/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch, watchEffect } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { useUiStore } from '@/stores/ui'
+import { useIssueFilters } from '../composables/useIssueFilters'
 import { groupIssuesByStatus, toListRows, type IssueListRow } from '../group-issues'
 import { useIssueViewData } from '../composables/useIssueViewData'
+import IssueFilterBar from './IssueFilterBar.vue'
 import IssueRow from './IssueRow.vue'
 
 // Spelled out: Vue's SFC compiler can't resolve the zod-inferred `IssueListFilter` for props.
@@ -27,6 +29,7 @@ const ROW_HEIGHT = 36
 const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
+const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
 const { query, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
   () => props.workspaceSlug,
   () => ({
@@ -86,6 +89,11 @@ watch(rows, async (next, prev) => {
   el.scrollTop += after - before
 })
 
+// A new filter or sort is a different list; start it from the top.
+watch(filters, () => {
+  if (scrollEl.value) scrollEl.value.scrollTop = 0
+})
+
 watchEffect(() => {
   const last = virtualRows.value.at(-1)
   if (!last || last.item.index < rows.value.length - PREFETCH_ROWS) return
@@ -94,84 +102,95 @@ watchEffect(() => {
 </script>
 
 <template>
-  <div v-if="query.isPending.value" class="grid" aria-busy="true" aria-label="Loading issues">
-    <div
-      v-for="i in 8"
-      :key="i"
-      class="mx-2 flex h-9 animate-pulse items-center gap-2 pl-5"
-      aria-hidden="true"
-    >
-      <span class="size-4 rounded-xs bg-surface-3" />
-      <span class="h-3 w-12 rounded-xs bg-surface-3" />
-      <span class="size-3.5 rounded-full bg-surface-3" />
-      <span class="h-3 rounded-xs bg-surface-3" :style="{ width: `${20 + ((i * 37) % 40)}%` }" />
-    </div>
-  </div>
-  <EmptyState
-    v-else-if="query.isError.value"
-    title="Couldn't load issues"
-    description="Check your connection and try again."
-  >
-    <Button variant="secondary" size="sm" @click="query.refetch()">Retry</Button>
-  </EmptyState>
-  <template v-else-if="rows.length === 0">
-    <slot name="empty">
-      <EmptyState
-        :icon="Layers"
-        title="No issues yet"
-        description="Create an issue to start tracking work."
-      >
-        <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
-      </EmptyState>
-    </slot>
-  </template>
-  <div v-else ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto pt-2 pb-4" role="list">
-    <div class="relative w-full" :style="{ height: `${virtualizer.getTotalSize()}px` }">
+  <div class="flex min-h-0 flex-1 flex-col">
+    <IssueFilterBar :workspace-slug="workspaceSlug" :team-id="teamId" :project-id="projectId" />
+    <div v-if="query.isPending.value" class="grid" aria-busy="true" aria-label="Loading issues">
       <div
-        v-for="{ item, row } in virtualRows"
-        :key="row.key"
-        class="absolute top-0 left-0 flex w-full items-center"
-        :style="{ height: `${item.size}px`, transform: `translateY(${item.start}px)` }"
-        role="listitem"
+        v-for="i in 8"
+        :key="i"
+        class="mx-2 flex h-9 animate-pulse items-center gap-2 pl-5"
+        aria-hidden="true"
       >
-        <div
-          v-if="row.type === 'group'"
-          class="mx-2 flex h-8 flex-1 items-center gap-1 rounded-md bg-group-band pr-1 pl-1"
+        <span class="size-4 rounded-xs bg-surface-3" />
+        <span class="h-3 w-12 rounded-xs bg-surface-3" />
+        <span class="size-3.5 rounded-full bg-surface-3" />
+        <span class="h-3 rounded-xs bg-surface-3" :style="{ width: `${20 + ((i * 37) % 40)}%` }" />
+      </div>
+    </div>
+    <EmptyState
+      v-else-if="query.isError.value"
+      title="Couldn't load issues"
+      description="Check your connection and try again."
+    >
+      <Button variant="secondary" size="sm" @click="query.refetch()">Retry</Button>
+    </EmptyState>
+    <EmptyState
+      v-else-if="rows.length === 0 && filtered"
+      :icon="ListFilter"
+      title="No matching issues"
+      description="Try a different search or remove some filters."
+    >
+      <Button variant="secondary" size="sm" @click="clearFilters">Clear filters</Button>
+    </EmptyState>
+    <template v-else-if="rows.length === 0">
+      <slot name="empty">
+        <EmptyState
+          :icon="Layers"
+          title="No issues yet"
+          description="Create an issue to start tracking work."
         >
-          <button
-            type="button"
-            class="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md pl-1 text-left"
-            :aria-expanded="!collapsed.has(row.group.key)"
-            @click="toggleGroup(row.group.key)"
+          <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+        </EmptyState>
+      </slot>
+    </template>
+    <div v-else ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto pt-2 pb-4" role="list">
+      <div class="relative w-full" :style="{ height: `${virtualizer.getTotalSize()}px` }">
+        <div
+          v-for="{ item, row } in virtualRows"
+          :key="row.key"
+          class="absolute top-0 left-0 flex w-full items-center"
+          :style="{ height: `${item.size}px`, transform: `translateY(${item.start}px)` }"
+          role="listitem"
+        >
+          <div
+            v-if="row.type === 'group'"
+            class="mx-2 flex h-8 flex-1 items-center gap-1 rounded-md bg-group-band pr-1 pl-1"
           >
-            <ChevronDown
-              class="size-3.5 shrink-0 text-ink-tertiary transition-transform"
-              :class="{ '-rotate-90': collapsed.has(row.group.key) }"
-              aria-hidden="true"
-            />
-            <StatusIcon :category="row.group.status.category" />
-            <span class="font-medium text-ink">{{ row.group.status.name }}</span>
-            <span class="text-ink-subtle tabular-nums">{{ row.group.issues.length }}</span>
-          </button>
-          <Button
-            v-if="teamId"
-            variant="ghost"
-            size="icon-xs"
-            :aria-label="`New issue in ${row.group.status.name}`"
-            @click="ui.openCreateIssue({ teamId, projectId, statusId: row.group.status.id })"
-          >
-            <Plus aria-hidden="true" />
-          </Button>
-        </div>
-        <IssueRow
-          v-else
-          class="flex-1"
-          :issue="row.issue"
-          :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
+            <button
+              type="button"
+              class="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md pl-1 text-left"
+              :aria-expanded="!collapsed.has(row.group.key)"
+              @click="toggleGroup(row.group.key)"
+            >
+              <ChevronDown
+                class="size-3.5 shrink-0 text-ink-tertiary transition-transform"
+                :class="{ '-rotate-90': collapsed.has(row.group.key) }"
+                aria-hidden="true"
+              />
+              <StatusIcon :category="row.group.status.category" />
+              <span class="font-medium text-ink">{{ row.group.status.name }}</span>
+              <span class="text-ink-subtle tabular-nums">{{ row.group.issues.length }}</span>
+            </button>
+            <Button
+              v-if="teamId"
+              variant="ghost"
+              size="icon-xs"
+              :aria-label="`New issue in ${row.group.status.name}`"
+              @click="ui.openCreateIssue({ teamId, projectId, statusId: row.group.status.id })"
+            >
+              <Plus aria-hidden="true" />
+            </Button>
+          </div>
+          <IssueRow
+            v-else
+            class="flex-1"
+            :issue="row.issue"
+            :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
           :users="users"
           :labels="labels"
           @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
-        />
+          />
+        </div>
       </div>
     </div>
   </div>

@@ -1,7 +1,7 @@
 import type { Issue, StatusCategory, WorkflowStatus } from '@linear/contract'
 
 // Active work first, like Linear's list view; finished work sinks to the bottom.
-const CATEGORY_ORDER: Record<StatusCategory, number> = {
+export const CATEGORY_ORDER: Record<StatusCategory, number> = {
   started: 0,
   unstarted: 1,
   backlog: 2,
