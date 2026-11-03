@@ -64,6 +64,8 @@ export const issuesRouter = {
         workspaceId: context.workspace.id,
         teamId: input.teamId,
         projectId: input.projectId,
+        assigneeId: input.assignee === 'me' ? context.user.id : undefined,
+        creatorId: input.creator === 'me' ? context.user.id : undefined,
         cursor: input.cursor,
         limit: input.limit,
       })
