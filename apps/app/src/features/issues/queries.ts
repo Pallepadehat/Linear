@@ -3,6 +3,7 @@ import type {
   Issue,
   IssueDetail,
   IssueLink,
+  IssueFiltersInput,
   IssuePage,
   IssueRelationType,
   LinkFields,
@@ -26,14 +27,17 @@ import { todayIso } from '@/lib/due-dates'
 import { client, orpc } from '@/lib/orpc'
 import { patchCommentInPages, toggleReaction } from './comment-cache'
 import {
+  applyBulkChange,
   applyIssuePatch,
   patchIssue,
   patchIssueInPages,
   removeIssueFromPages,
   removeLink,
   removeRelation,
+  toBulkUpdateInput,
   toUpdateIssueInput,
   upsertLink,
+  type BulkIssueChange,
   type IssuePatch,
 } from './issue-cache'
 import { EMPTY_FILTERS, type IssueFilters } from './issue-filters'
@@ -46,6 +50,28 @@ export type IssueListFilter = Pick<
 >
 
 /**
+ * The shared list filters (`issueFiltersSchema`) for the page's scope and view tab plus
+ * the user's filters, so the list and the Details panel always ask for the same issues.
+ */
+function issueFiltersInput(
+  workspaceSlug: string,
+  filter: IssueListFilter,
+  filters: IssueFilters,
+): IssueFiltersInput {
+  const { q, due, sort: _sort, direction: _direction, ...rest } = filters
+  // Relative due filters are evaluated against the viewer's local day (domain.md).
+  const relative = due.some((bucket) => bucket !== 'noDueDate')
+  return {
+    workspaceSlug,
+    ...filter,
+    ...rest,
+    ...(due.length && { due }),
+    ...(relative && { today: todayIso() }),
+    q: q || undefined,
+  }
+}
+
+/**
  * Issue pages for a workspace, narrowed by the page's scope (team, project,
  * assignee or creator) and view tab, then by the user's filters and sort.
  */
@@ -54,19 +80,11 @@ export function issueListOptions(
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const { q, due, hasLinks, ...rest } = filters
-  // Relative due filters are evaluated against the viewer's local day (domain.md).
-  const relative = due.some((bucket) => bucket !== 'noDueDate')
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
-      workspaceSlug,
-      ...filter,
-      ...rest,
-      ...(due.length && { due }),
-      ...(relative && { today: todayIso() }),
-      // Only "Has links" is offered; `false` would mean "has no links".
-      ...(hasLinks && { hasLinks }),
-      q: q || undefined,
+      ...issueFiltersInput(workspaceSlug, filter, filters),
+      sort: filters.sort,
+      direction: filters.direction,
       cursor,
       limit: PAGE_SIZE,
     }),
@@ -76,6 +94,24 @@ export function issueListOptions(
     placeholderData: keepPreviousData,
   })
 }
+
+/**
+ * The Details panel's counts for the same scope, view and filters as the list
+ * (sort doesn't change counts, so it isn't part of the key).
+ */
+export function issueFacetsOptions(
+  workspaceSlug: string,
+  filter: IssueListFilter = {},
+  filters: IssueFilters = EMPTY_FILTERS,
+) {
+  return orpc.issues.facets.queryOptions({
+    input: issueFiltersInput(workspaceSlug, filter, filters),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Every Details panel count; invalidated wherever issue lists are. */
+export const issueFacetsKey = () => orpc.issues.facets.key()
 
 /** Matches every issue list (all teams, every page), for invalidation. */
 export const issueListKey = () => orpc.issues.list.key()
@@ -209,6 +245,7 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
       if (queryClient.isMutating({ mutationKey }) > 1) return
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: listKey }),
+        queryClient.invalidateQueries({ queryKey: issueFacetsKey() }),
         ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
         // Project and cycle progress count issues by status, project and cycle.
@@ -254,6 +291,119 @@ export function useDeleteIssue(workspaceSlug: MaybeRefOrGetter<string>) {
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: listKey }),
+        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+      ])
+    },
+  })
+}
+
+/**
+ * Writes `update` into every cached copy of each issue (list pages and details) and
+ * returns a function that puts all of those caches back as they were.
+ */
+export async function writeIssuesOptimistically(
+  queryClient: QueryClient,
+  ids: string[],
+  update: (issue: Issue) => Issue,
+) {
+  const keys = [issueInfiniteListKey(), ...issueDetailKeys()]
+  // A refetch landing after the patch would overwrite it with stale data.
+  await Promise.all(keys.map((queryKey) => queryClient.cancelQueries({ queryKey })))
+  const previous = keys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }))
+  for (const id of ids) writeIssueToCaches(queryClient, id, update)
+  return () => {
+    for (const [queryKey, data] of previous) queryClient.setQueryData(queryKey, data)
+  }
+}
+
+/** Removes the issues from every list page; the returned function puts them back. */
+export async function removeIssuesOptimistically(queryClient: QueryClient, ids: string[]) {
+  const queryKey = issueInfiniteListKey()
+  await queryClient.cancelQueries({ queryKey })
+  const previous = queryClient.getQueriesData<InfiniteData<IssuePage>>({ queryKey })
+  queryClient.setQueriesData<InfiniteData<IssuePage>>({ queryKey }, (data) =>
+    ids.reduce((pages, id) => removeIssueFromPages(pages, id), data),
+  )
+  return () => {
+    for (const [key, data] of previous) queryClient.setQueryData(key, data)
+  }
+}
+
+const issueCount = (count: number) => `${count} ${count === 1 ? 'issue' : 'issues'}`
+
+export type BulkUpdateVariables = { issues: Issue[]; change: BulkIssueChange }
+
+/**
+ * One change applied to many issues (the bulk action bar), shown at once in every
+ * list, board and detail cache and rolled back with a toast if the server refuses.
+ */
+export function useBulkUpdateIssues(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  const mutationKey = orpc.issues.bulkUpdate.mutationKey()
+  return useMutation({
+    mutationKey,
+    mutationFn: ({ issues, change }: BulkUpdateVariables) =>
+      client.issues.bulkUpdate(
+        toBulkUpdateInput(
+          toValue(workspaceSlug),
+          issues.map((issue) => issue.id),
+          change,
+        ),
+      ),
+    onMutate: async ({ issues, change }) => ({
+      rollback: await writeIssuesOptimistically(
+        queryClient,
+        issues.map((issue) => issue.id),
+        (issue) => applyBulkChange(issue, change),
+      ),
+    }),
+    onError: (error, { issues }, context) => {
+      context?.rollback()
+      toast.error(`Couldn't update ${issueCount(issues.length)}`, {
+        description: errorMessage(error),
+      })
+    },
+    onSuccess: ({ items }) => {
+      for (const item of items) writeIssueToCaches(queryClient, item.id, () => item)
+    },
+    onSettled: async () => {
+      if (queryClient.isMutating({ mutationKey }) > 1) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
+        ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+        queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
+        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        queryClient.invalidateQueries({ queryKey: cyclesKey() }),
+      ])
+    },
+  })
+}
+
+/** Deletes many issues, dropping them from every list at once; restored with a toast on error. */
+export function useBulkDeleteIssues(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      client.issues.bulkDelete({ workspaceSlug: toValue(workspaceSlug), ids }),
+    onMutate: async (ids) => ({ rollback: await removeIssuesOptimistically(queryClient, ids) }),
+    onError: (error, ids, context) => {
+      context?.rollback()
+      toast.error(`Couldn't delete ${issueCount(ids.length)}`, {
+        description: errorMessage(error),
+      })
+    },
+    onSuccess: ({ ids }) => {
+      const deleted = new Set(ids)
+      for (const queryKey of issueDetailKeys())
+        queryClient.removeQueries({
+          queryKey,
+          predicate: (query) => deleted.has((query.state.data as Issue | undefined)?.id ?? ''),
+        })
+      toast.success(`${issueCount(ids.length)} deleted`)
+    },
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
         queryClient.invalidateQueries({ queryKey: projectsKey() }),
       ])
     },

@@ -15,9 +15,11 @@ import {
   type BoardColumn as Column,
 } from '../board-columns'
 import { useIssueFilters } from '../composables/useIssueFilters'
+import { useIssueSelection } from '../composables/useIssueSelection'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
 import BoardColumn from './BoardColumn.vue'
+import BulkActionBar from './BulkActionBar.vue'
 import IssueFilterBar from './IssueFilterBar.vue'
 
 // Spelled out: Vue's SFC compiler can't resolve the zod-inferred `IssueListFilter` for props.
@@ -53,6 +55,16 @@ watchEffect(() => {
 const columns = computed(() =>
   toBoardColumns(issues.value, statusesByTeam.value, viewStatusCategories(props.view)),
 )
+// Shift-click ranges run down each column, left to right.
+const boardIssues = computed(() => columns.value.flatMap((column) => column.issues))
+const {
+  selectedIds,
+  click: select,
+  toggleGroup,
+} = useIssueSelection(boardIssues, {
+  loaded: issues,
+  keyboard: true,
+})
 // A team board waits for its statuses so empty columns don't pop in afterwards.
 const loading = computed(
   () => query.isPending.value || (!!props.teamId && !statusesByTeam.value.has(props.teamId)),
@@ -106,7 +118,7 @@ function onDrop(column: Column) {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
+  <div class="relative flex min-h-0 flex-1 flex-col">
     <IssueFilterBar
       :workspace-slug="workspaceSlug"
       :team-id="teamId"
@@ -174,13 +186,23 @@ function onDrop(column: Column) {
         :dragging-id="dragging?.id ?? null"
         :can-drop="dropTarget(column)?.type === 'move'"
         :creatable="!!teamId"
+        :selected-ids="selectedIds"
         @update="(issue, patch) => updateIssue.mutate({ issue, patch })"
         @dragstart="onDragStart"
         @dragend="endDrag"
         @drop="onDrop(column)"
         @open="openIssue"
+        @select="select"
+        @select-all="toggleGroup(column.issues)"
         @create="ui.openCreateIssue({ teamId, projectId, cycleId, statusId: column.status.id })"
       />
     </div>
+    <BulkActionBar
+      :workspace-slug="workspaceSlug"
+      :issues="issues"
+      :statuses-by-team="statusesByTeam"
+      :users="users"
+      :labels="labels"
+    />
   </div>
 </template>

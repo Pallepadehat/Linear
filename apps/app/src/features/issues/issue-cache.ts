@@ -1,4 +1,12 @@
-import type { Issue, IssueDetail, IssueLink, IssuePage, UpdateIssueInput } from '@linear/contract'
+import type {
+  BulkUpdateIssuesInput,
+  Issue,
+  IssueDetail,
+  IssueLink,
+  IssuePage,
+  Label,
+  UpdateIssueInput,
+} from '@linear/contract'
 import type { InfiniteData } from '@tanstack/vue-query'
 
 /**
@@ -120,6 +128,50 @@ export function toUpdateIssueInput(
     ...(patch.labels && { labelIds: patch.labels.map((label) => label.id) }),
     ...(patch.parentId !== undefined && { parentId: patch.parentId }),
     ...(patch.dueDate !== undefined && { dueDate: patch.dueDate }),
+  }
+}
+
+/**
+ * A bulk action as the UI sees it: the same change for every selected issue, with
+ * labels added and removed per issue (docs/domain.md → Bulk actions).
+ */
+export type BulkIssueChange = Partial<
+  Pick<Issue, 'status' | 'priority' | 'assigneeId' | 'projectId'>
+> & {
+  addLabels?: Label[]
+  removeLabelIds?: string[]
+}
+
+/** The issue after a bulk change; labels stay sorted by name like the server's. */
+export function applyBulkChange(issue: Issue, change: BulkIssueChange, now = new Date()): Issue {
+  const { addLabels = [], removeLabelIds = [], ...fields } = change
+  const patch: IssuePatch = { ...fields }
+  if (addLabels.length || removeLabelIds.length) {
+    const removed = new Set(removeLabelIds)
+    const byId = new Map([...issue.labels, ...addLabels].map((label) => [label.id, label]))
+    patch.labels = [...byId.values()]
+      .filter((label) => !removed.has(label.id))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+  return applyIssuePatch(issue, patch, now)
+}
+
+export function toBulkUpdateInput(
+  workspaceSlug: string,
+  ids: string[],
+  change: BulkIssueChange,
+): BulkUpdateIssuesInput {
+  return {
+    workspaceSlug,
+    ids,
+    patch: {
+      ...(change.status && { statusId: change.status.id }),
+      ...(change.priority !== undefined && { priority: change.priority }),
+      ...(change.assigneeId !== undefined && { assigneeId: change.assigneeId }),
+      ...(change.projectId !== undefined && { projectId: change.projectId }),
+      ...(change.addLabels?.length && { addLabelIds: change.addLabels.map((label) => label.id) }),
+      ...(change.removeLabelIds?.length && { removeLabelIds: change.removeLabelIds }),
+    },
   }
 }
 

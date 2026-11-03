@@ -124,6 +124,37 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
 
 export const issueIdInputSchema = workspaceScopedSchema.extend({ id: z.uuid() })
 
+/** Bulk actions take at most this many issues per call (docs/domain.md → Bulk actions). */
+export const BULK_ISSUE_LIMIT = 250
+const bulkIssueIdsSchema = z.array(z.uuid()).min(1).max(BULK_ISSUE_LIMIT)
+
+/**
+ * The properties a bulk update can set on every selected issue. Omitted fields are
+ * left unchanged; labels are added and removed per issue instead of replaced.
+ */
+export const bulkIssuePatchSchema = z
+  .object({
+    statusId: z.uuid().optional(),
+    priority: issuePrioritySchema.optional(),
+    assigneeId: z.uuid().nullable().optional(),
+    projectId: z.uuid().nullable().optional(),
+    addLabelIds: labelIdsSchema.optional(),
+    removeLabelIds: labelIdsSchema.optional(),
+  })
+  .refine((patch) => Object.values(patch).some((value) => value !== undefined), {
+    message: 'Change at least one property',
+  })
+
+export const bulkUpdateIssuesInputSchema = workspaceScopedSchema.extend({
+  ids: bulkIssueIdsSchema,
+  patch: bulkIssuePatchSchema,
+})
+
+export const bulkDeleteIssuesInputSchema = workspaceScopedSchema.extend({ ids: bulkIssueIdsSchema })
+
+export const bulkUpdateIssuesOutputSchema = z.object({ items: z.array(issueSchema) })
+export const bulkDeleteIssuesOutputSchema = z.object({ ids: z.array(z.uuid()) })
+
 export const getIssueByIdentifierInputSchema = workspaceScopedSchema.extend({
   identifier: issueIdentifierSchema,
 })
@@ -148,10 +179,12 @@ const nullableFilterIdsSchema = z.array(z.uuid().nullable()).max(100)
 const userFilterIdsSchema = z.array(z.union([z.uuid(), z.literal('me')])).max(100)
 
 /**
+ * The issue list's scope and filters, shared by `issues.list` and `issues.facets`;
+ * add new list filters here so every consumer gets them.
  * Filters combine with AND; values within one filter with OR (labels: any of).
  * An empty list doesn't filter.
  */
-export const listIssuesInputSchema = workspaceScopedSchema.extend({
+export const issueFiltersSchema = workspaceScopedSchema.extend({
   /** Scope from the page (team / project view), not a user filter. */
   teamId: z.uuid().optional(),
   projectId: z.uuid().optional(),
@@ -187,6 +220,9 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   showSubIssues: z.boolean().default(true),
   /** Leaves out this issue and its descendants (choosing a parent without making a cycle). */
   excludeSubtreeOf: z.uuid().optional(),
+})
+
+export const listIssuesInputSchema = issueFiltersSchema.extend({
   sort: issueSortSchema.default('createdAt'),
   direction: sortDirectionSchema.default('desc'),
   /** `nextCursor` from the previous page. */
@@ -209,6 +245,19 @@ export const issuePageSchema = z.object({
   nextCursor: z.string().nullable(),
 })
 
+/** What the Details panel counts: exactly the list's scope and filters, no paging or sort. */
+export const issueFacetsInputSchema = issueFiltersSchema
+
+const facetCountSchema = z.number().int().nonnegative()
+
+/** Issue counts per value; `id: null` = no assignee / no project. Sorted by count, descending. */
+export const issueFacetsSchema = z.object({
+  assignees: z.array(z.object({ id: z.uuid().nullable(), count: facetCountSchema })),
+  labels: z.array(z.object({ id: z.uuid(), count: facetCountSchema })),
+  priorities: z.array(z.object({ value: issuePrioritySchema, count: facetCountSchema })),
+  projects: z.array(z.object({ id: z.uuid().nullable(), count: facetCountSchema })),
+})
+
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
 export type Issue = z.infer<typeof issueSchema>
 export type IssueDetail = z.infer<typeof issueDetailSchema>
@@ -216,7 +265,12 @@ export type SubIssueProgress = NonNullable<Issue['subIssueProgress']>
 export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>
+export type BulkIssuePatch = z.input<typeof bulkIssuePatchSchema>
+export type BulkUpdateIssuesInput = z.input<typeof bulkUpdateIssuesInputSchema>
 export type ListIssuesInput = z.input<typeof listIssuesInputSchema>
+export type IssueFiltersInput = z.input<typeof issueFiltersSchema>
+export type IssueFacetsInput = z.input<typeof issueFacetsInputSchema>
+export type IssueFacets = z.infer<typeof issueFacetsSchema>
 export type IssueSubscriptionInput = z.input<typeof issueSubscriptionInputSchema>
 export type IssueSort = z.infer<typeof issueSortSchema>
 export type SortDirection = z.infer<typeof sortDirectionSchema>

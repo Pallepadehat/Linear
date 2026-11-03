@@ -2,8 +2,14 @@ import { oc } from '@orpc/contract'
 import { z } from 'zod'
 import { userSchema } from '../schemas/users'
 import {
+  bulkDeleteIssuesInputSchema,
+  bulkDeleteIssuesOutputSchema,
+  bulkUpdateIssuesInputSchema,
+  bulkUpdateIssuesOutputSchema,
   createIssueInputSchema,
   getIssueByIdentifierInputSchema,
+  issueFacetsInputSchema,
+  issueFacetsSchema,
   issueDetailSchema,
   issueIdInputSchema,
   issuePageSchema,
@@ -21,8 +27,13 @@ export const issuesContract = {
   getByIdentifier: oc.input(getIssueByIdentifierInputSchema).output(issueDetailSchema),
   update: oc.input(updateIssueInputSchema).output(issueSchema),
   delete: oc.input(issueIdInputSchema).output(z.object({ id: z.uuid() })),
+  // All or nothing: one transaction, NOT_FOUND if any id isn't in the workspace.
+  bulkUpdate: oc.input(bulkUpdateIssuesInputSchema).output(bulkUpdateIssuesOutputSchema),
+  bulkDelete: oc.input(bulkDeleteIssuesInputSchema).output(bulkDeleteIssuesOutputSchema),
   // Unbounded, so cursor-paginated (see AGENTS.md → API).
   list: oc.input(listIssuesInputSchema).output(issuePageSchema),
+  /** Counts per assignee / label / priority / project for the list's filters (Details panel). */
+  facets: oc.input(issueFacetsInputSchema).output(issueFacetsSchema),
   subscribe: oc.input(issueSubscriptionInputSchema).output(issueSubscriptionSchema),
   unsubscribe: oc.input(issueSubscriptionInputSchema).output(issueSubscriptionSchema),
   // Bounded by the workspace's members, so a plain array.
