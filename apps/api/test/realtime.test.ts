@@ -124,8 +124,8 @@ describe('realtime', () => {
     const actorId = owner.userId
     await eventually(() =>
       expect(events).toEqual([
-        { type: 'issue.updated', issueId: issue.id, fields: ['project'], actorId },
-        { type: 'issue.updated', issueId: other.id, fields: ['project'], actorId },
+        { type: 'issue.updated', issueId: issue.id, fields: ['project', 'milestone'], actorId },
+        { type: 'issue.updated', issueId: other.id, fields: ['project', 'milestone'], actorId },
         { type: 'project.updated', projectId: project.id, actorId },
       ]),
     )
@@ -208,7 +208,12 @@ describe('realtime', () => {
 
     await eventually(() =>
       expect(events).toEqual([
-        { type: 'issue.updated', issueId: issue.id, fields: ['project'], actorId: owner.userId },
+        {
+          type: 'issue.updated',
+          issueId: issue.id,
+          fields: ['project', 'milestone'],
+          actorId: owner.userId,
+        },
         { type: 'project.updated', projectId: from.id, actorId: owner.userId },
         { type: 'project.updated', projectId: to.id, actorId: owner.userId },
       ]),
