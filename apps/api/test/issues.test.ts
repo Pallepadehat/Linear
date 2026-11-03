@@ -1,3 +1,4 @@
+import type { ListIssuesInput } from '@linear/contract'
 import { createIssue } from '@linear/core'
 import { issueAttachments, issues, teams, uploads, workflowStatuses } from '@linear/db'
 import {
@@ -547,5 +548,160 @@ describe('issue attachments', () => {
     expect(page.items.map((i) => i.title)).toEqual(['X'])
     expect((await issues.get({ workspaceSlug: 'tip', id: issue.id })).description).toBeNull()
     expect(await uploadStatus(foreign)).toBe('ready')
+  })
+})
+
+describe('issues.list filters, sorting and search', () => {
+  /** TIP-1..TIP-5 with distinct properties, created oldest to newest. */
+  async function seeded() {
+    const ctx = await workspaceWithTeam()
+    const { owner, workspace, team, status, issues } = ctx
+    const member = await signUp(app, 'Member')
+    await addMember(db, workspace.id, member.userId)
+    const project = await owner.client.projects.create({ workspaceSlug: 'tip', name: 'Launch' })
+    const label = (name: string) =>
+      owner.client.labels.create({ workspaceSlug: 'tip', name, color: '#eb5757' })
+    const [bug, ui] = [await label('Bug'), await label('UI')]
+    const create = (title: string, fields: Record<string, unknown> = {}) =>
+      issues.create({ workspaceSlug: 'tip', teamId: team.id, title, ...fields })
+
+    const tip1 = await create('Fix login redirect', { priority: 3, labelIds: [bug.id] })
+    const tip2 = await create('100% width header', {
+      priority: 1,
+      assigneeId: member.userId,
+      statusId: status('Todo').id,
+    })
+    const tip3 = await create('Dark mode', {
+      priority: 0,
+      projectId: project.id,
+      labelIds: [ui.id],
+    })
+    const tip4 = await create('Login form polish', {
+      priority: 4,
+      assigneeId: owner.userId,
+      projectId: project.id,
+      labelIds: [bug.id, ui.id],
+    })
+    const tip5 = await create('Onboarding', { priority: 2, statusId: status('Todo').id })
+    const ids = async (filter: Partial<ListIssuesInput> = {}) =>
+      (await issues.list({ workspaceSlug: 'tip', ...filter })).items.map((i) => i.identifier)
+    return {
+      ...ctx,
+      member,
+      project,
+      bug,
+      ui,
+      created: [tip1, tip2, tip3, tip4, tip5],
+      ids,
+    }
+  }
+
+  it('filters by status, priority, assignee, project and labels', async () => {
+    const { owner, member, project, bug, ui, status, ids } = await seeded()
+
+    expect(await ids({ statusIds: [status('Todo').id] })).toEqual(['TIP-5', 'TIP-2'])
+    expect(await ids({ statusIds: [status('Todo').id, status('Backlog').id] })).toHaveLength(5)
+    expect(await ids({ priorities: [1, 2] })).toEqual(['TIP-5', 'TIP-2'])
+    expect(await ids({ priorities: [0] })).toEqual(['TIP-3'])
+    expect(await ids({ assigneeIds: [member.userId] })).toEqual(['TIP-2'])
+    expect(await ids({ assigneeIds: [null] })).toEqual(['TIP-5', 'TIP-3', 'TIP-1'])
+    expect(await ids({ assigneeIds: [owner.userId, null] })).toEqual([
+      'TIP-5',
+      'TIP-4',
+      'TIP-3',
+      'TIP-1',
+    ])
+    expect(await ids({ projectIds: [project.id] })).toEqual(['TIP-4', 'TIP-3'])
+    expect(await ids({ projectIds: [null] })).toEqual(['TIP-5', 'TIP-2', 'TIP-1'])
+    // Labels match any of the given labels.
+    expect(await ids({ labelIds: [bug.id] })).toEqual(['TIP-4', 'TIP-1'])
+    expect(await ids({ labelIds: [bug.id, ui.id] })).toEqual(['TIP-4', 'TIP-3', 'TIP-1'])
+    // Different filters combine with AND; an empty list doesn't filter.
+    expect(await ids({ labelIds: [ui.id], projectIds: [project.id], priorities: [4] })).toEqual([
+      'TIP-4',
+    ])
+    expect(await ids({ statusIds: [], labelIds: [] })).toHaveLength(5)
+    // Ids from elsewhere just match nothing.
+    expect(await ids({ labelIds: [crypto.randomUUID()] })).toEqual([])
+  })
+
+  it('sorts by created, updated and priority in both directions, with stable cursors', async () => {
+    const { issues, created, ids } = await seeded()
+
+    expect(await ids()).toEqual(['TIP-5', 'TIP-4', 'TIP-3', 'TIP-2', 'TIP-1'])
+    expect(await ids({ sort: 'createdAt', direction: 'asc' })).toEqual([
+      'TIP-1',
+      'TIP-2',
+      'TIP-3',
+      'TIP-4',
+      'TIP-5',
+    ])
+
+    await issues.update({ workspaceSlug: 'tip', id: created[1]!.id, title: 'Touched' })
+    expect(await ids({ sort: 'updatedAt' })).toEqual(['TIP-2', 'TIP-5', 'TIP-4', 'TIP-3', 'TIP-1'])
+    expect(await ids({ sort: 'updatedAt', direction: 'asc' })).toEqual([
+      'TIP-1',
+      'TIP-3',
+      'TIP-4',
+      'TIP-5',
+      'TIP-2',
+    ])
+
+    // Urgent first (desc) or Low first (asc); No priority is last either way.
+    expect(await ids({ sort: 'priority' })).toEqual(['TIP-2', 'TIP-5', 'TIP-1', 'TIP-4', 'TIP-3'])
+    expect(await ids({ sort: 'priority', direction: 'asc' })).toEqual([
+      'TIP-4',
+      'TIP-1',
+      'TIP-5',
+      'TIP-2',
+      'TIP-3',
+    ])
+
+    // Paging one row at a time walks the same order for every sort, including ties.
+    await issues.update({ workspaceSlug: 'tip', id: created[3]!.id, priority: 1 })
+    for (const sort of ['createdAt', 'updatedAt', 'priority'] as const) {
+      for (const direction of ['asc', 'desc'] as const) {
+        const expected = await ids({ sort, direction })
+        const walked: string[] = []
+        let cursor: string | null = null
+        do {
+          const page = await issues.list({
+            workspaceSlug: 'tip',
+            sort,
+            direction,
+            limit: 1,
+            cursor,
+          })
+          walked.push(...page.items.map((i) => i.identifier))
+          cursor = page.nextCursor
+        } while (cursor)
+        expect(walked, `${sort} ${direction}`).toEqual(expected)
+      }
+    }
+    expect(await ids({ sort: 'priority' })).toEqual(['TIP-4', 'TIP-2', 'TIP-5', 'TIP-1', 'TIP-3'])
+
+    // A cursor only fits the sort it was issued for.
+    const { nextCursor } = await issues.list({ workspaceSlug: 'tip', sort: 'priority', limit: 1 })
+    await expect(
+      issues.list({ workspaceSlug: 'tip', sort: 'createdAt', limit: 1, cursor: nextCursor }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+  })
+
+  it('searches titles case-insensitively and finds issues by identifier', async () => {
+    const { owner, issues, ids } = await seeded()
+    const ops = await owner.client.teams.create({ workspaceSlug: 'tip', name: 'Ops', key: 'OPS' })
+    await issues.create({ workspaceSlug: 'tip', teamId: ops.id, title: 'Rotate keys' })
+
+    expect(await ids({ q: 'login' })).toEqual(['TIP-4', 'TIP-1'])
+    expect(await ids({ q: '  LOGIN form ' })).toEqual(['TIP-4'])
+    // LIKE wildcards in the query match literally.
+    expect(await ids({ q: '100%' })).toEqual(['TIP-2'])
+    expect(await ids({ q: '%' })).toEqual(['TIP-2'])
+    expect(await ids({ q: '_' })).toEqual([])
+    expect(await ids({ q: 'tip-3' })).toEqual(['TIP-3'])
+    expect(await ids({ q: 'OPS-1' })).toEqual(['OPS-1'])
+    expect(await ids({ q: 'ops-2' })).toEqual([])
+    // Search combines with filters.
+    expect(await ids({ q: 'login', priorities: [3] })).toEqual(['TIP-1'])
   })
 })

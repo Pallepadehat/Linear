@@ -32,9 +32,7 @@ describe('teams', () => {
       'Canceled',
     ])
 
-    expect(await member.client.teams.list({ workspaceSlug: 'tip' })).toEqual([
-      { id: team.id, name: 'Tip Development', key: 'TIP' },
-    ])
+    expect(await member.client.teams.list({ workspaceSlug: 'tip' })).toEqual([team])
   })
 
   it('keeps team keys unique within a workspace, case-insensitively', async () => {

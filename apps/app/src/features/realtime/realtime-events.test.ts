@@ -3,6 +3,7 @@ import type { Issue, IssuePage, WorkflowStatus } from '@linear/contract'
 import { QueryClient, type InfiniteData } from '@tanstack/vue-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toValue } from 'vue'
+import { EMPTY_FILTERS, type IssueFilters } from '@/features/issues/issue-filters'
 import { issueListOptions } from '@/features/issues/queries'
 import { orpc } from '@/lib/orpc'
 import { createRealtimeEventHandler } from './realtime-events'
@@ -90,6 +91,36 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.created', issueId: 'c', ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect(listInvalidations()).toHaveLength(1)
+  })
+
+  it('refetches only the filtered or sorted lists a change can affect', async () => {
+    const fetchIssue = vi.fn(async (id: string) => issue(id))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+    const keyFor = (filters: Partial<IssueFilters>) =>
+      issueListOptions('tip', {}, { ...EMPTY_FILTERS, ...filters }).queryKey
+    const byStatus = keyFor({ statusIds: [todo.id] })
+    const byPriority = keyFor({ sort: 'priority' })
+    const byTitle = keyFor({ q: 'login' })
+    for (const key of [byStatus, byPriority, byTitle]) {
+      queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
+        pages: [{ items: [issue('a')], nextCursor: null }],
+        pageParams: [null],
+      })
+    }
+    const stale = (key: readonly unknown[]) => queryClient.getQueryState(key)!.isInvalidated
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['status'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), stale(byStatus), stale(byPriority), stale(byTitle)]).toEqual([
+      false,
+      true,
+      false,
+      false,
+    ])
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), stale(byPriority), stale(byTitle)]).toEqual([false, true, true])
   })
 
   it("leaves caches alone while this tab's own edit is in flight", async () => {

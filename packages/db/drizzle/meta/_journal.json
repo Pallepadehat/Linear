@@ -71,6 +71,13 @@
       "when": 1793694910601,
       "tag": "0009_team_issue_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793702130806,
+      "tag": "0010_issue_list_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,7 @@ import {
 } from '@linear/core'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
-import { toTeamDto, toTeamWithStatusesDto } from './teams.dto'
+import { toTeamWithStatusesDto } from './teams.dto'
 
 const inWorkspace = requireWorkspace()
 
@@ -38,7 +38,12 @@ export const teamsRouter = {
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context }) => {
       const teams = await listTeams(context.db, context.workspace.id)
-      return teams.map(toTeamDto)
+      const statuses = await listWorkflowStatuses(
+        context.db,
+        context.workspace.id,
+        teams.map((team) => team.id),
+      )
+      return teams.map((team) => toTeamWithStatusesDto(team, statuses))
     }),
 
   // Issue defaults are team settings, so owner-only (docs/domain.md → Roles).

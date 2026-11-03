@@ -1,5 +1,6 @@
 import type { Issue, IssuePage, ListIssuesInput } from '@linear/contract'
 import {
+  keepPreviousData,
   useMutation,
   useQueryClient,
   type InfiniteData,
@@ -17,17 +18,35 @@ import {
   toUpdateIssueInput,
   type IssuePatch,
 } from './issue-cache'
+import { EMPTY_FILTERS, type IssueFilters } from './issue-filters'
 
 const PAGE_SIZE = 50
 
 export type IssueListFilter = Pick<ListIssuesInput, 'teamId' | 'projectId' | 'assignee' | 'creator'>
 
-/** Newest-first issue pages for a workspace, narrowed by team, project, assignee or creator. */
-export function issueListOptions(workspaceSlug: string, filter: IssueListFilter = {}) {
+/**
+ * Issue pages for a workspace, narrowed by the page's scope (team, project,
+ * assignee or creator), then by the user's filters and sort.
+ */
+export function issueListOptions(
+  workspaceSlug: string,
+  filter: IssueListFilter = {},
+  filters: IssueFilters = EMPTY_FILTERS,
+) {
+  const { q, ...rest } = filters
   return orpc.issues.list.infiniteOptions({
-    input: (cursor: string | null) => ({ workspaceSlug, ...filter, cursor, limit: PAGE_SIZE }),
+    input: (cursor: string | null) => ({
+      workspaceSlug,
+      ...filter,
+      ...rest,
+      q: q || undefined,
+      cursor,
+      limit: PAGE_SIZE,
+    }),
     initialPageParam: null,
     getNextPageParam: (page) => page.nextCursor,
+    // Keep showing the current rows while a new filter or sort loads.
+    placeholderData: keepPreviousData,
   })
 }
 

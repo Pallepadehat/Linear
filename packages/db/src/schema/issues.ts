@@ -40,6 +40,10 @@ export const issues = pgTable(
     index().on(t.statusId),
     index().on(t.assigneeId),
     index().on(t.projectId),
+    // List filters and sorts (issues.list); the id is the keyset tie-breaker.
+    index().on(t.workspaceId, t.priority),
+    index().on(t.workspaceId, t.createdAt, t.id),
+    index().on(t.workspaceId, t.updatedAt, t.id),
     check('issues_number_positive', sql`${t.number} > 0`),
     check('issues_priority_range', sql`${t.priority} between 0 and 4`),
   ],

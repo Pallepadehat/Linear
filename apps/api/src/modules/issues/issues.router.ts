@@ -75,14 +75,12 @@ export const issuesRouter = {
   list: authed.issues.list
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
+      const { workspaceSlug: _, assignee, creator, ...query } = input
       const page = await listIssues(context.db, {
+        ...query,
         workspaceId: context.workspace.id,
-        teamId: input.teamId,
-        projectId: input.projectId,
-        assigneeId: input.assignee === 'me' ? context.user.id : undefined,
-        creatorId: input.creator === 'me' ? context.user.id : undefined,
-        cursor: input.cursor,
-        limit: input.limit,
+        assigneeId: assignee === 'me' ? context.user.id : undefined,
+        creatorId: creator === 'me' ? context.user.id : undefined,
       })
       return { items: page.items.map(toIssueDto), nextCursor: page.nextCursor }
     }),

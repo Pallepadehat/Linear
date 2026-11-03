@@ -2,18 +2,22 @@ import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { orpc } from '@/lib/orpc'
 import { issueListOptions, useUpdateIssue, type IssueListFilter } from '../queries'
+import { useIssueFilters } from './useIssueFilters'
 
 /**
  * What the list and board views both need: the issue pages, the people and
  * labels the pickers offer, each listed team's statuses and the optimistic
- * update mutation.
+ * update mutation. Issues follow the filters and sort in the route query.
  */
 export function useIssueViewData(
   workspaceSlug: MaybeRefOrGetter<string>,
   filter: MaybeRefOrGetter<IssueListFilter>,
 ) {
   const slug = computed(() => toValue(workspaceSlug))
-  const query = useInfiniteQuery(computed(() => issueListOptions(slug.value, toValue(filter))))
+  const { filters } = useIssueFilters()
+  const query = useInfiniteQuery(
+    computed(() => issueListOptions(slug.value, toValue(filter), filters.value)),
+  )
   const { data: members } = useQuery(
     computed(() =>
       orpc.workspaces.listMembers.queryOptions({ input: { workspaceSlug: slug.value } }),
