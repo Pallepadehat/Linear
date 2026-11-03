@@ -176,13 +176,6 @@
       "when": 1793742604134,
       "tag": "0024_project_milestones",
       "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "7",
-      "when": 1793743599663,
-      "tag": "0025_views",
-      "breakpoints": true
     }
   ]
 }
