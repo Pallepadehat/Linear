@@ -1,0 +1,161 @@
+# The whole stack from production images: app (nginx) → api → Postgres/Redis/storage, plus
+# the worker and a one-shot migrate (+ demo seed) job. No source checkout or Bun needed to run it.
+#
+#   cp .env.prod.example .env.prod      # set BETTER_AUTH_SECRET
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build   # build from source
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod pull && \
+#     docker compose -f docker-compose.prod.yml --env-file .env.prod up -d         # prebuilt :prod images
+#
+# Open $PUBLIC_URL (default http://localhost:8080). Separate project name and volumes from the
+# dev compose file, so both can run at once.
+name: linear-prod
+
+x-server-env: &server-env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgres://linear:${POSTGRES_PASSWORD:-linear}@postgres:5432/linear
+  REDIS_URL: redis://redis:6379
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env.prod (openssl rand -base64 32)}
+  BETTER_AUTH_URL: ${PUBLIC_URL:-http://localhost:8080}
+  APP_URL: ${PUBLIC_URL:-http://localhost:8080}
+  S3_ENDPOINT: http://storage:9000
+  S3_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_URL:-http://localhost:8090}
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-linear}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:-linear-storage-secret}
+  S3_BUCKET: linear-uploads
+  GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+  GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+  GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+  GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID:-}
+  GITHUB_APP_CLIENT_SECRET: ${GITHUB_APP_CLIENT_SECRET:-}
+  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+
+x-server: &server
+  image: ${IMAGE_REGISTRY:-ghcr.io/pallepadehat}/linear-server:${IMAGE_TAG:-prod}
+  build: { context: ., target: server }
+  restart: unless-stopped
+  environment: *server-env
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: linear
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linear}
+      POSTGRES_DB: linear
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U linear -d linear']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - redis-data:/data
+
+  # Published because the browser uploads/downloads with presigned URLs ($STORAGE_PUBLIC_URL).
+  storage:
+    image: rustfs/rustfs:1.0.4
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-linear}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-linear-storage-secret}
+      RUSTFS_VOLUMES: /data
+    ports:
+      - '${STORAGE_PORT:-8090}:9000'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:9000/health']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - storage-data:/data
+
+  storage-init:
+    image: amazon/aws-cli:2.27.0
+    depends_on:
+      storage:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-linear}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-linear-storage-secret}
+      AWS_DEFAULT_REGION: us-east-1
+      BUCKET: linear-uploads
+      APP_URL: ${PUBLIC_URL:-http://localhost:8080}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        s3="aws --endpoint-url http://storage:9000 s3api"
+        $$s3 head-bucket --bucket "$$BUCKET" 2>/dev/null || $$s3 create-bucket --bucket "$$BUCKET"
+        $$s3 put-bucket-cors --bucket "$$BUCKET" --cors-configuration \
+          "{\"CORSRules\":[{\"AllowedOrigins\":[\"$$APP_URL\"],\"AllowedMethods\":[\"GET\",\"PUT\"],\"AllowedHeaders\":[\"*\"],\"MaxAgeSeconds\":3000}]}" \
+          || echo "bucket CORS not supported by this server; relying on its defaults"
+        echo "bucket ready: $$BUCKET"
+    restart: 'no'
+
+  # One-shot: applies migrations, then (unless SEED_DEMO=false) the idempotent demo seed.
+  migrate:
+    <<: *server
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *server-env
+      SEED_DEMO: ${SEED_DEMO:-true}
+    command:
+      - sh
+      - -c
+      - bun packages/db/src/migrate.ts && if [ "$$SEED_DEMO" = true ]; then bun packages/db/src/seed.ts; fi
+
+  api:
+    <<: *server
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'bun', '-e', "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    <<: *server
+    command: ['bun', 'apps/worker/dist/index.js']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  app:
+    image: ${IMAGE_REGISTRY:-ghcr.io/pallepadehat}/linear-app:${IMAGE_TAG:-prod}
+    build: { context: ., target: app }
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${APP_PORT:-8080}:80'
+
+volumes:
+  postgres-data:
+  redis-data:
+  storage-data:
