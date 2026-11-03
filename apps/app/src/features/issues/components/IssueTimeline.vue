@@ -10,6 +10,7 @@ import CommentThread from './CommentThread.vue'
 import {
   activityActor,
   describeActivity,
+  mentionSource,
   type ActivityNames,
   type TimelineEntry,
 } from '../issue-timeline'
@@ -84,6 +85,20 @@ watch(
         <span class="min-w-0">
           <span class="font-medium text-ink-muted">{{ activityActor(entry.activity, names) }}</span>
           {{ describeActivity(entry.activity, names) }}
+          <template v-for="source in [mentionSource(entry.activity)]" :key="source?.issueId">
+            <RouterLink
+              v-if="source"
+              :to="{
+                name: 'issue',
+                params: { workspaceSlug, identifier: source.identifier },
+                hash: source.commentId ? `#comment-${source.commentId}` : undefined,
+              }"
+              class="rounded-xs text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span class="font-mono">{{ source.identifier }}</span>
+              <span v-if="source.title" class="ml-1 hover:underline">{{ source.title }}</span>
+            </RouterLink>
+          </template>
           <template v-for="pr in linkedPullRequest(entry.activity)" :key="pr.id">
             via
             <a
