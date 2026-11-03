@@ -197,9 +197,10 @@ describe('issues procedures', () => {
     })
     expect(issue.createdAt).toBeInstanceOf(Date)
 
-    expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual(issue)
+    const detail = { ...issue, parent: null, children: [] }
+    expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual(detail)
     expect(await issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'tip-1' })).toEqual(
-      issue,
+      detail,
     )
     await expect(
       issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'TIP-2' }),

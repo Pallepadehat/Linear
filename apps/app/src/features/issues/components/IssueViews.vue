@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { PanelRight, SlidersHorizontal } from '@lucide/vue'
-import { onKeyStroke } from '@vueuse/core'
 import { computed, defineAsyncComponent, ref } from 'vue'
 import IconButton from '@/components/common/IconButton.vue'
+import { useHotkeys } from '@/composables/useHotkeys'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
-import { isPlainShortcut, isTypingTarget } from '@/lib/keyboard'
+import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
 import { usePreferencesStore } from '@/stores/preferences'
-import { useUiStore } from '@/stores/ui'
 import { useFilterDimensions } from '../composables/useFilterDimensions'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { useIssueView } from '../composables/useIssueView'
@@ -25,7 +24,6 @@ const props = defineProps<{ workspaceSlug: string; teamId?: string }>()
 const PANEL_ID = 'issue-view-panel'
 
 const preferences = usePreferencesStore()
-const ui = useUiStore()
 const { view, select } = useIssueView()
 const tab = computed({ get: () => view.value, set: select })
 
@@ -34,25 +32,16 @@ const dimensions = useFilterDimensions(() => props, filters, update)
 
 // `F` opens the filter menu, like Linear; ignored while typing.
 const filterOpen = ref(false)
-onKeyStroke('f', (event) => {
-  if (ui.createIssueOpen || !isPlainShortcut(event)) return
-  event.preventDefault()
-  filterOpen.value = true
-})
-
 // The Details panel (⌘I, Ctrl+I elsewhere), remembered per view.
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 const detailsKey = computed(() => detailsPanelKey(props.teamId, view.value))
 const detailsOpen = computed(() => preferences.isDetailsOpen(detailsKey.value))
 const toggleDetails = () => preferences.toggleDetails(detailsKey.value)
-onKeyStroke('i', (event) => {
-  const modifier = isMac ? event.metaKey : event.ctrlKey
-  if (!modifier || event.altKey || event.shiftKey || ui.createIssueOpen) return
-  // ⌘I is italic in the editor.
-  if (isTypingTarget(event.target)) return
-  event.preventDefault()
-  toggleDetails()
-})
+const detailsShortcut = shortcutKeys('list-details')[0]!.join(' ')
+
+useHotkeys([
+  { id: 'list-filter', run: () => void (filterOpen.value = true) },
+  { id: 'list-details', run: toggleDetails },
+])
 </script>
 
 <template>
@@ -72,8 +61,8 @@ onKeyStroke('i', (event) => {
       <IconButton
         :icon="PanelRight"
         :label="detailsOpen ? 'Close details' : 'Open details'"
-        :shortcut="isMac ? '⌘ I' : 'Ctrl I'"
-        :aria-keyshortcuts="isMac ? 'Meta+I' : 'Control+I'"
+        :shortcut="detailsShortcut"
+        :aria-keyshortcuts="isMacPlatform() ? 'Meta+I' : 'Control+I'"
         :aria-pressed="detailsOpen"
         :class="{ 'bg-surface-2 text-ink': detailsOpen }"
         @click="toggleDetails"

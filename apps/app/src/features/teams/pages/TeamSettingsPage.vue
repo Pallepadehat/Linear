@@ -8,13 +8,16 @@ import AssigneePicker from '@/components/common/AssigneePicker.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import { Switch } from '@/components/ui/switch'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import LabelsSettings from '@/features/labels/components/LabelsSettings.vue'
 import TemplateSettings from '@/features/templates/components/TemplateSettings.vue'
 import { errorCode, errorMessage } from '@/lib/errors'
 import { client, orpc } from '@/lib/orpc'
+import { scalePreview, type EstimateScale } from '@/lib/estimates'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { useUiStore } from '@/stores/ui'
+import EstimateScalePicker from '../components/EstimateScalePicker.vue'
 
 const route = useRoute()
 const ui = useUiStore()
@@ -63,8 +66,13 @@ const update = useMutation({
     toast.error(errorMessage(error))
   },
   onSuccess: (saved) => queryClient.setQueryData(teamOptions.value.queryKey, saved),
-  // The create dialog reads the same query, so it picks up the new defaults.
-  onSettled: () => queryClient.invalidateQueries({ queryKey: orpc.teams.get.key() }),
+  // The create dialog reads the same query, so it picks up the new defaults; lists
+  // and pickers read estimate scales from `teams.list`.
+  onSettled: () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: orpc.teams.get.key() }),
+      queryClient.invalidateQueries({ queryKey: orpc.teams.list.key() }),
+    ]),
 })
 
 const defaultStatusId = computed({
@@ -74,6 +82,14 @@ const defaultStatusId = computed({
 const defaultPriority = computed({
   get: () => toPriority(team.value?.defaultPriority),
   set: (value: Priority) => update.mutate({ defaultPriority: value }),
+})
+const estimateScale = computed({
+  get: () => team.value?.estimateScale ?? 'off',
+  set: (scale: EstimateScale) => update.mutate({ estimateScale: scale }),
+})
+const estimateAllowZero = computed({
+  get: () => team.value?.estimateAllowZero ?? false,
+  set: (allowZero: boolean) => update.mutate({ estimateAllowZero: allowZero }),
 })
 const defaultAssigneeId = computed({
   get: () => team.value?.defaultAssigneeId ?? null,
@@ -118,6 +134,47 @@ const defaultAssigneeId = computed({
           <span class="text-ink-muted">Assignee</span>
           <AssigneePicker v-model="defaultAssigneeId" :users="assignees" no-hotkey />
         </div>
+      </div>
+    </section>
+    <section aria-labelledby="estimates-heading" class="grid gap-3">
+      <div class="grid gap-1">
+        <h2
+          id="estimates-heading"
+          class="text-xs font-medium tracking-wide text-ink-subtle uppercase"
+        >
+          Estimates
+        </h2>
+        <p class="text-ink-subtle">
+          How issues in this team are sized. Changing the scale keeps existing estimates.
+          <template v-if="workspace && !isOwner">Only workspace owners can change it.</template>
+        </p>
+      </div>
+      <div
+        class="divide-y divide-hairline rounded-lg border border-hairline bg-surface-1"
+        :class="{ 'pointer-events-none opacity-60': !isOwner }"
+        :inert="!isOwner || undefined"
+      >
+        <div class="flex items-center justify-between gap-4 px-4 py-2">
+          <div class="grid min-w-0">
+            <span class="text-ink-muted">Scale</span>
+            <span v-if="estimateScale !== 'off'" class="truncate text-xs text-ink-subtle">
+              {{ scalePreview({ scale: estimateScale, allowZero: estimateAllowZero }) }}
+            </span>
+          </div>
+          <EstimateScalePicker v-model="estimateScale" :allow-zero="estimateAllowZero" />
+        </div>
+        <label
+          for="estimate-allow-zero"
+          class="flex items-center justify-between gap-4 px-4 py-3"
+          :class="{ 'opacity-60': estimateScale === 'off' }"
+        >
+          <span class="text-ink-muted">Allow zero estimates</span>
+          <Switch
+            id="estimate-allow-zero"
+            v-model="estimateAllowZero"
+            :disabled="estimateScale === 'off'"
+          />
+        </label>
       </div>
     </section>
     <section aria-labelledby="team-labels-heading" class="grid gap-3">

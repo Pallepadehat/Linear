@@ -5,12 +5,21 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import EstimateIcon from '@/components/common/EstimateIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
+import { pointsText, sumEstimates } from '@/lib/estimates'
 import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
 import { useIssueFilters } from '../composables/useIssueFilters'
-import { groupIssuesByStatus, listOrder, toListRows, type IssueListRow } from '../group-issues'
+import {
+  groupIssuesByStatus,
+  listOrder,
+  toListRows,
+  type IssueGroup,
+  type IssueListRow,
+} from '../group-issues'
+import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
 import IssueFilterBar from './IssueFilterBar.vue'
@@ -36,16 +45,17 @@ const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, queryKey, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
-  () => props.workspaceSlug,
-  () => ({
-    teamId: props.teamId,
-    projectId: props.projectId,
-    assignee: props.assignee,
-    creator: props.creator,
-    statusCategories: viewStatusCategories(props.view),
-  }),
-)
+const { query, queryKey, issues, users, labels, statusesByTeam, estimatesByTeam, updateIssue } =
+  useIssueViewData(
+    () => props.workspaceSlug,
+    () => ({
+      teamId: props.teamId,
+      projectId: props.projectId,
+      assignee: props.assignee,
+      creator: props.creator,
+      statusCategories: viewStatusCategories(props.view),
+    }),
+  )
 const viewEmpty = computed(() =>
   props.view === 'active'
     ? { title: 'No active issues', description: 'Issues in Todo or In Progress show up here.' }
@@ -54,6 +64,9 @@ const viewEmpty = computed(() =>
       : null,
 )
 const collapsed = ref(new Set<string>())
+// Sums come from the cached issues, so optimistic estimate changes show at once.
+const groupEstimate = (group: IssueGroup) =>
+  sumEstimates(group.issues, (teamId) => estimatesByTeam.value.get(teamId)?.scale)
 const rows = computed(() => toListRows(groupIssuesByStatus(issues.value), collapsed.value))
 
 function toggleGroup(key: string) {
@@ -123,6 +136,23 @@ watch(rows, async (next, prev) => {
 // A new filter, sort or view is a different list; start it from the top.
 watch([filters, () => props.view], () => {
   if (scrollEl.value) scrollEl.value.scrollTop = 0
+})
+
+// J/K move through the visible rows (collapsed groups are skipped).
+const listedIssues = computed(() =>
+  rows.value.flatMap((row) => (row.type === 'issue' ? [row.issue] : [])),
+)
+const { focusedId, selectedIds } = useIssueListKeyboard(listedIssues, async (issue) => {
+  const index = rows.value.findIndex((row) => row.type === 'issue' && row.issue.id === issue.id)
+  if (index === -1) return
+  virtualizer.value.scrollToIndex(index, { align: 'auto' })
+  // The row may only render after the scroll; then move focus to its link.
+  await nextTick()
+  requestAnimationFrame(() =>
+    scrollEl.value
+      ?.querySelector<HTMLElement>(`[data-issue-id="${issue.id}"] a`)
+      ?.focus({ preventScroll: true }),
+  )
 })
 
 watchEffect(() => {
@@ -214,6 +244,17 @@ watchEffect(() => {
               <StatusIcon :category="row.group.status.category" />
               <span class="font-medium text-ink">{{ row.group.status.name }}</span>
               <span class="text-ink-subtle tabular-nums">{{ row.group.issues.length }}</span>
+              <span
+                v-if="groupEstimate(row.group) > 0"
+                class="ml-1 flex items-center gap-1 text-xs text-ink-subtle tabular-nums"
+                :title="`Estimate: ${pointsText(groupEstimate(row.group))}`"
+              >
+                <EstimateIcon class="size-3.5" />
+                {{ groupEstimate(row.group) }}
+                <span class="sr-only">{{
+                  groupEstimate(row.group) === 1 ? 'point' : 'points'
+                }}</span>
+              </span>
             </button>
             <Button
               v-if="teamId"
@@ -229,9 +270,14 @@ watchEffect(() => {
             v-else
             class="flex-1"
             :issue="row.issue"
+            :depth="row.depth"
+            :data-issue-id="row.issue.id"
+            :focused="row.issue.id === focusedId"
+            :selected="selectedIds.has(row.issue.id)"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"
+            :estimates="estimatesByTeam.get(row.issue.teamId)"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
             @open="openIssue(row.issue)"
           />

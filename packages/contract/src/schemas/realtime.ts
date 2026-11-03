@@ -10,7 +10,13 @@ export const realtimeIssueFieldSchema = z.enum([
   'assignee',
   'project',
   'labels',
+  'estimate',
+  'dueDate',
   'pullRequests',
+  // The issue's parent changed / one of its sub-issues was added, removed or changed status.
+  'parent',
+  'subIssues',
+  'subscribers',
 ])
 
 const base = {
@@ -31,6 +37,12 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('comment.created'), ...base, commentId: z.uuid() }),
   z.object({ type: z.literal('comment.updated'), ...base, commentId: z.uuid() }),
   z.object({ type: z.literal('comment.deleted'), ...base, commentId: z.uuid() }),
+  // Any change to a project (create, update, delete); clients refetch their project queries.
+  z.object({
+    type: z.literal('project.updated'),
+    projectId: z.uuid(),
+    actorId: base.actorId,
+  }),
   /** A template was created, changed or deleted (docs/domain.md → Templates). */
   z.object({
     type: z.literal('template.updated'),

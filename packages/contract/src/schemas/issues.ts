@@ -6,6 +6,15 @@ import { statusCategorySchema, workflowStatusSchema } from './teams'
 /** 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (docs/domain.md → Priorities). */
 export const issuePrioritySchema = z.number().int().min(0).max(4)
 
+/**
+ * Points on the team's estimate scale (docs/domain.md → Estimates); `null` = no
+ * estimate. The server checks the value against the scale.
+ */
+export const issueEstimateSchema = z.number().int().min(0).max(100)
+/** A calendar day, `YYYY-MM-DD`, with no time or timezone (docs/domain.md → Due dates). */
+export const isoDateSchema = z.iso.date({ message: 'Use a date like 2026-11-07' })
+export const issueDueDateSchema = isoDateSchema.nullable()
+
 export const issueTitleSchema = z.string().trim().min(1, { message: 'Required' }).max(255)
 export const issueDescriptionSchema = z.string().max(100_000).nullable()
 
@@ -31,10 +40,35 @@ export const issueSchema = z.object({
   assigneeId: z.uuid().nullable(),
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
+  estimate: issueEstimateSchema.nullable(),
+  dueDate: issueDueDateSchema,
   labels: z.array(labelSchema),
+  /** Whether the signed-in user is subscribed (docs/domain.md → Subscribers). */
+  isSubscribed: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
   completedAt: z.date().nullable(),
+  parentId: z.uuid().nullable(),
+  /**
+   * Null without sub-issues. `done` counts completed-category sub-issues; canceled
+   * ones are left out of `total`.
+   */
+  subIssueProgress: z
+    .object({ done: z.number().int().min(0), total: z.number().int().min(0) })
+    .nullable(),
+})
+
+/** `issues.get` / `getByIdentifier`: the issue with its parent and sub-issues (oldest first). */
+export const issueDetailSchema = issueSchema.extend({
+  parent: z
+    .object({
+      id: z.uuid(),
+      identifier: z.string(),
+      title: z.string(),
+      status: workflowStatusSchema,
+    })
+    .nullable(),
+  children: z.array(issueSchema),
 })
 
 const labelIdsSchema = z.array(z.uuid()).max(50)
@@ -49,7 +83,11 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   /** `null` = unassigned, even when the team has a default assignee. */
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  estimate: issueEstimateSchema.nullable().optional(),
   labelIds: labelIdsSchema.optional(),
+  /** Creates it as a sub-issue (parent in the same workspace, any team). */
+  parentId: z.uuid().nullable().optional(),
+  dueDate: issueDueDateSchema.optional(),
 })
 
 /** Omitted fields are left unchanged; `labelIds` replaces the whole set. */
@@ -61,7 +99,11 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
   priority: issuePrioritySchema.optional(),
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  estimate: issueEstimateSchema.nullable().optional(),
   labelIds: labelIdsSchema.optional(),
+  /** `null` removes the parent. A cycle or the issue itself is `BAD_REQUEST`. */
+  parentId: z.uuid().nullable().optional(),
+  dueDate: issueDueDateSchema.optional(),
 })
 
 export const issueIdInputSchema = workspaceScopedSchema.extend({ id: z.uuid() })
@@ -70,13 +112,24 @@ export const getIssueByIdentifierInputSchema = workspaceScopedSchema.extend({
   identifier: issueIdentifierSchema,
 })
 
-export const issueSortSchema = z.enum(['createdAt', 'updatedAt', 'priority'])
-/** `desc` = newest / most urgent first. No priority always sorts last. */
+export const issueSortSchema = z.enum(['createdAt', 'updatedAt', 'priority', 'estimate', 'dueDate'])
+/**
+ * `desc` = newest / most urgent / largest / latest due first. No priority, no
+ * estimate and no due date always sort last.
+ */
 export const sortDirectionSchema = z.enum(['asc', 'desc'])
+
+/**
+ * `overdue`: before today and not completed or canceled. `dueThisWeek`: today through
+ * Sunday. `noDueDate`: unset.
+ */
+export const issueDueFilterSchema = z.enum(['overdue', 'dueThisWeek', 'noDueDate'])
 
 const filterIdsSchema = z.array(z.uuid()).max(100)
 /** `null` in the list matches issues with no value (unassigned / no project). */
 const nullableFilterIdsSchema = z.array(z.uuid().nullable()).max(100)
+/** `'me'` stands for the signed-in user, so a shared URL means the viewer. */
+const userFilterIdsSchema = z.array(z.union([z.uuid(), z.literal('me')])).max(100)
 
 /**
  * Filters combine with AND; values within one filter with OR (labels: any of).
@@ -97,14 +150,39 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   assigneeIds: nullableFilterIdsSchema.optional(),
   projectIds: nullableFilterIdsSchema.optional(),
   labelIds: filterIdsSchema.optional(),
+  /** Estimate values; `null` matches issues without an estimate, `'any'` those with one. */
+  estimates: z
+    .array(z.union([issueEstimateSchema, z.literal('any')]).nullable())
+    .max(20)
+    .optional(),
+  /** Any of these due date buckets; `overdue` and `dueThisWeek` need `today`. */
+  due: z.array(issueDueFilterSchema).max(3).optional(),
+  /** The viewer's local date, so relative due filters never guess a timezone. */
+  today: isoDateSchema.optional(),
+  /** Any of these users is subscribed. */
+  subscriberIds: userFilterIdsSchema.optional(),
   /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
   q: z.string().trim().max(255).optional(),
+  /** `false` leaves out sub-issues (issues with a parent). */
+  showSubIssues: z.boolean().default(true),
+  /** Leaves out this issue and its descendants (choosing a parent without making a cycle). */
+  excludeSubtreeOf: z.uuid().optional(),
   sort: issueSortSchema.default('createdAt'),
   direction: sortDirectionSchema.default('desc'),
   /** `nextCursor` from the previous page. */
   cursor: z.string().min(1).nullish(),
   limit: z.number().int().min(1).max(100).default(50),
 })
+
+/** Subscribes `userId` (default: the signed-in user); any member may add or remove others. */
+export const issueSubscriptionInputSchema = workspaceScopedSchema.extend({
+  issueId: z.uuid(),
+  userId: z.uuid().optional(),
+})
+
+export const issueSubscriptionSchema = z.object({ subscribed: z.boolean() })
+
+export const issueSubscribersInputSchema = workspaceScopedSchema.extend({ issueId: z.uuid() })
 
 export const issuePageSchema = z.object({
   items: z.array(issueSchema),
@@ -131,11 +209,15 @@ export const issueFacetsSchema = z.object({
 
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
 export type Issue = z.infer<typeof issueSchema>
+export type IssueDetail = z.infer<typeof issueDetailSchema>
+export type SubIssueProgress = NonNullable<Issue['subIssueProgress']>
 export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>
 export type ListIssuesInput = z.input<typeof listIssuesInputSchema>
 export type IssueFacetsInput = z.input<typeof issueFacetsInputSchema>
 export type IssueFacets = z.infer<typeof issueFacetsSchema>
+export type IssueSubscriptionInput = z.input<typeof issueSubscriptionInputSchema>
 export type IssueSort = z.infer<typeof issueSortSchema>
 export type SortDirection = z.infer<typeof sortDirectionSchema>
+export type IssueDueFilter = z.infer<typeof issueDueFilterSchema>

@@ -1,6 +1,6 @@
 import type { Issue, WorkflowStatus } from '@linear/contract'
 import { describe, expect, it } from 'vitest'
-import { groupIssuesByStatus, listOrder, toListRows } from './group-issues'
+import { groupIssuesByStatus, listOrder, nestSubIssues, toListRows } from './group-issues'
 
 const status = (
   name: string,
@@ -12,7 +12,7 @@ const todo = status('Todo', 'unstarted', 1)
 const inProgress = status('In Progress', 'started', 2)
 const done = status('Done', 'completed', 3)
 
-function issue(id: string, s: WorkflowStatus): Issue {
+function issue(id: string, s: WorkflowStatus, parentId: string | null = null): Issue {
   const now = new Date()
   return {
     id,
@@ -26,10 +26,15 @@ function issue(id: string, s: WorkflowStatus): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    estimate: null,
+    dueDate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: now,
     updatedAt: now,
     completedAt: null,
+    parentId,
+    subIssueProgress: null,
   }
 }
 
@@ -63,6 +68,41 @@ describe('toListRows', () => {
     const groups = groupIssuesByStatus([issue('a', todo), issue('b', done)])
     const rows = toListRows(groups, new Set([groups[0]!.key]))
     expect(rows.map((r) => r.type)).toEqual(['group', 'group', 'issue'])
+  })
+})
+
+describe('nestSubIssues', () => {
+  const nested = (issues: Issue[]) => nestSubIssues(issues).map((r) => `${r.issue.id}:${r.depth}`)
+
+  it('puts sub-issues right after their parent, recursively', () => {
+    expect(
+      nested([
+        issue('c', todo, 'a'),
+        issue('a', todo),
+        issue('b', todo),
+        issue('d', todo, 'c'),
+        issue('e', todo, 'a'),
+      ]),
+    ).toEqual(['a:0', 'c:1', 'd:2', 'e:1', 'b:0'])
+  })
+
+  it('keeps sub-issues whose parent is not in the list at the top level', () => {
+    expect(nested([issue('a', todo, 'missing'), issue('b', todo)])).toEqual(['a:0', 'b:0'])
+  })
+
+  it('never drops issues, even with a cycle in the data', () => {
+    expect(nested([issue('a', todo, 'b'), issue('b', todo, 'a')])).toHaveLength(2)
+  })
+
+  it('nests within each status group', () => {
+    const rows = toListRows(
+      groupIssuesByStatus([issue('p', todo), issue('c', todo, 'p'), issue('x', done, 'p')]),
+    )
+    expect(rows.flatMap((r) => (r.type === 'issue' ? [`${r.issue.id}:${r.depth}`] : []))).toEqual([
+      'p:0',
+      'c:1',
+      'x:0',
+    ])
   })
 })
 

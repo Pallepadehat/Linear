@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { Issue } from '@linear/contract'
-import { ChevronDown, ChevronUp, Copy, Ellipsis, Trash2, X } from '@lucide/vue'
+import { ChevronDown, ChevronUp, Copy, Ellipsis, ListTree, Trash2, Unlink, X } from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onKeyStroke } from '@vueuse/core'
 import { computed, ref, watchEffect } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -28,7 +27,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
 import { errorMessage } from '@/lib/errors'
-import { isTypingTarget } from '@/lib/keyboard'
+import { useHotkeys } from '@/composables/useHotkeys'
+import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import { useIssueNav } from '../composables/useIssueNav'
@@ -43,7 +43,8 @@ const props = defineProps<{
   teamName?: string
   teamKey?: string
 }>()
-const emit = defineEmits<{ change: [patch: IssuePatch] }>()
+// `setParent` opens the parent picker, which the page owns (it also answers ⇧⌘P).
+const emit = defineEmits<{ change: [patch: IssuePatch]; setParent: [] }>()
 
 const ui = useUiStore()
 const router = useRouter()
@@ -78,8 +79,10 @@ watchEffect(
   { flush: 'post' },
 )
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-const deleteShortcut = isMac ? '⌘⌫' : 'Ctrl ⌫'
+// From the shortcut catalog, so the menu hint matches the binding.
+const deleteShortcut = shortcutKeys('issue-delete')
+  .flat()
+  .join(isMacPlatform() ? '' : ' ')
 
 // Only properties that are set can be removed; the submenu hides when none are.
 type Removable = { label: string; patch: IssuePatch }
@@ -116,11 +119,7 @@ async function confirmDelete() {
 }
 
 // ⌘⌫ (Ctrl+Backspace elsewhere) asks to delete, like Linear; not while typing.
-onKeyStroke('Backspace', (event) => {
-  if (!(isMac ? event.metaKey : event.ctrlKey) || isTypingTarget(event.target)) return
-  event.preventDefault()
-  confirmingDelete.value = true
-})
+useHotkeys([{ id: 'issue-delete', run: () => void (confirmingDelete.value = true) }])
 
 const itemClass = 'h-8 rounded-md text-[13px]'
 </script>
@@ -164,6 +163,8 @@ const itemClass = 'h-8 rounded-md text-[13px]'
         <TooltipContent>Previous issue <kbd class="ml-1 font-sans">K</kbd></TooltipContent>
       </Tooltip>
     </div>
+    <!-- Page-level toggles (the subscribe bell) sit just before the actions menu. -->
+    <slot />
     <DropdownMenu>
       <DropdownMenuTrigger as-child>
         <Button
@@ -192,6 +193,19 @@ const itemClass = 'h-8 rounded-md text-[13px]'
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem :class="itemClass" @select="emit('setParent')">
+          <ListTree class="text-ink-subtle" aria-hidden="true" />
+          Set parent issue…
+          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">⇧⌘P</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          v-if="issue.parentId"
+          :class="itemClass"
+          @select="emit('change', { parentId: null, parent: null })"
+        >
+          <Unlink class="text-ink-subtle" aria-hidden="true" />
+          Remove parent
+        </DropdownMenuItem>
         <DropdownMenuItem :class="itemClass" @select="makeCopy">
           <Copy class="text-ink-subtle" aria-hidden="true" />
           Make a copy…

@@ -7,6 +7,8 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import { labelsForTeam } from '@/features/labels/label-options'
@@ -28,6 +30,7 @@ import { projectListOptions, projectsKey } from '@/features/projects/queries'
 import TemplatePicker from '@/features/templates/components/TemplatePicker.vue'
 import { templateListOptions } from '@/features/templates/queries'
 import { errorMessage } from '@/lib/errors'
+import { estimateValues } from '@/lib/estimates'
 import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
@@ -66,7 +69,9 @@ const {
     priority: 0,
     assigneeId: null,
     projectId: null,
+    estimate: null,
     labelIds: [],
+    dueDate: null,
   },
 })
 // Like Linear, errors show only after pressing Create issue, then clear once fixed.
@@ -181,6 +186,20 @@ const projectId = computed({
     setFieldValue('projectId', id, false)
   },
 })
+const estimate = computed({
+  get: () => values.estimate ?? null,
+  set: (value: number | null) => setFieldValue('estimate', value, false),
+})
+// Hidden while the team's scale is unknown or off.
+const estimates = computed(() =>
+  loadedTeam.value && loadedTeam.value.estimateScale !== 'off'
+    ? { scale: loadedTeam.value.estimateScale, allowZero: loadedTeam.value.estimateAllowZero }
+    : null,
+)
+const dueDate = computed({
+  get: () => values.dueDate ?? null,
+  set: (value: string | null) => setFieldValue('dueDate', value, false),
+})
 const labelIds = computed({
   get: () => values.labelIds ?? [],
   set: (ids: string[]) => {
@@ -286,7 +305,15 @@ function applyPrefill() {
   })
   for (const field of Object.keys(next) as PrefillField[]) {
     setFieldValue(field, next[field], false)
-  }
+  } // An estimate picked for another team may not be on this team's scale.
+  const picked = values.estimate ?? null
+  if (
+    picked !== null &&
+    !estimateValues({ scale: team.estimateScale, allowZero: team.estimateAllowZero }).includes(
+      picked,
+    )
+  )
+    setFieldValue('estimate', null, false)
 }
 watch([loadedTeam, assignees], applyPrefill)
 
@@ -419,6 +446,12 @@ function onKeydown(event: KeyboardEvent) {
           <StatusPicker v-model="statusId" :statuses="statuses" />
           <PriorityPicker v-model="priority" />
           <AssigneePicker v-model="assigneeId" :users="assignees" />
+          <EstimatePicker
+            v-if="estimates"
+            v-model="estimate"
+            :scale="estimates.scale"
+            :allow-zero="estimates.allowZero"
+          />
           <LabelPicker
             v-if="values.teamId"
             v-model="labelIds"
@@ -426,6 +459,7 @@ function onKeydown(event: KeyboardEvent) {
             :team-id="values.teamId"
           />
           <ProjectPicker v-model="projectId" :projects="projects ?? []" />
+          <DueDatePicker v-model="dueDate" />
         </div>
         <DialogFooter class="flex-row items-center gap-3 px-4 pt-1 pb-3.5">
           <Button

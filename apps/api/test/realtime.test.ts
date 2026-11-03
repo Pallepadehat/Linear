@@ -92,13 +92,20 @@ describe('realtime', () => {
       issueId: issue.id,
       body: 'On it',
     })
+    await owner.client.comments.react({ workspaceSlug: 'tip', commentId: comment.id, emoji: '🚀' })
+    const reply = await owner.client.comments.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      parentId: comment.id,
+      body: 'Done',
+    })
 
     await eventually(() =>
       expect(events).toEqual([
         {
           type: 'issue.updated',
           issueId: issue.id,
-          fields: ['status', 'assignee'],
+          fields: ['status', 'assignee', 'subscribers'],
           actorId: owner.userId,
         },
         {
@@ -107,6 +114,49 @@ describe('realtime', () => {
           commentId: comment.id,
           actorId: owner.userId,
         },
+        // A reaction is an update of its comment; a reply is a new comment (ids only).
+        {
+          type: 'comment.updated',
+          issueId: issue.id,
+          commentId: comment.id,
+          actorId: owner.userId,
+        },
+        {
+          type: 'comment.created',
+          issueId: issue.id,
+          commentId: reply.id,
+          actorId: owner.userId,
+        },
+      ]),
+    )
+  })
+
+  it('streams project changes as ID-only project.updated events', async () => {
+    const { owner, member } = await workspaceWithIssue()
+    const { events } = await subscribe(member.cookie, 'tip')
+    const project = await owner.client.projects.create({ workspaceSlug: 'tip', name: 'Launch' })
+    await owner.client.projects.update({ workspaceSlug: 'tip', id: project.id, priority: 1 })
+    await owner.client.projects.delete({ workspaceSlug: 'tip', id: project.id })
+
+    const event = { type: 'project.updated', projectId: project.id, actorId: owner.userId }
+    await eventually(() => expect(events).toEqual([event, event, event]))
+  })
+
+  it('tells both the sub-issue and its parent when the parent changes', async () => {
+    const { owner, member, team, issue } = await workspaceWithIssue()
+    const parent = await owner.client.issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'Parent',
+    })
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    await owner.client.issues.update({ workspaceSlug: 'tip', id: issue.id, parentId: parent.id })
+
+    await eventually(() =>
+      expect(events).toEqual([
+        { type: 'issue.updated', issueId: issue.id, fields: ['parent'], actorId: owner.userId },
+        { type: 'issue.updated', issueId: parent.id, fields: ['subIssues'], actorId: owner.userId },
       ]),
     )
   })

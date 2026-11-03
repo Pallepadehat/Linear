@@ -32,10 +32,15 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    estimate: null,
+    dueDate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: created,
     updatedAt: created,
     completedAt: null,
+    parentId: null,
+    subIssueProgress: null,
     ...overrides,
   }
 }
@@ -54,7 +59,7 @@ beforeEach(() => {
     pages: [{ items: [issue('a'), issue('b')], nextCursor: null }],
     pageParams: [null],
   })
-  queryClient.setQueryData(detailKey, issue('a'))
+  queryClient.setQueryData(detailKey, { ...issue('a'), parent: null, children: [] })
 })
 afterEach(() => vi.useRealTimers())
 
@@ -140,6 +145,30 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byPriority), stale(byTitle)]).toEqual([false, true, true])
+
+    const byEstimate = keyFor({ estimates: [null] })
+    queryClient.setQueryData<InfiniteData<IssuePage>>(byEstimate, {
+      pages: [{ items: [issue('a')], nextCursor: null }],
+      pageParams: [null],
+    })
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['estimate'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), stale(byEstimate)]).toEqual([false, true])
+    const overdue = keyFor({ due: ['overdue'] })
+    const byDueDate = keyFor({ sort: 'dueDate' })
+    for (const key of [overdue, byDueDate]) {
+      queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
+        pages: [{ items: [issue('a')], nextCursor: null }],
+        pageParams: [null],
+      })
+    }
+    // Finishing an issue takes it out of Overdue; a new due date reorders and refilters.
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['status'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(overdue), stale(byDueDate)]).toEqual([true, false])
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['dueDate'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(stale(byDueDate)).toBe(true)
   })
 
   it('refetches the Details panel counts, coalesced, when they can change', async () => {
@@ -196,6 +225,15 @@ describe('realtime event handler', () => {
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
     handle({ type: 'issue.deleted', issueId: 'a', ...actor })
     expect(listed().map((i) => i.id)).toEqual(['b'])
+  })
+
+  it('refetches project queries, coalesced, on project events', async () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
+    handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(invalidate.mock.calls).toEqual([[{ queryKey: orpc.projects.key() }]])
   })
 
   it("refetches only that issue's comments on a comment event", () => {

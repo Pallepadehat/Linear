@@ -1,4 +1,4 @@
-import type { Activity, Comment } from '@linear/contract'
+import type { Activity, CommentThread } from '@linear/contract'
 import { describe, expect, it } from 'vitest'
 import {
   activityActor,
@@ -28,14 +28,19 @@ function activity(
   }
 }
 
-function comment(body: string, at: Date): Comment {
+function comment(body: string, at: Date): CommentThread {
   return {
     id: crypto.randomUUID(),
     issueId,
+    parentId: null,
     author: { id: crypto.randomUUID(), name: 'Ada', avatarUrl: null },
     body,
+    reactions: [],
+    resolvedAt: null,
     createdAt: at,
     updatedAt: at,
+    replies: [],
+    replyCount: 0,
   }
 }
 
@@ -95,7 +100,22 @@ describe('describeActivity', () => {
       'added labels Frontend and Docs and removed label Bug',
     ],
     [activity('labels', ['l1', 'l2', 'l3'], []), 'removed labels Bug, Frontend and Docs'],
+    [activity('estimate', null, 3), 'set estimate to 3 points'],
+    [activity('estimate', 3, 1), 'set estimate to 1 point'],
+    [activity('estimate', 3, null), 'removed estimate'],
+    [activity('parent', null, 'TIP-12'), 'set parent to TIP-12'],
+    [activity('parent', 'TIP-12', null), 'removed parent'],
+    [activity('sub_issue', null, 'TIP-15'), 'added sub-issue TIP-15'],
+    [activity('sub_issue', 'TIP-15', null), 'removed sub-issue TIP-15'],
+    [activity('due_date', null, `${new Date().getFullYear()}-11-07`), 'set due date to Nov 7'],
+    [activity('due_date', '2026-11-07', null), 'removed due date'],
   ])('%#: %s', (entry, expected) => {
     expect(describeActivity(entry, names)).toBe(expected)
+  })
+
+  it('names estimates the way the team does', () => {
+    expect(describeActivity(activity('estimate', null, 3), { ...names, estimate: () => 'M' })).toBe(
+      'set estimate to M',
+    )
   })
 })

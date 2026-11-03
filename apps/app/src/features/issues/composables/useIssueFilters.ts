@@ -8,7 +8,18 @@ import {
   type IssueFilters,
 } from '../issue-filters'
 
-const FILTER_KEYS = ['status', 'priority', 'assignee', 'project', 'label', 'q', 'sort', 'dir']
+const FILTER_KEYS = [
+  'status',
+  'priority',
+  'assignee',
+  'project',
+  'label',
+  'due',
+  'q',
+  'sort',
+  'dir',
+  'subIssues',
+]
 
 /**
  * Issue list filters and sort, stored in the route query so a reload or a
@@ -32,10 +43,10 @@ export function useIssueFilters() {
     })
   }
 
-  /** Clears filters and search; the sort stays. */
+  /** Clears filters and search; the sort and display options stay. */
   function clear() {
-    const { sort, direction } = filters.value
-    update({ ...EMPTY_FILTERS, sort, direction })
+    const { sort, direction, showSubIssues } = filters.value
+    update({ ...EMPTY_FILTERS, sort, direction, showSubIssues })
   }
 
   return { filters, active, update, clear }

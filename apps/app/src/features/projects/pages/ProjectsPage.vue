@@ -1,28 +1,42 @@
 <script setup lang="ts">
-import { FolderKanban, Plus } from '@lucide/vue'
+import type { Project } from '@linear/contract'
+import { ArrowDown, ArrowUp, FolderKanban, Plus } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
-import { computed, defineAsyncComponent, ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useRouteTeam } from '@/features/teams/composables/useRouteTeam'
+import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
+import { toPriority } from '@/lib/priorities'
 import { orpc } from '@/lib/orpc'
-import ProjectProgress from '../components/ProjectProgress.vue'
-import { projectStatusMeta } from '../project-status'
-import { projectListOptions } from '../queries'
-
-const CreateProjectDialog = defineAsyncComponent(
-  () => import('../components/CreateProjectDialog.vue'),
-)
+import { usePreferencesStore } from '@/stores/preferences'
+import { useUiStore } from '@/stores/ui'
+import ProjectDatePicker from '../components/ProjectDatePicker.vue'
+import ProjectDisplayMenu from '../components/ProjectDisplayMenu.vue'
+import ProjectFilterMenu from '../components/ProjectFilterMenu.vue'
+import ProjectLeadPicker from '../components/ProjectLeadPicker.vue'
+import { PROJECT_COLUMN_LABELS } from '../project-columns'
+import { sortProjects, toggleProjectSort, type ProjectSortKey } from '../project-sort'
+import { progressPercent, projectStatusMeta } from '../project-status'
+import { projectListOptions, useUpdateProject, type ProjectChanges } from '../queries'
 
 const { slug } = useCurrentWorkspace()
+const { projectSort: sort } = storeToRefs(usePreferencesStore())
+const ui = useUiStore()
+const { projectStatusFilter: statusFilter } = storeToRefs(ui)
+
 const query = useQuery(computed(() => projectListOptions(slug.value)))
-const { data: teams } = useQuery(
-  computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
+const { data: members } = useQuery(
+  computed(() =>
+    orpc.workspaces.listMembers.queryOptions({ input: { workspaceSlug: slug.value } }),
+  ),
 )
-const teamsById = computed(() => new Map(teams.value?.map((t) => [t.id, t])))
+const membersById = computed(() => new Map(members.value?.map((m) => [m.userId, m])))
 
 // Also the team projects page (`team/:teamKey/projects`): only that team's projects.
 const { team, notFound } = useRouteTeam('Projects')
@@ -33,28 +47,62 @@ const projects = computed(() => {
   return all.filter((p) => p.teamIds.includes(teamId))
 })
 
-const createOpen = ref(false)
-// Mount the dialog on first use, then keep it so it can animate closed.
-const createLoaded = ref(false)
-function openCreate() {
-  createLoaded.value = true
-  createOpen.value = true
+const rows = computed(() => {
+  const all = projects.value ?? []
+  const filtered = statusFilter.value.length
+    ? all.filter((p) => statusFilter.value.includes(p.status))
+    : all
+  return sortProjects(filtered, sort.value, {
+    leadName: (id) => membersById.value.get(id)?.name,
+  })
+})
+
+// Column order and widths; Name takes the rest.
+const COLUMNS: { key: ProjectSortKey; class: string }[] = [
+  { key: 'name', class: '' },
+  { key: 'health', class: 'hidden w-28 lg:table-cell' },
+  { key: 'priority', class: 'w-20' },
+  { key: 'lead', class: 'w-16' },
+  { key: 'targetDate', class: 'hidden w-32 md:table-cell' },
+  { key: 'issues', class: 'hidden w-20 md:table-cell' },
+  { key: 'status', class: 'w-28' },
+]
+const ariaSort = (key: ProjectSortKey) =>
+  sort.value.key === key ? (sort.value.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+
+const update = useUpdateProject(slug)
+function save(project: Project, changes: ProjectChanges) {
+  update.mutate({ project, changes })
 }
+
+// The dialog lives in the workspace layout so the command menu can open it too.
+const openCreate = () => (ui.createProjectOpen = true)
 </script>
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <div class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline px-4">
-      <span class="font-medium text-ink">{{
-        team ? `${team.name} projects` : 'All projects'
-      }}</span>
-      <span v-if="projects" class="text-ink-subtle tabular-nums">
-        {{ projects.length }}
-      </span>
-      <Button size="sm" class="ml-auto" @click="openCreate">
+    <Teleport defer :to="PANEL_HEADER_ACTIONS">
+      <Button size="sm" @click="openCreate">
         <Plus aria-hidden="true" />
         New project
       </Button>
+    </Teleport>
+    <div class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline px-4">
+      <nav aria-label="Project views">
+        <span
+          aria-current="page"
+          class="flex h-7 items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 text-ink"
+        >
+          {{ team ? `${team.name} projects` : 'All projects' }}
+          <span v-if="projects" class="text-ink-subtle tabular-nums">
+            {{ projects.length }}
+          </span>
+        </span>
+      </nav>
+      <div class="ml-auto flex items-center gap-1">
+        <ProjectFilterMenu v-model="statusFilter" />
+        <ProjectDisplayMenu v-model="sort" />
+      </div>
     </div>
 
     <EmptyState v-if="notFound" title="Team not found" />
@@ -67,7 +115,7 @@ function openCreate() {
       <div
         v-for="i in 5"
         :key="i"
-        class="mx-2 flex h-11 animate-pulse items-center gap-3 px-3"
+        class="mx-2 flex h-9 animate-pulse items-center gap-3 px-3"
         aria-hidden="true"
       >
         <span class="size-4 rounded-xs bg-surface-3" />
@@ -89,6 +137,14 @@ function openCreate() {
     >
       <Button size="sm" @click="openCreate">New project</Button>
     </EmptyState>
+    <EmptyState
+      v-else-if="rows.length === 0"
+      :icon="FolderKanban"
+      title="No matching projects"
+      description="No project has the selected status."
+    >
+      <Button variant="secondary" size="sm" @click="statusFilter = []">Clear filter</Button>
+    </EmptyState>
     <div v-else class="min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-4">
       <table class="w-full table-fixed border-separate border-spacing-0">
         <caption class="sr-only">
@@ -96,17 +152,35 @@ function openCreate() {
         </caption>
         <thead>
           <tr class="h-9 text-left text-xs text-ink-subtle">
-            <th scope="col" class="px-3 font-normal">Name</th>
-            <th scope="col" class="hidden w-48 px-3 font-normal md:table-cell">Teams</th>
-            <th scope="col" class="w-36 px-3 font-normal">Progress</th>
-            <th scope="col" class="w-36 px-3 font-normal">Status</th>
+            <th
+              v-for="column in COLUMNS"
+              :key="column.key"
+              scope="col"
+              :aria-sort="ariaSort(column.key)"
+              :class="['px-1 font-normal', column.class]"
+            >
+              <button
+                type="button"
+                class="flex h-7 items-center gap-1 rounded-md px-2 hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
+                :class="{ 'text-ink': sort.key === column.key }"
+                @click="sort = toggleProjectSort(sort, column.key)"
+              >
+                {{ PROJECT_COLUMN_LABELS[column.key] }}
+                <component
+                  :is="sort.direction === 'asc' ? ArrowUp : ArrowDown"
+                  v-if="sort.key === column.key"
+                  class="size-3"
+                  aria-hidden="true"
+                />
+              </button>
+            </th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="project in projects"
+            v-for="project in rows"
             :key="project.id"
-            class="group relative h-11 [&>td]:border-t [&>td]:border-hairline [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md hover:[&>td]:bg-surface-2"
+            class="group relative h-9 [&>td]:border-t [&>td]:border-hairline [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md hover:[&>td]:bg-surface-2"
           >
             <td class="px-3">
               <RouterLink
@@ -117,35 +191,57 @@ function openCreate() {
                 <span class="truncate font-medium text-ink">{{ project.name }}</span>
               </RouterLink>
             </td>
-            <td class="hidden px-3 md:table-cell">
-              <span class="block truncate text-ink-muted">
-                <template v-if="project.teamIds.length === 0">
-                  <span class="text-ink-tertiary">—</span>
-                </template>
-                <template v-else>
-                  {{
-                    project.teamIds
-                      .map((id) => teamsById.get(id)?.name)
-                      .filter(Boolean)
-                      .join(', ')
-                  }}
-                </template>
-              </span>
+            <td class="hidden px-3 lg:table-cell">
+              <!-- Health arrives with project updates (M9-04). -->
+              <span class="text-ink-tertiary">No updates</span>
+            </td>
+            <!-- Pickers sit above the row link so they open instead of navigating. -->
+            <td class="px-1">
+              <div class="relative z-10 w-fit">
+                <PriorityPicker
+                  :model-value="toPriority(project.priority)"
+                  compact
+                  no-hotkey
+                  @update:model-value="(priority) => save(project, { priority })"
+                />
+              </div>
+            </td>
+            <td class="px-1">
+              <div class="relative z-10 w-fit">
+                <ProjectLeadPicker
+                  :model-value="project.leadId"
+                  :members="members ?? []"
+                  compact
+                  @update:model-value="(leadId) => save(project, { leadId })"
+                />
+              </div>
+            </td>
+            <td class="hidden px-1 md:table-cell">
+              <div class="relative z-10 w-fit">
+                <ProjectDatePicker
+                  :model-value="project.targetDate"
+                  label="Target date"
+                  compact
+                  @update:model-value="(targetDate) => save(project, { targetDate })"
+                />
+              </div>
+            </td>
+            <td class="hidden px-3 text-ink-muted tabular-nums md:table-cell">
+              {{ project.issueCount }}
             </td>
             <td class="px-3">
-              <ProjectProgress :progress="project.progress" />
-            </td>
-            <td class="px-3">
-              <span class="flex items-center gap-2 text-ink-muted">
+              <span
+                class="flex items-center gap-2 text-ink-muted tabular-nums"
+                :title="projectStatusMeta(project.status).label"
+              >
                 <StatusIcon :category="projectStatusMeta(project.status).icon" />
-                {{ projectStatusMeta(project.status).label }}
+                <span class="sr-only">{{ projectStatusMeta(project.status).label }},</span>
+                {{ progressPercent(project.progress) }}%
               </span>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-
-    <CreateProjectDialog v-if="createLoaded" v-model:open="createOpen" />
   </div>
 </template>

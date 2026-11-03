@@ -1,27 +1,34 @@
 <script setup lang="ts">
-import { nameSchema, type Project, type UpdateProjectInput } from '@linear/contract'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { nameSchema } from '@linear/contract'
+import { useQuery } from '@tanstack/vue-query'
 import { computed, ref, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
-import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ImageUploadButton from '@/components/common/ImageUploadButton.vue'
+import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import IssueList from '@/features/issues/components/IssueList.vue'
-import { errorCode, errorMessage } from '@/lib/errors'
-import { client, orpc } from '@/lib/orpc'
+import { errorCode } from '@/lib/errors'
+import { orpc } from '@/lib/orpc'
+import { toPriority, type Priority } from '@/lib/priorities'
 import { useUiStore } from '@/stores/ui'
+import ProjectDatePicker from '../components/ProjectDatePicker.vue'
+import ProjectLabelsPicker from '../components/ProjectLabelsPicker.vue'
+import ProjectLeadPicker from '../components/ProjectLeadPicker.vue'
+import ProjectMembersPicker from '../components/ProjectMembersPicker.vue'
 import ProjectProgress from '../components/ProjectProgress.vue'
 import ProjectStatusPicker from '../components/ProjectStatusPicker.vue'
 import ProjectTeamsPicker from '../components/ProjectTeamsPicker.vue'
-import { projectListOptions, projectOptions, storeProject } from '../queries'
-
-type Changes = Omit<UpdateProjectInput, 'workspaceSlug' | 'id'>
+import {
+  projectLabelListOptions,
+  projectOptions,
+  useUpdateProject,
+  type ProjectChanges,
+} from '../queries'
 
 const route = useRoute()
 const ui = useUiStore()
-const queryClient = useQueryClient()
 const { slug } = useCurrentWorkspace()
 const projectId = computed(() => String(route.params.projectId))
 
@@ -31,40 +38,21 @@ const { data: project, error } = useQuery(
 const { data: teams } = useQuery(
   computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
+const { data: members } = useQuery(
+  computed(() =>
+    orpc.workspaces.listMembers.queryOptions({ input: { workspaceSlug: slug.value } }),
+  ),
+)
+const { data: labels } = useQuery(computed(() => projectLabelListOptions(slug.value)))
 
 watchEffect(() => {
   if (project.value) ui.breadcrumb = ['Projects', project.value.name]
 })
 
 // Edits apply to the cache immediately and roll back if the save fails.
-const update = useMutation({
-  mutationFn: (changes: Changes) =>
-    client.projects.update({ workspaceSlug: slug.value, id: projectId.value, ...changes }),
-  onMutate: async (changes) => {
-    const key = projectOptions(slug.value, projectId.value).queryKey
-    await queryClient.cancelQueries({ queryKey: key })
-    const previous = queryClient.getQueryData(key)
-    if (previous) {
-      const { iconUploadId, ...rest } = changes
-      const next: Project = { ...previous, ...rest }
-      // The new icon's URL only comes back from the server.
-      if (iconUploadId !== undefined) next.iconUploadId = iconUploadId
-      if (iconUploadId === null) next.iconUrl = null
-      storeProject(queryClient, slug.value, next)
-    }
-    return { previous }
-  },
-  onError: (err, _changes, context) => {
-    if (context?.previous) storeProject(queryClient, slug.value, context.previous)
-    toast.error(errorMessage(err))
-  },
-  onSuccess: (saved) => storeProject(queryClient, slug.value, saved),
-  onSettled: () =>
-    queryClient.invalidateQueries({ queryKey: projectListOptions(slug.value).queryKey }),
-})
-
-function save(changes: Changes) {
-  update.mutate(changes)
+const update = useUpdateProject(slug)
+function save(changes: ProjectChanges) {
+  if (project.value) update.mutate({ project: project.value, changes })
 }
 
 // Name and description are drafts while focused, saved on blur (Enter for the name).
@@ -110,6 +98,30 @@ const status = computed({
 const teamIds = computed({
   get: () => project.value?.teamIds ?? [],
   set: (ids: string[]) => save({ teamIds: ids }),
+})
+const priority = computed({
+  get: () => toPriority(project.value?.priority),
+  set: (value: Priority) => save({ priority: value }),
+})
+const leadId = computed({
+  get: () => project.value?.leadId ?? null,
+  set: (id: string | null) => save({ leadId: id }),
+})
+const memberIds = computed({
+  get: () => project.value?.memberIds ?? [],
+  set: (ids: string[]) => save({ memberIds: ids }),
+})
+const startDate = computed({
+  get: () => project.value?.startDate ?? null,
+  set: (day: string | null) => save({ startDate: day }),
+})
+const targetDate = computed({
+  get: () => project.value?.targetDate ?? null,
+  set: (day: string | null) => save({ targetDate: day }),
+})
+const labelIds = computed({
+  get: () => project.value?.labelIds ?? [],
+  set: (ids: string[]) => save({ labelIds: ids }),
 })
 </script>
 
@@ -164,7 +176,13 @@ const teamIds = computed({
       />
       <div class="flex flex-wrap items-center gap-1.5 [&_button]:border [&_button]:border-hairline">
         <ProjectStatusPicker v-model="status" />
+        <PriorityPicker v-model="priority" no-hotkey />
+        <ProjectLeadPicker v-model="leadId" :members="members ?? []" />
+        <ProjectMembersPicker v-model="memberIds" :members="members ?? []" />
+        <ProjectDatePicker v-model="startDate" label="Start date" />
+        <ProjectDatePicker v-model="targetDate" label="Target date" />
         <ProjectTeamsPicker v-model="teamIds" :teams="teams ?? []" />
+        <ProjectLabelsPicker v-model="labelIds" :labels="labels ?? []" :workspace-slug="slug" />
         <ProjectProgress class="ml-2" :progress="project.progress" />
       </div>
     </section>

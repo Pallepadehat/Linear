@@ -46,7 +46,7 @@ export const teamsRouter = {
       return teams.map((team) => toTeamWithStatusesDto(team, statuses))
     }),
 
-  // Issue defaults are team settings, so owner-only (docs/domain.md → Roles).
+  // Issue defaults and estimates are team settings, so owner-only (docs/domain.md → Roles).
   update: authed.teams.update
     .use(requireWorkspace('owner'), (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
@@ -57,6 +57,8 @@ export const teamsRouter = {
         defaultStatusId: input.defaultStatusId,
         defaultPriority: input.defaultPriority,
         defaultAssigneeId: input.defaultAssigneeId,
+        estimateScale: input.estimateScale,
+        estimateAllowZero: input.estimateAllowZero,
       })
       const statuses = await listWorkflowStatuses(context.db, context.workspace.id, [team.id])
       return toTeamWithStatusesDto(team, statuses)
