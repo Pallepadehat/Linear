@@ -1,5 +1,5 @@
 import { presenceRouter } from '../modules/presence/presence.router'
-import { projectsRouter } from '../modules/projects/projects.router'
+import { projectLabelsRouter, projectsRouter } from '../modules/projects/projects.router'
 import { realtimeRouter } from '../modules/realtime/realtime.router'
 import { activityRouter } from '../modules/activity/activity.router'
 import { commentsRouter } from '../modules/comments/comments.router'
@@ -23,6 +23,7 @@ export const router = os.router({
   issues: issuesRouter,
   projects: projectsRouter,
   cycles: cyclesRouter,
+  projectLabels: projectLabelsRouter,
   github: githubRouter,
   activity: activityRouter,
   comments: commentsRouter,

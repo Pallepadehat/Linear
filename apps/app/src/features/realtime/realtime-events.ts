@@ -145,6 +145,9 @@ export function createRealtimeEventHandler({
         )
         invalidateIssue(event.issueId)
         return invalidateSoon('projects')
+      case 'project.updated':
+        // Project lists and pages refetch (coalesced); this tab's own edits never echo.
+        return invalidateSoon('projects')
       case 'comment.created':
         // Commenting subscribes the author (and flips their `isSubscribed`).
         invalidateSubscribers(event.issueId)
