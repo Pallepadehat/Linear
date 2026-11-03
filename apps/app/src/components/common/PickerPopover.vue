@@ -14,9 +14,9 @@ import PickerInput from './PickerInput.vue'
 // `current` is the selected option's value, highlighted when the list opens.
 // `hotkey` opens the picker from anywhere outside a text field. `compact` pickers
 // (one per list row) get an icon-sized trigger and only show the hotkey hint:
-// a global key can't tell which of many rows it is meant for. `grouped` pickers
-// render their own `CommandGroup` sections; `multiple` ones toggle the highlighted
-// row with Space too (while the filter is empty). Grouped pickers render their own empty state.
+// a global key can't tell which of many rows it is meant for. `multiple` pickers
+// (labels) toggle the highlighted row with Space too while the filter is empty,
+// and render their own empty state (it shares space with "Create new label").
 const props = defineProps<{
   label: string
   placeholder: string
@@ -25,7 +25,6 @@ const props = defineProps<{
   compact?: boolean
   triggerClass?: string
   align?: 'start' | 'end'
-  grouped?: boolean
   multiple?: boolean
 }>()
 
@@ -102,11 +101,13 @@ function onKeydown(event: KeyboardEvent) {
       <Command :model-value="current ?? ''" class="bg-transparent" @keydown="onKeydown">
         <PickerInput :placeholder="placeholder" :hotkey="hotkey" />
         <CommandList class="max-h-80 p-1.5" :aria-label="label">
-          <CommandEmpty v-if="!grouped" class="py-4 text-ink-subtle">No results</CommandEmpty>
-          <slot v-if="grouped" />
-          <CommandGroup v-else class="p-0">
-            <slot />
-          </CommandGroup>
+          <CommandEmpty v-if="!multiple" class="py-4 text-ink-subtle">No results</CommandEmpty>
+          <!-- Pickers with sections (assignee: you, then team members) supply their own groups. -->
+          <slot name="groups">
+            <CommandGroup class="p-0">
+              <slot />
+            </CommandGroup>
+          </slot>
         </CommandList>
       </Command>
     </PopoverContent>
