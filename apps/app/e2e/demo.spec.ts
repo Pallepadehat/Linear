@@ -30,8 +30,10 @@ test('acceptance: 10 end-to-end demonstration', async ({ page }) => {
   await test.step(`open ${identifier}`, async () => {
     await page.goto(`/${demoUser.workspace}/issue/${identifier}`)
     await expect(page.getByRole('heading', { name: 'Fix login validation' })).toBeVisible()
+    // The panel must be rendered before "no PRs yet" means anything.
+    await expect(status).toBeVisible()
     await expect(status).not.toContainText(/In Progress|Done/)
-    await expect(properties.getByText('None yet')).toBeVisible()
+    await expect(pullRequests).toHaveCount(0)
   })
 
   const number = Number(identifier.split('-')[1]) + 100
