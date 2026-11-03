@@ -101,9 +101,12 @@ function onKeydown(event: KeyboardEvent) {
         <PickerInput :placeholder="placeholder" :hotkey="hotkey" />
         <CommandList class="max-h-80 p-1.5" :aria-label="label">
           <CommandEmpty class="py-4 text-ink-subtle">No results</CommandEmpty>
-          <CommandGroup class="p-0">
-            <slot />
-          </CommandGroup>
+          <!-- Pickers with sections (assignee: you, then team members) supply their own groups. -->
+          <slot name="groups">
+            <CommandGroup class="p-0">
+              <slot />
+            </CommandGroup>
+          </slot>
         </CommandList>
       </Command>
     </PopoverContent>

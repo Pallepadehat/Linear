@@ -32,7 +32,13 @@ const { data: members } = useQuery(
   ),
 )
 const assignees = computed(
-  () => members.value?.map((m) => ({ id: m.userId, name: m.name, avatarUrl: m.avatarUrl })) ?? [],
+  () =>
+    members.value?.map((m) => ({
+      id: m.userId,
+      name: m.name,
+      email: m.email,
+      avatarUrl: m.avatarUrl,
+    })) ?? [],
 )
 const isOwner = computed(() => workspace.value?.role === 'owner')
 
