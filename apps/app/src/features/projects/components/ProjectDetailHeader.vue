@@ -47,7 +47,10 @@ watchEffect(
   () => {
     void router.currentRoute.value.path
     ui.breadcrumb = [
-      { label: 'Projects', to: { name: 'projects', params: { workspaceSlug: props.workspaceSlug } } },
+      {
+        label: 'Projects',
+        to: { name: 'projects', params: { workspaceSlug: props.workspaceSlug } },
+      },
       { label: props.project.name, projectIcon: { src: props.project.iconUrl } },
     ]
     ui.favoriteTarget = {
@@ -131,10 +134,7 @@ const panelLabel = computed(() => (projectPanelOpen.value ? 'Hide details' : 'Sh
             Copy link
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            class="h-8 rounded-md text-[13px]"
-            @select="confirmingDelete = true"
-          >
+          <DropdownMenuItem class="h-8 rounded-md text-[13px]" @select="confirmingDelete = true">
             <Trash2 class="size-4" aria-hidden="true" />
             Delete project…
           </DropdownMenuItem>

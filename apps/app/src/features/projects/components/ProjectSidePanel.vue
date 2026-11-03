@@ -81,7 +81,8 @@ const router = useRouter()
 const { filters, update } = useIssueFilters()
 const activeMilestones = computed(() => new Set(filters.value.milestoneIds))
 function filterByMilestone(id: string) {
-  const milestoneIds = activeMilestones.value.has(id) && activeMilestones.value.size === 1 ? [] : [id]
+  const milestoneIds =
+    activeMilestones.value.has(id) && activeMilestones.value.size === 1 ? [] : [id]
   const { milestone: _milestone, ...rest } = projectTabQuery(route.query, 'issues')
   void router.push({
     query: { ...rest, ...serializeIssueFilters({ ...filters.value, milestoneIds }) },
@@ -130,7 +131,11 @@ const labelClass = 'w-24 shrink-0 text-ink-subtle'
         </div>
         <div :class="rowClass">
           <span :class="labelClass">Labels</span>
-          <ProjectLabelsPicker v-model="labelIds" :labels="labels" :workspace-slug="workspaceSlug" />
+          <ProjectLabelsPicker
+            v-model="labelIds"
+            :labels="labels"
+            :workspace-slug="workspaceSlug"
+          />
         </div>
       </div>
     </PanelCard>
