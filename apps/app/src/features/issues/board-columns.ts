@@ -56,3 +56,12 @@ export function resolveDropTarget(
   const status = teamStatuses?.find((s) => statusGroupKey(s) === columnKey)
   return status ? { type: 'move', status } : { type: 'unavailable' }
 }
+
+/** Issue identifiers in board order as rendered: column by column, top to bottom. */
+export const boardOrder = (
+  issues: Issue[],
+  statusesByTeam: ReadonlyMap<string, WorkflowStatus[]>,
+) =>
+  toBoardColumns(issues, statusesByTeam).flatMap((column) =>
+    column.issues.map((issue) => issue.identifier),
+  )

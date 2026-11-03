@@ -2,8 +2,9 @@
 import { Plus } from '@lucide/vue'
 import { onKeyStroke } from '@vueuse/core'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import { isTypingTarget } from '@/lib/keyboard'
 import { useRealtime } from '@/features/realtime/useRealtime'
 import { useUiStore } from '@/stores/ui'
 import AppSidebar from './AppSidebar.vue'
@@ -22,7 +23,11 @@ useRealtime(() => String(route.params.workspaceSlug ?? ''))
 const routeTitle = computed(
   () => [...route.matched].reverse().find((r) => r.meta.title)?.meta.title ?? '',
 )
-const crumbs = computed(() => ui.breadcrumb ?? [routeTitle.value])
+const crumbs = computed(() =>
+  (ui.breadcrumb ?? [routeTitle.value]).map((crumb) =>
+    typeof crumb === 'string' ? { label: crumb } : crumb,
+  ),
+)
 // A page's breadcrumb only applies while it is shown.
 watch(
   () => route.path,
@@ -31,13 +36,8 @@ watch(
 
 // `C` opens the create issue dialog, like Linear; ignored while typing.
 onKeyStroke('c', (event) => {
-  const target = event.target
   if (event.metaKey || event.ctrlKey || event.altKey || ui.createIssueOpen) return
-  if (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || target.closest('input, textarea, select'))
-  )
-    return
+  if (isTypingTarget(event.target)) return
   event.preventDefault()
   ui.openCreateIssue()
 })
@@ -63,9 +63,27 @@ watch(
         <h1 class="flex min-w-0 items-center gap-1.5 font-medium">
           <template v-for="(crumb, i) in crumbs" :key="i">
             <span v-if="i > 0" class="text-ink-tertiary" aria-hidden="true">›</span>
-            <span class="truncate" :class="i < crumbs.length - 1 ? 'text-ink-muted' : 'text-ink'">
-              {{ crumb }}
-            </span>
+            <component
+              :is="crumb.to ? RouterLink : 'span'"
+              :to="crumb.to"
+              class="flex min-w-0 items-center gap-1.5 rounded-md"
+              :class="[
+                i < crumbs.length - 1 ? 'shrink-0 text-ink-muted' : 'text-ink',
+                crumb.to &&
+                  '-mx-1 px-1 outline-hidden hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring',
+              ]"
+            >
+              <span
+                v-if="crumb.teamInitial"
+                class="inline-flex size-4 shrink-0 items-center justify-center rounded-xs bg-surface-4 text-[9px] font-semibold text-ink-muted"
+                aria-hidden="true"
+                >{{ crumb.teamInitial }}</span
+              >
+              <span v-if="crumb.identifier" class="shrink-0 font-mono text-xs text-ink-subtle">
+                {{ crumb.identifier }}
+              </span>
+              <span class="truncate">{{ crumb.label }}</span>
+            </component>
           </template>
         </h1>
         <div :id="PANEL_HEADER_ACTIONS.slice(1)" class="ml-auto flex items-center gap-2" />

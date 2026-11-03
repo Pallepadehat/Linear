@@ -164,9 +164,15 @@ watch(
     setFieldValue('teamId', initialTeamId(), false)
     setFieldValue('statusId', ui.createIssueDefaults.statusId, false)
     setFieldValue('projectId', initialProjectId(), false)
-    touched.priority = false
     touched.assignee = ui.createIssueDefaults.assigneeId !== undefined
     setFieldValue('assigneeId', ui.createIssueDefaults.assigneeId ?? null, false)
+    // Prefilled content ("Make a copy…"); a given priority wins over the team default.
+    const { title, description, priority, labelIds } = ui.createIssueDefaults
+    touched.priority = priority !== undefined
+    if (priority !== undefined) setFieldValue('priority', priority, false)
+    if (title) setFieldValue('title', title, false)
+    if (description) setFieldValue('description', description, false)
+    if (labelIds) setFieldValue('labelIds', labelIds, false)
     applyTeamDefaults()
   },
   { immediate: true },
