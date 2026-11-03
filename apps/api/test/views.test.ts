@@ -46,13 +46,18 @@ async function foreignWorkspace() {
     color: '#000000',
   })
   const project = await stranger.client.projects.create({ workspaceSlug: 'mine', name: 'P' })
+  const milestone = await stranger.client.milestones.create({
+    workspaceSlug: 'mine',
+    projectId: project.id,
+    name: 'Beta',
+  })
   const view = await stranger.client.views.create({
     workspaceSlug: 'mine',
     name: 'Theirs',
     filters: {},
     display,
   })
-  return { stranger, team, label, project, view, status: team.statuses[0]! }
+  return { stranger, team, label, project, milestone, view, status: team.statuses[0]! }
 }
 
 describe('views', () => {
@@ -156,6 +161,7 @@ describe('views', () => {
       { ...base, filters: { labelIds: [foreign.label.id] } },
       { ...base, filters: { statusIds: [foreign.status.id] } },
       { ...base, filters: { projectIds: [foreign.project.id] } },
+      { ...base, filters: { milestoneIds: [foreign.milestone.id] } },
       { ...base, filters: { assigneeIds: [foreign.stranger.userId] } },
       { ...base, filters: { subscriberIds: [foreign.stranger.userId] } },
     ]) {
