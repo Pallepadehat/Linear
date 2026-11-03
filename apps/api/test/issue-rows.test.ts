@@ -11,7 +11,7 @@ const { app, db } = await setupTestApp()
 
 let nextGithubId = 5000
 
-// The row chips (docs/domain.md → Issue rows): project, linked PRs and web link count.
+// The row chips (docs/domain.md → Issue rows): project, milestone, linked PRs and web link count.
 async function tip() {
   const owner = await signUp(app, 'Owner')
   const { workspace } = await owner.client.workspaces.create({ name: 'Tip', slug: 'tip' })
@@ -61,7 +61,18 @@ describe('issue row fields', () => {
   it('returns project, pull requests (open first) and link count on list and get', async () => {
     const { owner, team, create, linkPr } = await tip()
     const project = await owner.client.projects.create({ workspaceSlug: 'tip', name: 'Launch' })
-    const withAll = await create('With everything', project.id)
+    const beta = await owner.client.milestones.create({
+      workspaceSlug: 'tip',
+      projectId: project.id,
+      name: 'Beta',
+    })
+    const withAll = await owner.client.issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'With everything',
+      projectId: project.id,
+      milestoneId: beta.id,
+    })
     const bare = await create('Bare')
     await linkPr(withAll.id, 3, 'merged')
     await linkPr(withAll.id, 4, 'closed')
@@ -75,6 +86,7 @@ describe('issue row fields', () => {
     const { items } = await owner.client.issues.list({ workspaceSlug: 'tip', teamId: team.id })
     const row = items.find((item) => item.id === withAll.id)!
     expect(row.project).toEqual({ id: project.id, name: 'Launch', iconUploadId: null })
+    expect(row.milestone).toEqual({ id: beta.id, name: 'Beta' })
     expect(row.pullRequests).toEqual([
       { number: 5, state: 'open' },
       { number: 7, state: 'draft' },
@@ -85,6 +97,7 @@ describe('issue row fields', () => {
     expect(row.linkCount).toBe(2)
     expect(items.find((item) => item.id === bare.id)).toMatchObject({
       project: null,
+      milestone: null,
       pullRequests: [],
       linkCount: 0,
     })
@@ -92,17 +105,18 @@ describe('issue row fields', () => {
     const detail = await owner.client.issues.get({ workspaceSlug: 'tip', id: withAll.id })
     expect(detail).toMatchObject({
       project: row.project,
+      milestone: row.milestone,
       pullRequests: row.pullRequests,
       linkCount: 2,
     })
 
-    // Moving it out of the project clears the chip in the update response.
+    // Moving it out of the project clears both chips in the update response.
     const updated = await owner.client.issues.update({
       workspaceSlug: 'tip',
       id: withAll.id,
       projectId: null,
     })
-    expect(updated.project).toBeNull()
+    expect(updated).toMatchObject({ project: null, milestone: null })
   })
 
   it("never shows another workspace's issues, projects or PRs", async () => {

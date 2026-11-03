@@ -30,6 +30,7 @@ export function toIssueDto(record: IssueRecord): Issue {
         }
       : null,
     milestoneId: record.milestoneId,
+    milestone: record.milestone ? { id: record.milestone.id, name: record.milestone.name } : null,
     cycleId: record.cycleId,
     estimate: record.estimate,
     dueDate: record.dueDate,
