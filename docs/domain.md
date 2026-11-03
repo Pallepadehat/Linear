@@ -80,7 +80,7 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 
 ## GitHub connection
 
-- Only owners install the App and connect or disconnect repositories (see Roles); every `github.*` procedure checks this on the server.
+- Only owners install the App and connect or disconnect repositories (see Roles); every `github.*` procedure checks this on the server, except `github.pullRequests.listForIssue`, which any member may call.
 - Install flow: `github.installUrl` → GitHub → callback `/setup/github?installation_id&state&code` → `github.completeInstall`. The `state` is signed, expires after 10 minutes, and must belong to the user completing the install. The installation is only stored if the authorizing GitHub user can access it (ADR 0009).
 - An installation belongs to one workspace. Completing an install for an installation owned by another workspace → `CONFLICT`; re-installing in the same workspace just refreshes the account name.
 - The available repositories come live from GitHub (the installation's accessible repos). Only those can be connected. A repository connected to another workspace → `CONFLICT`; connecting it again in the same workspace is a no-op.
@@ -119,6 +119,14 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 ### PR state
 
 Stored state is one of `open`, `draft`, `closed`, `merged`. `merged` is terminal: no later event may move it back. "Merged" is determined by GitHub's `merged` flag, never by `closed` alone.
+
+### Linked PRs on an issue
+
+- `github.pullRequests.listForIssue` returns every PR linked to the issue as `{ id, number, title, url, repoFullName, state, linkType, updatedAt }`, most recently updated first. It is a plain array: an issue links to a handful of PRs. An issue outside the caller's workspace is `NOT_FOUND`.
+- A PR linked through both a `reference` and a `closing` mention has one link, of type `closing` (links are unique per issue and PR), so it is listed once.
+- Displayed states: Open, Draft, Merged, Closed (closed without merge). Link types read "Closes" (`closing`) and "References" (`reference`). Rows open the PR on GitHub in a new tab.
+- GitHub activity entries link to their PR (`repo#number`) while it is still linked; once unlinked or removed they read without the link.
+- A `pullRequests` realtime field on `issue.updated` refetches the issue's PR list.
 
 ## Automation
 
