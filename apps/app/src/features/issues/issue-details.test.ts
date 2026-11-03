@@ -16,6 +16,9 @@ const dimension = (key: FilterDimension['key'], options: FilterOption[]): Filter
   icon,
   options,
   selectedLabels: [],
+  active: false,
+  operator: 'is',
+  summary: '',
   clear: vi.fn(),
 })
 
