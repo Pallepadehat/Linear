@@ -49,6 +49,7 @@ export type ContractOutputs = InferContractRouterOutputs<Contract>
 export * from './schemas/common'
 export * from './schemas/github'
 export * from './schemas/issues'
+export * from './schemas/display-options'
 export * from './schemas/projects'
 export * from './schemas/labels'
 export * from './schemas/teams'
