@@ -10,6 +10,7 @@ import AssigneePicker from '@/components/common/AssigneePicker.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
+import ProjectPicker from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { projectListOptions, projectsKey } from '@/features/projects/queries'
 import { errorMessage } from '@/lib/errors'
 import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
@@ -60,6 +62,7 @@ const {
     statusId: undefined,
     priority: 0,
     assigneeId: null,
+    projectId: null,
     labelIds: [],
   },
 })
@@ -98,6 +101,7 @@ const assignees = computed(
 const { data: labels } = useQuery(
   computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
+const { data: projects } = useQuery(computed(() => projectListOptions(slug.value)))
 
 // The pickers want concrete values; the form keeps the contract's optional shape.
 const teamId = computed({
@@ -120,6 +124,10 @@ const description = computed({
   get: () => values.description ?? '',
   set: (value: string) => setFieldValue('description', value, false),
 })
+const projectId = computed({
+  get: () => values.projectId ?? null,
+  set: (id: string | null) => setFieldValue('projectId', id, false),
+})
 const labelIds = computed({
   get: () => values.labelIds ?? [],
   set: (ids: string[]) => setFieldValue('labelIds', ids, false),
@@ -140,6 +148,7 @@ watch(
     resetForm()
     setFieldValue('teamId', initialTeamId(), false)
     setFieldValue('statusId', ui.createIssueDefaults.statusId, false)
+    setFieldValue('projectId', ui.createIssueDefaults.projectId ?? null, false)
     ensureStatus()
   },
   { immediate: true },
@@ -174,6 +183,8 @@ const onSubmit = handleSubmit(async (form) => {
       description: form.description?.trim() ? form.description : undefined,
     })
     await queryClient.invalidateQueries({ queryKey: issueListKey() })
+    // Project progress counts the new issue.
+    if (issue.projectId) void queryClient.invalidateQueries({ queryKey: projectsKey() })
     toast.success(`${issue.identifier} created`, { description: issue.title })
     if (!createMore.value) {
       ui.createIssueOpen = false
@@ -277,6 +288,7 @@ function onKeydown(event: KeyboardEvent) {
           <PriorityPicker v-model="priority" />
           <AssigneePicker v-model="assigneeId" :users="assignees" />
           <LabelPicker v-model="labelIds" :labels="labels ?? []" />
+          <ProjectPicker v-model="projectId" :projects="projects ?? []" />
         </div>
         <DialogFooter class="flex-row items-center gap-3 px-4 pt-1 pb-3.5">
           <Button

@@ -34,4 +34,5 @@ export const updateProjectInputSchema = projectIdInputSchema.extend(
 )
 export type ProjectStatus = z.infer<typeof projectStatusSchema>
 export type Project = z.infer<typeof projectSchema>
+export type UpdateProjectInput = z.input<typeof updateProjectInputSchema>
 export type ProjectProgress = z.infer<typeof projectProgressSchema>

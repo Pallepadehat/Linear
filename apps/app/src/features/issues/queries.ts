@@ -2,10 +2,12 @@ import { orpc } from '@/lib/orpc'
 
 const PAGE_SIZE = 50
 
-/** Newest-first issue pages for a workspace, or one team when `teamId` is set. */
-export function issueListOptions(workspaceSlug: string, teamId?: string) {
+export type IssueListFilter = { teamId?: string; projectId?: string }
+
+/** Newest-first issue pages for a workspace, narrowed to a team and/or project. */
+export function issueListOptions(workspaceSlug: string, filter: IssueListFilter = {}) {
   return orpc.issues.list.infiniteOptions({
-    input: (cursor: string | null) => ({ workspaceSlug, teamId, cursor, limit: PAGE_SIZE }),
+    input: (cursor: string | null) => ({ workspaceSlug, ...filter, cursor, limit: PAGE_SIZE }),
     initialPageParam: null,
     getNextPageParam: (page) => page.nextCursor,
   })
