@@ -74,6 +74,20 @@ describe('realtime event handler', () => {
     expect(listed()[1]!.status).toEqual(todo)
   })
 
+  it("refetches the issue's linked pull requests when GitHub changes them", () => {
+    const fetchIssue = vi.fn(async (id: string) => issue(id))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+    const prKey = orpc.github.pullRequests.listForIssue.queryKey({
+      input: { workspaceSlug: 'tip', issueId: 'a' },
+    })
+    queryClient.setQueryData(prKey, [])
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['title'], ...actor })
+    expect(queryClient.getQueryState(prKey)!.isInvalidated).toBe(false)
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['pullRequests'], actorId: null })
+    expect(queryClient.getQueryState(prKey)!.isInvalidated).toBe(true)
+  })
+
   it('refetches lists, coalesced, only when the issue may join or leave one', async () => {
     const fetchIssue = vi.fn(async (id: string) => issue(id))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
@@ -170,6 +184,13 @@ describe('realtime event handler', () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: orpc.comments.list.key({ input: { issueId: 'a' } }),
     })
+  })
+
+  it('refetches template lists on a template event', () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'template.updated', templateId: crypto.randomUUID(), ...actor })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: orpc.templates.key() })
   })
 })
 

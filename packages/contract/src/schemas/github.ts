@@ -52,8 +52,32 @@ export const githubRepositorySchema = z.object({
 
 export const disconnectGithubRepositoryInputSchema = workspaceScopedSchema.extend({ id: z.uuid() })
 
+export const pullRequestStateSchema = z.enum(['open', 'draft', 'merged', 'closed'])
+/** `closing` PRs complete the issue when merged; `reference` PRs only link (docs/domain.md). */
+export const pullRequestLinkTypeSchema = z.enum(['closing', 'reference'])
+
+/** A PR as linked to one issue. Shared by issue detail, issue rows and the links list. */
+export const linkedPullRequestSchema = z.object({
+  id: z.uuid(),
+  number: z.number().int().positive(),
+  title: z.string(),
+  url: z.url(),
+  repoFullName: z.string(),
+  state: pullRequestStateSchema,
+  linkType: pullRequestLinkTypeSchema,
+  updatedAt: z.date(),
+})
+
+export const listIssuePullRequestsInputSchema = workspaceScopedSchema.extend({
+  issueId: z.uuid(),
+})
+
 export type GithubInstallation = z.infer<typeof githubInstallationSchema>
 export type GithubAvailableRepository = z.infer<typeof githubAvailableRepositorySchema>
 export type GithubRepositories = z.infer<typeof githubRepositoriesSchema>
 export type GithubRepository = z.infer<typeof githubRepositorySchema>
+export type PullRequestState = z.infer<typeof pullRequestStateSchema>
+export type PullRequestLinkType = z.infer<typeof pullRequestLinkTypeSchema>
+export type LinkedPullRequest = z.infer<typeof linkedPullRequestSchema>
+export type ListIssuePullRequestsInput = z.input<typeof listIssuePullRequestsInputSchema>
 export type CompleteGithubInstallInput = z.infer<typeof completeGithubInstallInputSchema>

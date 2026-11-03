@@ -10,6 +10,7 @@ import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
 import { Switch } from '@/components/ui/switch'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import TemplateSettings from '@/features/templates/components/TemplateSettings.vue'
 import { errorCode, errorMessage } from '@/lib/errors'
 import { client, orpc } from '@/lib/orpc'
 import { scalePreview, type EstimateScale } from '@/lib/estimates'
@@ -174,6 +175,15 @@ const defaultAssigneeId = computed({
           />
         </label>
       </div>
+    </section>
+    <section aria-labelledby="templates-heading" class="grid gap-3">
+      <h2
+        id="templates-heading"
+        class="text-xs font-medium tracking-wide text-ink-subtle uppercase"
+      >
+        Templates
+      </h2>
+      <TemplateSettings :team-id="team.id" />
     </section>
   </div>
 </template>
