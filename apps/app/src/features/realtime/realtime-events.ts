@@ -39,6 +39,7 @@ const listInput = (query: Query) =>
   (query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input ?? {}
 // Fields that change project and cycle progress counts.
 const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project', 'cycle']
+type Pending = 'lists' | 'projects' | 'cycles'
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.
 const COALESCE_MS = 300
 
@@ -59,8 +60,8 @@ export function createRealtimeEventHandler({
   workspaceSlug,
   fetchIssue = (id) => client.issues.get({ workspaceSlug, id }),
 }: Deps) {
-  // `projects` covers every progress count: projects and cycles.
-  const pending = new Set<'lists' | 'projects'>()
+  // `cycles` refreshes cycle progress; only issue changes move it.
+  const pending = new Set<Pending>()
   // Changed fields that only matter to filtered or sorted lists.
   const pendingFields = new Set<RealtimeIssueField>()
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -69,15 +70,13 @@ export function createRealtimeEventHandler({
     timer = undefined
     if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
     else if (pendingFields.size) invalidateDependentLists(new Set(pendingFields))
-    if (pending.has('projects')) {
-      void queryClient.invalidateQueries({ queryKey: projectsKey() })
-      void queryClient.invalidateQueries({ queryKey: cyclesKey() })
-    }
+    if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (pending.has('cycles')) void queryClient.invalidateQueries({ queryKey: cyclesKey() })
     pending.clear()
     pendingFields.clear()
   }
 
-  function invalidateSoon(...what: ('lists' | 'projects')[]) {
+  function invalidateSoon(...what: Pending[]) {
     what.forEach((w) => pending.add(w))
     timer ??= setTimeout(flush, COALESCE_MS)
   }
@@ -103,7 +102,7 @@ export function createRealtimeEventHandler({
     }
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
     else invalidateFieldsSoon(fields)
-    if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects')
+    if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.
@@ -135,7 +134,7 @@ export function createRealtimeEventHandler({
   return function handle(event: RealtimeEvent) {
     switch (event.type) {
       case 'issue.created':
-        return invalidateSoon('lists', 'projects')
+        return invalidateSoon('lists', 'projects', 'cycles')
       case 'issue.updated':
         return void onIssueUpdated(event.issueId, event.fields)
       case 'issue.deleted':
@@ -144,7 +143,7 @@ export function createRealtimeEventHandler({
           (data) => removeIssueFromPages(data, event.issueId),
         )
         invalidateIssue(event.issueId)
-        return invalidateSoon('projects')
+        return invalidateSoon('projects', 'cycles')
       case 'project.updated':
         // Project lists and pages refetch (coalesced); this tab's own edits never echo.
         return invalidateSoon('projects')
