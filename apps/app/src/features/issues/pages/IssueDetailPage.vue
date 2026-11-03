@@ -3,14 +3,14 @@ import { issueTitleSchema } from '@linear/contract'
 import type { Issue } from '@linear/contract'
 import { SearchX } from '@lucide/vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
-import { onKeyStroke } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { useHotkeys } from '@/composables/useHotkeys'
 import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
@@ -38,6 +38,7 @@ import {
 } from '../queries'
 
 const route = useRoute()
+const router = useRouter()
 const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const identifier = computed(() => String(route.params.identifier))
@@ -96,6 +97,30 @@ const names = computed<ActivityNames>(() => {
 })
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
 
+// The open issue is the command menu's context; Esc goes back (⌘⌫ is in the header).
+watch(
+  issue,
+  (current) => {
+    ui.activeIssue = current ? { id: current.id, identifier: current.identifier } : null
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => {
+  if (ui.activeIssue?.id === issue.value?.id) ui.activeIssue = null
+})
+useHotkeys([
+  {
+    id: 'issue-back',
+    run: () => {
+      // Back to where the issue was opened from; a direct link falls back to its team.
+      if (window.history.state?.back) router.back()
+      else if (team.value)
+        void router.push({ name: 'team-issues', params: { teamKey: team.value.key } })
+      else void router.push({ name: 'issues' })
+    },
+  },
+])
+
 const currentUser = useCurrentUser()
 
 // Teammates see that you're on this issue (presence heartbeats).
@@ -143,14 +168,14 @@ function save(patch: IssuePatch) {
 
 // "Set parent issue…" (⇧⌘P, Ctrl on other platforms) and "Remove parent".
 const parentDialogOpen = ref(false)
-onKeyStroke(
-  (event) => (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p',
-  (event) => {
-    if (!issue.value || ui.createIssueOpen) return
-    event.preventDefault()
-    parentDialogOpen.value = true
+useHotkeys([
+  {
+    id: 'issue-set-parent',
+    run: () => {
+      if (issue.value) parentDialogOpen.value = true
+    },
   },
-)
+])
 function setParent(parent: Issue) {
   save({
     parentId: parent.id,

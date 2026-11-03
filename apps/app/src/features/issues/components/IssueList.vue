@@ -11,6 +11,7 @@ import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { groupIssuesByStatus, listOrder, toListRows, type IssueListRow } from '../group-issues'
+import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
 import IssueFilterBar from './IssueFilterBar.vue'
@@ -125,6 +126,23 @@ watch([filters, () => props.view], () => {
   if (scrollEl.value) scrollEl.value.scrollTop = 0
 })
 
+// J/K move through the visible rows (collapsed groups are skipped).
+const listedIssues = computed(() =>
+  rows.value.flatMap((row) => (row.type === 'issue' ? [row.issue] : [])),
+)
+const { focusedId, selectedIds } = useIssueListKeyboard(listedIssues, async (issue) => {
+  const index = rows.value.findIndex((row) => row.type === 'issue' && row.issue.id === issue.id)
+  if (index === -1) return
+  virtualizer.value.scrollToIndex(index, { align: 'auto' })
+  // The row may only render after the scroll; then move focus to its link.
+  await nextTick()
+  requestAnimationFrame(() =>
+    scrollEl.value
+      ?.querySelector<HTMLElement>(`[data-issue-id="${issue.id}"] a`)
+      ?.focus({ preventScroll: true }),
+  )
+})
+
 watchEffect(() => {
   const last = virtualRows.value.at(-1)
   if (!last || last.item.index < rows.value.length - PREFETCH_ROWS) return
@@ -230,6 +248,9 @@ watchEffect(() => {
             class="flex-1"
             :issue="row.issue"
             :depth="row.depth"
+            :data-issue-id="row.issue.id"
+            :focused="row.issue.id === focusedId"
+            :selected="selectedIds.has(row.issue.id)"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"
