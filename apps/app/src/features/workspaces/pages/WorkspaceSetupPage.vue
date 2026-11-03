@@ -14,7 +14,7 @@ const { data: workspaces } = useQuery(orpc.me.listWorkspaces.queryOptions())
     </div>
     <CreateWorkspaceForm />
     <p v-if="workspaces?.length" class="text-center text-ink-subtle">
-      <RouterLink to="/" class="font-medium text-primary hover:underline"
+      <RouterLink to="/" class="font-medium text-link hover:underline"
         >Back to your workspace</RouterLink
       >
     </p>
