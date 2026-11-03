@@ -727,6 +727,11 @@ describe('issues.list filters, sorting and search', () => {
       projects: [{ id: null, count: 2 }],
     })
     expect((await facets({ assignee: 'me' })).assignees).toEqual([{ id: owner.userId, count: 1 }])
+    // `'me'` in subscriberIds is the session user, like in `issues.list`.
+    const subscribed = await issues.list({ workspaceSlug: 'tip', subscriberIds: ['me'] })
+    expect(subscribed.items.length).toBeGreaterThan(0)
+    const subscribedCounts = (await facets({ subscriberIds: ['me'] })).assignees
+    expect(subscribedCounts.reduce((sum, row) => sum + row.count, 0)).toBe(subscribed.items.length)
     expect((await facets({ projectId: project.id })).projects).toEqual([
       { id: project.id, count: 2 },
     ])

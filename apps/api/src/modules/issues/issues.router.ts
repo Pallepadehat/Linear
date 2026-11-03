@@ -140,10 +140,11 @@ export const issuesRouter = {
   facets: authed.issues.facets
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { workspaceSlug: _, assignee, creator, ...filters } = input
+      const { workspaceSlug: _, assignee, creator, subscriberIds, ...filters } = input
       return getIssueFacets(context.db, {
         ...filters,
         workspaceId: context.workspace.id,
+        subscriberIds: subscriberIds?.map((id) => (id === 'me' ? context.user.id : id)),
         assigneeId: assignee === 'me' ? context.user.id : undefined,
         creatorId: creator === 'me' ? context.user.id : undefined,
       })
