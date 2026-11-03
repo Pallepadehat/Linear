@@ -26,6 +26,7 @@ import {
 import { recordActivity, type ActivityActor } from '../activity/activity.service'
 import { diffIssue } from '../activity/diff'
 import { DomainError } from '../errors'
+import { deleteFavoritesOf } from '../favorites/favorites.service'
 import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
@@ -370,7 +371,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
 }
 
 /**
- * Deletes the issue (labels, links, comments cascade) and marks its attachments
+ * Deletes the issue (labels, links, comments cascade; favorites explicitly) and marks its attachments
  * deleted unless another issue still references them. The caller enqueues
  * `delete-objects` for each `deletedUploadIds` entry after the commit.
  */
@@ -382,6 +383,7 @@ export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
       .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
       .returning({ id: issues.id })
     if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
+    await deleteFavoritesOf(tx, workspaceId, 'issue', [issue.id])
     const deletedUploadIds = await releaseAttachments(tx, workspaceId, attachmentIds)
     return { id: issue.id, deletedUploadIds }
   })

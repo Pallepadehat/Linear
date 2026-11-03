@@ -9,6 +9,7 @@ import {
 } from '@linear/db'
 import { and, asc, count, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { DomainError } from '../errors'
+import { deleteFavoritesOf } from '../favorites/favorites.service'
 
 type Changes = {
   name?: string
@@ -168,10 +169,13 @@ export function updateProject(db: DbOrTx, workspaceId: string, id: string, input
   return saveProject(db, workspaceId, input, id)
 }
 export async function deleteProject(db: DbOrTx, workspaceId: string, id: string) {
-  const [row] = await db
-    .delete(projects)
-    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)))
-    .returning({ id: projects.id })
-  if (!row) throw new DomainError('NOT_FOUND', 'Project not found')
-  return row
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .delete(projects)
+      .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)))
+      .returning({ id: projects.id })
+    if (!row) throw new DomainError('NOT_FOUND', 'Project not found')
+    await deleteFavoritesOf(tx, workspaceId, 'project', [row.id])
+    return row
+  })
 }
