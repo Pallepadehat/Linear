@@ -41,6 +41,8 @@ export const issueSchema = z.object({
   assigneeId: z.uuid().nullable(),
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
+  /** Always a milestone of `projectId` (docs/domain.md → Project milestones). */
+  milestoneId: z.uuid().nullable(),
   cycleId: z.uuid().nullable(),
   estimate: issueEstimateSchema.nullable(),
   dueDate: issueDueDateSchema,
@@ -92,6 +94,8 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   /** `null` = unassigned, even when the team has a default assignee. */
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  /** A milestone of `projectId`, else `BAD_REQUEST`. */
+  milestoneId: z.uuid().nullable().optional(),
   /** An open cycle of the issue's team. */
   cycleId: z.uuid().nullable().optional(),
   estimate: issueEstimateSchema.nullable().optional(),
@@ -109,7 +113,10 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
   statusId: z.uuid().optional(),
   priority: issuePrioritySchema.optional(),
   assigneeId: z.uuid().nullable().optional(),
+  /** Changing or clearing the project also clears the milestone, unless one is given. */
   projectId: z.uuid().nullable().optional(),
+  /** A milestone of the issue's (new) project, else `BAD_REQUEST`. */
+  milestoneId: z.uuid().nullable().optional(),
   /** An open cycle of the issue's team. */
   cycleId: z.uuid().nullable().optional(),
   estimate: issueEstimateSchema.nullable().optional(),
@@ -152,6 +159,7 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   /** Scope from the page (team / project view), not a user filter. */
   teamId: z.uuid().optional(),
   projectId: z.uuid().optional(),
+  milestoneId: z.uuid().optional(),
   cycleId: z.uuid().optional(),
   /** `'me'` narrows to issues assigned to the signed-in user (My Issues). */
   assignee: z.literal('me').optional(),
@@ -163,6 +171,7 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   priorities: z.array(issuePrioritySchema).max(5).optional(),
   assigneeIds: nullableFilterIdsSchema.optional(),
   projectIds: nullableFilterIdsSchema.optional(),
+  milestoneIds: nullableFilterIdsSchema.optional(),
   cycleIds: nullableFilterIdsSchema.optional(),
   labelIds: filterIdsSchema.optional(),
   /** Estimate values; `null` matches issues without an estimate, `'any'` those with one. */

@@ -12,6 +12,7 @@ import { activityContract } from './routers/activity'
 import { commentsContract } from './routers/comments'
 import { cyclesContract } from './routers/cycles'
 import { favoritesContract } from './routers/favorites'
+import { milestonesContract } from './routers/milestones'
 import { githubContract } from './routers/github'
 import { issuesContract } from './routers/issues'
 import { labelsContract } from './routers/labels'
@@ -30,6 +31,7 @@ export const contract = {
   issues: issuesContract,
   issueRelations: issueRelationsContract,
   projects: projectsContract,
+  milestones: milestonesContract,
   cycles: cyclesContract,
   projectLabels: projectLabelsContract,
   github: githubContract,
@@ -50,6 +52,7 @@ export * from './schemas/common'
 export * from './schemas/github'
 export * from './schemas/issues'
 export * from './schemas/projects'
+export * from './schemas/milestones'
 export * from './schemas/labels'
 export * from './schemas/teams'
 export * from './schemas/uploads'
