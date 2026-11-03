@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import type { Cycle, DisplayProperty, Issue, Label, WorkflowStatus } from '@linear/contract'
-import { Ban, OctagonAlert } from '@lucide/vue'
+import { Ban, Link2, OctagonAlert } from '@lucide/vue'
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import CyclePicker from '@/components/common/CyclePicker.vue'
 import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
+import MilestoneIcon from '@/components/common/MilestoneIcon.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
+import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
 import { assignableCycles } from '@/features/cycles/cycles'
+import PullRequestIcon from '@/features/github/components/PullRequestIcon.vue'
+import { pullRequestStates } from '@/features/github/pull-requests'
 import type { EstimateSettings } from '@/lib/estimates'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
@@ -23,6 +28,8 @@ const props = defineProps<{
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
   labels: Label[]
+  /** Workspace projects (names and icons); the issue's own summary stands in until they load. */
+  projects?: ProjectOption[]
   /** The issue team's cycles; empty when the team has cycles off. */
   cycles?: Cycle[]
   /** The issue team's estimate scale; no chip while unknown or off. */
@@ -46,12 +53,41 @@ const emit = defineEmits<{
 const shows = (property: DisplayProperty) =>
   !props.properties || props.properties.includes(property)
 
+const issueRoute = computed(() => ({
+  name: 'issue',
+  params: { identifier: props.issue.identifier },
+}))
+
 function onLinkClick(event: MouseEvent) {
   if (event.shiftKey || event.metaKey || event.ctrlKey) {
     event.preventDefault()
     emit('select', event)
   } else emit('open')
 }
+
+// Read-only chips sit above the row link (for their `title` tooltips), so they open the issue
+// themselves, like a click anywhere else on the row.
+const router = useRouter()
+function onChipClick(event: MouseEvent) {
+  if (event.shiftKey || event.metaKey || event.ctrlKey) return emit('select', event)
+  emit('open')
+  void router.push(issueRoute.value)
+}
+
+const projectOptions = computed<ProjectOption[]>(() => {
+  if (props.projects?.length) return props.projects
+  const { project } = props.issue
+  return project ? [{ id: project.id, name: project.name, iconUrl: null }] : []
+})
+function setProject(projectId: string | null) {
+  if (projectId !== props.issue.projectId) emit('update', { projectId })
+}
+
+const pullRequestSummary = computed(() =>
+  props.issue.pullRequests
+    .map((pr) => `#${pr.number} ${pullRequestStates[pr.state].label.toLowerCase()}`)
+    .join(', '),
+)
 
 const cycleOptions = computed(() => assignableCycles(props.cycles ?? []))
 const issueCycle = computed(() => props.cycles?.find((c) => c.id === props.issue.cycleId) ?? null)
@@ -84,6 +120,7 @@ function setLabels(labels: Label[]) {
 }
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', timeStyle: 'short' })
 </script>
 
 <template>
@@ -92,7 +129,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
   <div
     :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
     data-hotkey-scope
-    class="group/row relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
+    class="group/row relative mx-2 flex h-full min-w-0 items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
     :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
     :data-focused="focused || undefined"
     :data-selected="selected || undefined"
@@ -127,73 +164,120 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       </span>
       <span class="sr-only">Status: {{ issue.status.name }}</span>
     </template>
+    <!-- The title keeps at least 8rem; past that the chip group clips from its start
+         edge (justify-end + overflow-hidden), as in Linear. -->
     <RouterLink
-      :to="{ name: 'issue', params: { identifier: issue.identifier } }"
-      class="ml-1 min-w-0 flex-1 truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
+      :to="issueRoute"
+      class="ml-1 min-w-32 flex-[1_1_0%] truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
       @click="onLinkClick"
     >
       <span v-if="selected" class="sr-only">Selected,</span>
       {{ issue.title }}
     </RouterLink>
-    <span
-      v-if="issue.subIssueProgress?.total"
-      class="flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-subtle tabular-nums"
-    >
-      <SubIssueProgressRing v-bind="issue.subIssueProgress" />
-      {{ issue.subIssueProgress.done }}/{{ issue.subIssueProgress.total }}
-      <span class="sr-only">sub-issues done</span>
-    </span>
-    <span
-      v-if="issue.blockedByCount"
-      class="flex shrink-0 items-center gap-1 text-xs text-priority-urgent tabular-nums"
-      :title="`Blocked by ${issue.blockedByCount} ${issue.blockedByCount === 1 ? 'issue' : 'issues'}`"
-    >
-      <Ban class="size-3.5" aria-hidden="true" />
-      <span class="sr-only">Blocked by</span>
-      {{ issue.blockedByCount }}
-    </span>
-    <span
-      v-if="issue.blockingCount"
-      class="flex shrink-0 items-center gap-1 text-xs text-ink-subtle tabular-nums"
-      :title="`Blocking ${issue.blockingCount} ${issue.blockingCount === 1 ? 'issue' : 'issues'}`"
-    >
-      <OctagonAlert class="size-3.5" aria-hidden="true" />
-      <span class="sr-only">Blocking</span>
-      {{ issue.blockingCount }}
-    </span>
-    <span v-if="shows('labels') && issue.labels.length" class="hidden shrink-0 md:flex">
-      <LabelPicker
-        compact
-        :labels="labelOptions"
-        :team-id="issue.teamId"
-        :model-value="labelIds"
-        @update:labels="setLabels"
+    <div class="flex min-w-0 items-center justify-end gap-1 self-stretch overflow-hidden pl-2">
+      <span
+        v-if="issue.subIssueProgress?.total"
+        class="flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-subtle tabular-nums"
+      >
+        <SubIssueProgressRing v-bind="issue.subIssueProgress" />
+        {{ issue.subIssueProgress.done }}/{{ issue.subIssueProgress.total }}
+        <span class="sr-only">sub-issues done</span>
+      </span>
+      <span
+        v-if="issue.blockedByCount"
+        class="relative z-10 flex shrink-0 cursor-default items-center gap-1 text-xs text-priority-urgent tabular-nums"
+        :title="`Blocked by ${issue.blockedByCount} ${issue.blockedByCount === 1 ? 'issue' : 'issues'}`"
+        @click="onChipClick"
+      >
+        <Ban class="size-3.5" aria-hidden="true" />
+        <span class="sr-only">Blocked by</span>
+        {{ issue.blockedByCount }}
+      </span>
+      <span
+        v-if="issue.blockingCount"
+        class="relative z-10 flex shrink-0 cursor-default items-center gap-1 text-xs text-ink-subtle tabular-nums"
+        :title="`Blocking ${issue.blockingCount} ${issue.blockingCount === 1 ? 'issue' : 'issues'}`"
+        @click="onChipClick"
+      >
+        <OctagonAlert class="size-3.5" aria-hidden="true" />
+        <span class="sr-only">Blocking</span>
+        {{ issue.blockingCount }}
+      </span>
+      <span v-if="shows('labels') && issue.labels.length" class="flex shrink-0">
+        <LabelPicker
+          compact
+          :labels="labelOptions"
+          :team-id="issue.teamId"
+          :model-value="labelIds"
+          @update:labels="setLabels"
+        />
+      </span>
+      <span v-if="shows('project') && issue.projectId" class="flex shrink-0">
+        <ProjectPicker
+          row
+          :projects="projectOptions"
+          :model-value="issue.projectId"
+          @update:model-value="setProject"
+        />
+      </span>
+      <span
+        v-if="shows('milestone') && issue.milestone"
+        :title="`Milestone: ${issue.milestone.name}`"
+        class="relative z-10 flex h-6 max-w-40 shrink-0 cursor-default items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-muted"
+        @click="onChipClick"
+      >
+        <MilestoneIcon :progress="0" />
+        <span class="truncate">{{ issue.milestone.name }}</span>
+        <span class="sr-only">milestone</span>
+      </span>
+      <span v-if="issueCycle" class="flex shrink-0">
+        <CyclePicker
+          compact
+          :cycles="cycleOptions"
+          :selected="issueCycle"
+          :model-value="issue.cycleId"
+          @update:model-value="setCycle"
+        />
+      </span>
+      <span
+        v-if="shows('pullRequests') && issue.pullRequests[0]"
+        :title="`Pull requests: ${pullRequestSummary}`"
+        class="relative z-10 flex h-6 shrink-0 cursor-default items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-muted tabular-nums"
+        @click="onChipClick"
+      >
+        <PullRequestIcon :state="issue.pullRequests[0].state" />
+        #{{ issue.pullRequests[0].number }}
+        <span v-if="issue.pullRequests.length > 1" class="text-ink-subtle">
+          +{{ issue.pullRequests.length - 1 }}
+        </span>
+        <span class="sr-only">Pull requests: {{ pullRequestSummary }}</span>
+      </span>
+      <span
+        v-if="shows('links') && issue.linkCount"
+        :title="`${issue.linkCount} ${issue.linkCount === 1 ? 'link' : 'links'}`"
+        class="relative z-10 flex h-6 shrink-0 cursor-default items-center gap-1 rounded-full border border-hairline px-2 text-xs text-ink-muted tabular-nums"
+        @click="onChipClick"
+      >
+        <Link2 class="size-3.5 text-ink-subtle" aria-hidden="true" />
+        {{ issue.linkCount }}
+        <span class="sr-only">{{ issue.linkCount === 1 ? 'link' : 'links' }}</span>
+      </span>
+      <DueDatePicker
+        v-if="shows('dueDate')"
+        row
+        :category="issue.status.category"
+        :model-value="issue.dueDate"
+        @update:model-value="setDueDate"
       />
-    </span>
-    <span v-if="issueCycle" class="hidden shrink-0 md:flex">
-      <CyclePicker
+      <EstimatePicker
+        v-if="shows('estimate') && estimates && estimates.scale !== 'off'"
         compact
-        :cycles="cycleOptions"
-        :selected="issueCycle"
-        :model-value="issue.cycleId"
-        @update:model-value="setCycle"
+        :scale="estimates.scale"
+        :allow-zero="estimates.allowZero"
+        :model-value="issue.estimate"
+        @update:model-value="setEstimate"
       />
-    </span>
-    <EstimatePicker
-      v-if="shows('estimate') && estimates && estimates.scale !== 'off'"
-      compact
-      :scale="estimates.scale"
-      :allow-zero="estimates.allowZero"
-      :model-value="issue.estimate"
-      @update:model-value="setEstimate"
-    />
-    <DueDatePicker
-      v-if="shows('dueDate')"
-      row
-      :category="issue.status.category"
-      :model-value="issue.dueDate"
-      @update:model-value="setDueDate"
-    />
+    </div>
     <AssigneePicker
       v-if="shows('assignee')"
       compact
@@ -204,16 +288,18 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
     <time
       v-if="shows('updatedAt')"
       :datetime="issue.updatedAt.toISOString()"
-      :title="`Updated ${dateFormat.format(issue.updatedAt)}`"
-      class="ml-1 hidden w-12 shrink-0 text-right text-xs text-ink-subtle tabular-nums sm:block"
+      :title="`Updated ${fullDateFormat.format(issue.updatedAt)}`"
+      class="relative z-10 ml-1 hidden w-12 shrink-0 cursor-default text-right text-xs text-ink-subtle tabular-nums sm:block"
+      @click="onChipClick"
     >
       {{ dateFormat.format(issue.updatedAt) }}
     </time>
     <time
       v-if="shows('createdAt')"
       :datetime="issue.createdAt.toISOString()"
-      :title="`Created ${dateFormat.format(issue.createdAt)}`"
-      class="ml-1 hidden w-12 shrink-0 text-right text-xs text-ink-subtle tabular-nums sm:block"
+      :title="`Created ${fullDateFormat.format(issue.createdAt)}`"
+      class="relative z-10 ml-1 hidden w-12 shrink-0 cursor-default text-right text-xs text-ink-subtle tabular-nums sm:block"
+      @click="onChipClick"
     >
       {{ dateFormat.format(issue.createdAt) }}
     </time>
