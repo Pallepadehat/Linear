@@ -2,6 +2,7 @@ import type {
   Comment,
   Issue,
   IssueDetail,
+  IssueFiltersInput,
   IssuePage,
   IssueRelationType,
   ListIssuesInput,
@@ -51,6 +52,18 @@ export type IssueListFilter = Pick<
 >
 
 /**
+ * The shared list filters (`issueFiltersSchema`) for the page's scope and view tab plus
+ * the user's filters, so the list and the Details panel always ask for the same issues.
+ */
+function issueFiltersInput(
+  workspaceSlug: string,
+  filter: IssueListFilter,
+  filters: IssueFilters,
+): IssueFiltersInput {
+  return { workspaceSlug, ...filter, ...toListInput(filters, minuteNow()) }
+}
+
+/**
  * Issue pages for a workspace, narrowed by the page's scope (team, project,
  * assignee or creator) and view tab, then by the user's filters and sort.
  */
@@ -59,15 +72,11 @@ export function issueListOptions(
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const filterInput = toListInput(filters, minuteNow())
-  const { sort, direction } = filters
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
-      workspaceSlug,
-      ...filter,
-      ...filterInput,
-      sort,
-      direction,
+      ...issueFiltersInput(workspaceSlug, filter, filters),
+      sort: filters.sort,
+      direction: filters.direction,
       cursor,
       limit: PAGE_SIZE,
     }),
@@ -88,7 +97,7 @@ export function issueFacetsOptions(
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
   return orpc.issues.facets.queryOptions({
-    input: { workspaceSlug, ...filter, ...toListInput(filters, minuteNow()) },
+    input: issueFiltersInput(workspaceSlug, filter, filters),
     placeholderData: keepPreviousData,
   })
 }

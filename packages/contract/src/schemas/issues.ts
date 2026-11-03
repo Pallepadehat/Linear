@@ -148,13 +148,15 @@ const userFilterIdsSchema = z.array(z.union([z.uuid(), z.literal('me')])).max(10
 export const labelFilterModeSchema = z.enum(['any', 'all'])
 
 /**
+ * The issue list's scope and filters, shared by `issues.list` and `issues.facets`;
+ * add new list filters here so every consumer gets them.
  * Filters combine with AND; values within one filter with OR (labels: any of, or all
  * of with `labelMode: 'all'`). An empty list doesn't filter. `…Not` lists exclude
  * issues with any of the values; on a nullable property an excluded value still
  * keeps issues without one (assignee is not Ada keeps unassigned issues), and `null`
  * excludes issues without one. Date bounds: `…After` is inclusive, `…Before` exclusive.
  */
-export const listIssuesInputSchema = workspaceScopedSchema.extend({
+export const issueFiltersSchema = workspaceScopedSchema.extend({
   /** Scope from the page (team / project view), not a user filter. */
   teamId: z.uuid().optional(),
   projectId: z.uuid().optional(),
@@ -208,6 +210,9 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   showSubIssues: z.boolean().default(true),
   /** Leaves out this issue and its descendants (choosing a parent without making a cycle). */
   excludeSubtreeOf: z.uuid().optional(),
+})
+
+export const listIssuesInputSchema = issueFiltersSchema.extend({
   sort: issueSortSchema.default('createdAt'),
   direction: sortDirectionSchema.default('desc'),
   /** `nextCursor` from the previous page. */
@@ -230,13 +235,8 @@ export const issuePageSchema = z.object({
   nextCursor: z.string().nullable(),
 })
 
-/** The list's filters and scope without paging or sort: what the Details panel counts. */
-export const issueFacetsInputSchema = listIssuesInputSchema.omit({
-  sort: true,
-  direction: true,
-  cursor: true,
-  limit: true,
-})
+/** What the Details panel counts: exactly the list's scope and filters, no paging or sort. */
+export const issueFacetsInputSchema = issueFiltersSchema
 
 const facetCountSchema = z.number().int().nonnegative()
 
@@ -256,6 +256,7 @@ export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>
 export type ListIssuesInput = z.input<typeof listIssuesInputSchema>
+export type IssueFiltersInput = z.input<typeof issueFiltersSchema>
 export type IssueFacetsInput = z.input<typeof issueFacetsInputSchema>
 export type IssueFacets = z.infer<typeof issueFacetsSchema>
 export type IssueSubscriptionInput = z.input<typeof issueSubscriptionInputSchema>

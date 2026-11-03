@@ -1,3 +1,4 @@
+import type { IssueFiltersInput } from '@linear/contract'
 import {
   createIssue,
   deleteIssue,
@@ -27,6 +28,29 @@ async function publishSubIssuesChanged(
   for (const issueId of new Set(parentIds)) {
     if (issueId)
       await publishChange(context, { type: 'issue.updated', issueId, fields: ['subIssues'] })
+  }
+}
+
+/**
+ * The shared list filters (`issueFiltersSchema`) for core: workspace from the session,
+ * `'me'` resolved to the signed-in user so nobody can query another user's issues this way.
+ */
+function toIssueFilter(
+  context: { workspace: { id: string }; user: { id: string } },
+  input: IssueFiltersInput,
+) {
+  const { workspaceSlug: _, assignee, creator, ...filters } = input
+  // User filters take `'me'` for the signed-in user, so a shared URL means its viewer.
+  const resolve = (ids: string[] | undefined) =>
+    ids?.map((id) => (id === 'me' ? context.user.id : id))
+  return {
+    ...filters,
+    workspaceId: context.workspace.id,
+    subscriberIds: resolve(filters.subscriberIds),
+    creatorIds: resolve(filters.creatorIds),
+    creatorIdsNot: resolve(filters.creatorIdsNot),
+    assigneeId: assignee === 'me' ? context.user.id : undefined,
+    creatorId: creator === 'me' ? context.user.id : undefined,
   }
 }
 
@@ -125,14 +149,14 @@ export const issuesRouter = {
   list: authed.issues.list
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { workspaceSlug: _, assignee, creator, ...query } = input
+      const { sort, direction, cursor, limit, ...filters } = input
       const page = await listIssues(context.db, {
-        ...query,
-        ...resolveMe(query, context.user.id),
-        workspaceId: context.workspace.id,
+        ...toIssueFilter(context, filters),
         viewerId: context.user.id,
-        assigneeId: assignee === 'me' ? context.user.id : undefined,
-        creatorId: creator === 'me' ? context.user.id : undefined,
+        sort,
+        direction,
+        cursor,
+        limit,
       })
       return { items: page.items.map(toIssueDto), nextCursor: page.nextCursor }
     }),
@@ -140,14 +164,7 @@ export const issuesRouter = {
   facets: authed.issues.facets
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { workspaceSlug: _, assignee, creator, ...filters } = input
-      return getIssueFacets(context.db, {
-        ...filters,
-        ...resolveMe(filters, context.user.id),
-        workspaceId: context.workspace.id,
-        assigneeId: assignee === 'me' ? context.user.id : undefined,
-        creatorId: creator === 'me' ? context.user.id : undefined,
-      })
+      return getIssueFacets(context.db, toIssueFilter(context, input))
     }),
 
   subscribe: authed.issues.subscribe
@@ -195,20 +212,4 @@ export const issuesRouter = {
         })),
       )
     }),
-}
-
-type UserFilters = {
-  subscriberIds?: string[]
-  creatorIds?: string[]
-  creatorIdsNot?: string[]
-}
-
-/** User filters take `'me'` for the signed-in user, so a shared URL means its viewer. */
-function resolveMe(filters: UserFilters, userId: string): UserFilters {
-  const resolve = (ids: string[] | undefined) => ids?.map((id) => (id === 'me' ? userId : id))
-  return {
-    subscriberIds: resolve(filters.subscriberIds),
-    creatorIds: resolve(filters.creatorIds),
-    creatorIdsNot: resolve(filters.creatorIdsNot),
-  }
 }

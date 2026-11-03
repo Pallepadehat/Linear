@@ -1,4 +1,4 @@
-import type { IssueDueFilter, IssueFacetsInput, IssueSort, SortDirection } from '@linear/contract'
+import type { IssueDueFilter, IssueFiltersInput, IssueSort, SortDirection } from '@linear/contract'
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 import { todayIso } from '@/lib/due-dates'
 
@@ -361,7 +361,7 @@ export function dateBounds(filter: DateFilter | null, now: Date) {
 export function toListInput(
   filters: IssueFilters,
   now = new Date(),
-): Omit<IssueFacetsInput, 'workspaceSlug'> {
+): Omit<IssueFiltersInput, 'workspaceSlug'> {
   const { operators: ops } = filters
   const split = <T>(dimension: OperatorDimension, values: T[]) =>
     values.length ? (ops[dimension] === 'not' ? { not: values } : { is: values }) : {}
@@ -408,7 +408,7 @@ export function toListInput(
   }
   // Undefined keys would still be part of the query key.
   return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as Omit<
-    IssueFacetsInput,
+    IssueFiltersInput,
     'workspaceSlug'
   >
 }

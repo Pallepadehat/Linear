@@ -1,4 +1,12 @@
-import { issueLabels, issues, projects, teams, workflowStatuses, type DbOrTx } from '@linear/db'
+import {
+  cycles,
+  issueLabels,
+  issues,
+  projects,
+  teams,
+  workflowStatuses,
+  type DbOrTx,
+} from '@linear/db'
 import { and, count, desc, eq } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 import { DomainError } from '../errors'
@@ -48,7 +56,7 @@ export async function getIssueFacets(db: DbOrTx, input: IssueFilterInput) {
   }
 }
 
-/** A team or project scope from another workspace is NOT_FOUND, so ids can't be probed. */
+/** A team, project or cycle scope from another workspace is NOT_FOUND, so ids can't be probed. */
 async function assertScope(db: DbOrTx, input: IssueFilterInput) {
   if (input.teamId) {
     const [team] = await db
@@ -63,5 +71,12 @@ async function assertScope(db: DbOrTx, input: IssueFilterInput) {
       .from(projects)
       .where(and(eq(projects.workspaceId, input.workspaceId), eq(projects.id, input.projectId)))
     if (!project) throw new DomainError('NOT_FOUND', 'Project not found')
+  }
+  if (input.cycleId) {
+    const [cycle] = await db
+      .select({ id: cycles.id })
+      .from(cycles)
+      .where(and(eq(cycles.workspaceId, input.workspaceId), eq(cycles.id, input.cycleId)))
+    if (!cycle) throw new DomainError('NOT_FOUND', 'Cycle not found')
   }
 }

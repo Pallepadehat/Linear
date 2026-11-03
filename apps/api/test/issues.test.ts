@@ -743,8 +743,10 @@ describe('issues.list filters, sorting and search', () => {
     })
   })
 
-  it('rejects facets for another workspace and its team or project scope', async () => {
-    const { team, project } = await seeded()
+  it('rejects facets for another workspace and its team, project or cycle scope', async () => {
+    const { owner, team, project } = await seeded()
+    await owner.client.teams.update({ workspaceSlug: 'tip', key: 'TIP', cyclesEnabled: true })
+    const [cycle] = await owner.client.cycles.list({ workspaceSlug: 'tip', teamId: team.id })
     const stranger = await signUp(app, 'Stranger')
     await stranger.client.workspaces.create({ name: 'Mine', slug: 'mine' })
     const notFound = { code: 'NOT_FOUND' }
@@ -757,6 +759,9 @@ describe('issues.list filters, sorting and search', () => {
     ).rejects.toMatchObject(notFound)
     await expect(
       stranger.client.issues.facets({ workspaceSlug: 'mine', projectId: project.id }),
+    ).rejects.toMatchObject(notFound)
+    await expect(
+      stranger.client.issues.facets({ workspaceSlug: 'mine', cycleId: cycle!.id }),
     ).rejects.toMatchObject(notFound)
     // Unscoped, the stranger's own workspace has nothing to count.
     expect((await stranger.client.issues.facets({ workspaceSlug: 'mine' })).assignees).toEqual([])
