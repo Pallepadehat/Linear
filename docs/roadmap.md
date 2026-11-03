@@ -48,7 +48,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | ------ | ------ | ------------------------------------------------------ | ---------- |
 | M3-01  | [x]    | Projects schema + procedures, project icon upload      | M2-02, M1-16 |
 | M3-02  | [x]    | Projects list + project detail pages                   | M3-01      |
-| M3-03  | [ ]    | My Issues view                                         | M2-07      |
+| M3-03  | [x]    | My Issues view                                         | M2-07      |
 | M3-04  | [ ]    | Board view with drag-and-drop status changes           | M2-09      |
 | M3-05  | [ ]    | Filters, sorting, search (title + identifier), URL-synced | M2-07   |
 
@@ -115,5 +115,6 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-10-30 · M2-07 · virtualized issue list grouped by status (collapsible, scroll-paged, scroll-anchored), create issue dialog with Tiptap markdown editor (slash menu, selection toolbar), Create more, `C` hotkey; inset app shell; new issues default to Backlog; `db:seed:issues` for 1 000+ issue checks
 2026-10-30 · M2-07 · follow-up: issue attachments (paperclip/⌘⇧U/paste/drop, inline images, file chips, `attachment:` refs resolved via membership-checked presigned GETs), Linear's full `/` menu with shortcuts (media, files, code, mermaid diagrams, LaTeX, `+++` collapsible sections), markdown round-trip tests
 2026-11-03 · LIN-39 / M3-02 · projects table (icon, name, teams, progress, status), lazy `/:workspaceSlug/project/:projectId` detail page with in-place edits and the project's issues via `IssueList`, `CreateProjectDialog` (vee-validate + contract schema), shared `ImageUploadButton` for avatar and project icon, `ProjectPicker` in the create issue dialog. Contract: project DTOs gain `progress`/`iconUrl`/`createdAt`; `issues.list` takes `projectId`. Lint, typecheck and all tests pass; checked in light and dark.
+2026-11-03 · LIN-35 / M3-03 · My Issues page with Assigned/Created tabs (URL-synced `?tab=`, keyboard tablist) reusing `IssueList` with a per-tab empty state and "Create issue" (preassigned from Assigned). Contract: `issues.list` takes `assignee: 'me'` / `creator: 'me'`, resolved to the session user; API test covers cross-user and cross-workspace isolation.
 2026-11-03 · LIN-11 / M2-04 · comments table (cascade with issue, migration 0007), `comments.list` (oldest first, cursor) / `create` / `update` (author only) / `delete` (author or owner, per domain.md Roles); DTO carries author name + avatar URL. Integration tests cover create/list, paging, FORBIDDEN edits/deletes, cascade and cross-workspace NOT_FOUND. Lint, typecheck and all tests pass.
 2026-11-03 · LIN-15 / M2-09 · `useUpdateIssue()` patches the infinite list and detail caches optimistically (cancel → snapshot → patch, rollback + toast on error, invalidate after the last in-flight change); compact status/priority/assignee/label pickers on issue rows; pure cache helpers in `issue-cache.ts` with unit tests. Checked with a 3 s delayed and a failing `issues.update` in the browser, light and dark. Lint, typecheck and all tests pass.

@@ -337,6 +337,47 @@ describe('issues procedures', () => {
     await expect(page('not-a-cursor')).rejects.toMatchObject({ code: 'BAD_REQUEST' })
   })
 
+  it("filters to the caller's assigned and created issues within the workspace", async () => {
+    const { owner, workspace, team, issues } = await workspaceWithTeam()
+    const member = await signUp(app, 'Member')
+    await addMember(db, workspace.id, member.userId)
+    const mine = await issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'Mine',
+      assigneeId: owner.userId,
+    })
+    const theirs = await issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'Theirs',
+      assigneeId: member.userId,
+    })
+    const byMember = await member.client.issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'By member',
+      assigneeId: owner.userId,
+    })
+    // Same user, other workspace: never leaks into Tip's My Issues.
+    await owner.client.workspaces.create({ name: 'Other', slug: 'other' })
+    const other = await owner.client.teams.create({ workspaceSlug: 'other', name: 'O', key: 'OTH' })
+    await issues.create({
+      workspaceSlug: 'other',
+      teamId: other.id,
+      assigneeId: owner.userId,
+      title: 'X',
+    })
+
+    const ids = async (input: { assignee?: 'me'; creator?: 'me' }, client = issues) =>
+      (await client.list({ workspaceSlug: 'tip', ...input })).items.map((i) => i.id)
+
+    expect(await ids({ assignee: 'me' })).toEqual([byMember.id, mine.id])
+    expect(await ids({ assignee: 'me' }, member.client.issues)).toEqual([theirs.id])
+    expect(await ids({ creator: 'me' })).toEqual([theirs.id, mine.id])
+    expect(await ids({ creator: 'me' }, member.client.issues)).toEqual([byMember.id])
+  })
+
   it('hides issues from non-members and other workspaces', async () => {
     const { team, issues } = await workspaceWithTeam()
     const issue = await issues.create({ workspaceSlug: 'tip', teamId: team.id, title: 'Secret' })

@@ -1,7 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-export type CreateIssueDefaults = { teamId?: string; statusId?: string; projectId?: string }
+export type CreateIssueDefaults = {
+  teamId?: string
+  statusId?: string
+  projectId?: string
+  assigneeId?: string
+}
 
 /** Transient UI state shared across the layout (never server data). */
 export const useUiStore = defineStore('ui', () => {

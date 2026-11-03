@@ -1,4 +1,4 @@
-import type { Issue, IssuePage } from '@linear/contract'
+import type { Issue, IssuePage, ListIssuesInput } from '@linear/contract'
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/vue-query'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { toast } from 'vue-sonner'
@@ -14,9 +14,9 @@ import {
 
 const PAGE_SIZE = 50
 
-export type IssueListFilter = { teamId?: string; projectId?: string }
+export type IssueListFilter = Pick<ListIssuesInput, 'teamId' | 'projectId' | 'assignee' | 'creator'>
 
-/** Newest-first issue pages for a workspace, narrowed to a team and/or project. */
+/** Newest-first issue pages for a workspace, narrowed by team, project, assignee or creator. */
 export function issueListOptions(workspaceSlug: string, filter: IssueListFilter = {}) {
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({ workspaceSlug, ...filter, cursor, limit: PAGE_SIZE }),

@@ -12,7 +12,16 @@ import { groupIssuesByStatus, toListRows, type IssueListRow } from '../group-iss
 import { issueListOptions, useUpdateIssue } from '../queries'
 import IssueRow from './IssueRow.vue'
 
-const props = defineProps<{ workspaceSlug: string; teamId?: string; projectId?: string }>()
+// Spelled out: Vue's SFC compiler can't resolve the zod-inferred `IssueListFilter` for props.
+const props = defineProps<{
+  workspaceSlug: string
+  teamId?: string
+  projectId?: string
+  assignee?: 'me'
+  creator?: 'me'
+}>()
+// Replaces the default "No issues yet" state, e.g. for My Issues tabs.
+defineSlots<{ empty?: () => unknown }>()
 
 const GROUP_HEIGHT = 40
 const ROW_HEIGHT = 36
@@ -22,7 +31,12 @@ const PREFETCH_ROWS = 20
 const ui = useUiStore()
 const query = useInfiniteQuery(
   computed(() =>
-    issueListOptions(props.workspaceSlug, { teamId: props.teamId, projectId: props.projectId }),
+    issueListOptions(props.workspaceSlug, {
+      teamId: props.teamId,
+      projectId: props.projectId,
+      assignee: props.assignee,
+      creator: props.creator,
+    }),
   ),
 )
 const { data: members } = useQuery(
@@ -141,14 +155,17 @@ watchEffect(() => {
   >
     <Button variant="secondary" size="sm" @click="query.refetch()">Retry</Button>
   </EmptyState>
-  <EmptyState
-    v-else-if="rows.length === 0"
-    :icon="Layers"
-    title="No issues yet"
-    description="Create an issue to start tracking work."
-  >
-    <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
-  </EmptyState>
+  <template v-else-if="rows.length === 0">
+    <slot name="empty">
+      <EmptyState
+        :icon="Layers"
+        title="No issues yet"
+        description="Create an issue to start tracking work."
+      >
+        <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+      </EmptyState>
+    </slot>
+  </template>
   <div v-else ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto pt-2 pb-4" role="list">
     <div class="relative w-full" :style="{ height: `${virtualizer.getTotalSize()}px` }">
       <div
