@@ -14,6 +14,7 @@ const { db, close: closeDb } = createDb(env.DATABASE_URL)
 const connection = createRedisConnection(env.REDIS_URL)
 const storage = createStorage({
   endpoint: env.S3_ENDPOINT,
+  publicEndpoint: env.S3_PUBLIC_ENDPOINT,
   region: env.S3_REGION,
   accessKeyId: env.S3_ACCESS_KEY,
   secretAccessKey: env.S3_SECRET_KEY,

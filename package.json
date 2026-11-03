@@ -19,7 +19,8 @@
     "db:generate": "bun run --filter @linear/db db:generate",
     "db:migrate": "bun run --filter @linear/db db:migrate",
     "db:seed": "bun run --filter @linear/db db:seed",
-    "db:seed:issues": "bun run --filter @linear/db db:seed:issues"
+    "db:seed:issues": "bun run --filter @linear/db db:seed:issues",
+    "demo:github": "bun run --filter @linear/db demo:github"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

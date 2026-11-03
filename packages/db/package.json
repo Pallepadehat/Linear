@@ -15,6 +15,7 @@
     "db:migrate": "bun src/migrate.ts",
     "db:seed": "bun src/seed.ts",
     "db:seed:issues": "bun src/seed-issues.ts",
+    "demo:github": "bun src/demo-github.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

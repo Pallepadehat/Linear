@@ -61,7 +61,7 @@ Report results honestly: if something fails or was skipped, say so.
 
 | Branch    | Purpose                     | Rules                                                        |
 | --------- | --------------------------- | ------------------------------------------------------------ |
-| `main`    | Production                  | Protected: changes only via PR, CI (`ci`) must pass, no force push, no deletion |
+| `main`    | Production                  | Protected: changes only via PR, checks `ci` and `docker` must pass, no force push, no deletion |
 | `develop` | Development (default branch) | Cannot be deleted                                           |
 | feature   | One roadmap task            | Branch off `develop`, PR back into `develop`                 |
 
@@ -83,7 +83,7 @@ Report results honestly: if something fails or was skipped, say so.
 
 ### Pull requests
 
-Use the template in `.github/pull_request_template.md`. Title follows the commit format. Put `Fixes LIN-<n>` in the description and link the roadmap ID. Target `develop` (only release and hotfix PRs target `main`). CI runs on every PR via `.github/workflows/ci.yml`; `.github/workflows/linear.yml` fails a PR into `develop` that has no Linear issue ID in its branch, title, or description.
+Use the template in `.github/pull_request_template.md`. Title follows the commit format. Put `Fixes LIN-<n>` in the description and link the roadmap ID. Target `develop` (only release and hotfix PRs target `main`). CI runs on every PR via `.github/workflows/ci.yml`; PRs into `main` also run `.github/workflows/release.yml` (check `docker`: build the production images and smoke-test the stack), and a push to `main` publishes them to GHCR as `:prod` and `:sha-<commit>`; `.github/workflows/linear.yml` fails a PR into `develop` that has no Linear issue ID in its branch, title, or description.
 
 ### Linear
 
