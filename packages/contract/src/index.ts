@@ -16,6 +16,7 @@ import { githubContract } from './routers/github'
 import { issuesContract } from './routers/issues'
 import { labelsContract } from './routers/labels'
 import { meContract } from './routers/me'
+import { notificationsContract } from './routers/notifications'
 import { teamsContract } from './routers/teams'
 import { templatesContract } from './routers/templates'
 import { uploadsContract } from './routers/uploads'
@@ -36,6 +37,7 @@ export const contract = {
   activity: activityContract,
   comments: commentsContract,
   favorites: favoritesContract,
+  notifications: notificationsContract,
   realtime: realtimeContract,
   templates: templatesContract,
   presence: presenceContract,
@@ -62,3 +64,4 @@ export * from './schemas/favorites'
 export * from './schemas/realtime'
 export * from './schemas/templates'
 export * from './schemas/relations'
+export * from './schemas/notifications'

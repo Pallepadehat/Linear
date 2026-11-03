@@ -52,6 +52,8 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
     actorId: z.uuid().nullable(),
   }),
   z.object({ type: z.literal('presence.changed'), userId: z.uuid() }),
+  // Sent only to the recipient's sockets (docs/domain.md → Notifications); clients refetch the Inbox.
+  z.object({ type: z.literal('notification.created'), notificationId: z.uuid() }),
 ])
 
 /** Sent with every request (header) and with the subscription, so a tab skips its own echoes. */
