@@ -1,4 +1,5 @@
-import { createDb, cycles, issues, teams, workflowStatuses, type DbOrTx } from '@linear/db'
+import type { teams} from '@linear/db';
+import { createDb, cycles, issues, workflowStatuses, type DbOrTx } from '@linear/db'
 import {
   createIssue,
   createTeam,
