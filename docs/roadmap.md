@@ -71,7 +71,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M5-01  | [ ]    | PRD §12 acceptance tests 1–9 as automated tests            | M4-05      |
 | M5-02  | [ ]    | Playwright E2E: demo scenario (Test 10, with mocked GitHub) | M4-07     |
 | M5-03  | [ ]    | Accessibility + both-theme UI pass                         | M3-*       |
-| M5-04  | [ ]    | README: setup, env, Docker, GitHub App, demo script        | M4-06      |
+| M5-04  | [x]    | README: setup, env, Docker, GitHub App, demo script        | M4-06      |
 
 ## P1 backlog (after P0)
 
@@ -117,3 +117,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-11-03 · LIN-39 / M3-02 · projects table (icon, name, teams, progress, status), lazy `/:workspaceSlug/project/:projectId` detail page with in-place edits and the project's issues via `IssueList`, `CreateProjectDialog` (vee-validate + contract schema), shared `ImageUploadButton` for avatar and project icon, `ProjectPicker` in the create issue dialog. Contract: project DTOs gain `progress`/`iconUrl`/`createdAt`; `issues.list` takes `projectId`. Lint, typecheck and all tests pass; checked in light and dark.
 2026-11-03 · LIN-35 / M3-03 · My Issues page with Assigned/Created tabs (URL-synced `?tab=`, keyboard tablist) reusing `IssueList` with a per-tab empty state and "Create issue" (preassigned from Assigned). Contract: `issues.list` takes `assignee: 'me'` / `creator: 'me'`, resolved to the session user; API test covers cross-user and cross-workspace isolation.
 2026-11-03 · LIN-11 / M2-04 · comments table (cascade with issue, migration 0007), `comments.list` (oldest first, cursor) / `create` / `update` (author only) / `delete` (author or owner, per domain.md Roles); DTO carries author name + avatar URL. Integration tests cover create/list, paging, FORBIDDEN edits/deletes, cascade and cross-workspace NOT_FOUND. Lint, typecheck and all tests pass.
+2026-11-03 · LIN-44 / M5-04 · README (Docker-only quick start, dev setup, every env var, GitHub App + tunnel + fallback, demo script, light/dark screenshots); production `Dockerfile` (`server` + nginx `app`) and `docker-compose.prod.yml` with migrate/seed job; Release workflow builds, smoke-tests and pushes `:prod` / `:sha-*` to GHCR on `main`; `demo:github` sends signed PR webhooks (verified Backlog → In Progress → Done in the prod stack); `S3_PUBLIC_ENDPOINT`; blank env values count as unset.

@@ -1120,7 +1120,8 @@ All server env is validated with Zod at startup (`packages/env`); the process ex
 - `docker compose up -d` starts PostgreSQL, Redis, and MinIO (with a one-shot job that creates the bucket).
 - `bun install` at the root; `bun run dev` runs app, api, and worker in parallel through Turborepo.
 - `bun run db:migrate` applies Drizzle migrations; `bun run db:seed` creates the demo workspace `Tip` with team `TIP`.
-- GitHub webhooks are forwarded locally with smee.io or the GitHub CLI (`gh webhook forward`).
+- GitHub webhooks reach a local API through a tunnel (cloudflared, ngrok); `bun run demo:github` simulates signed deliveries without GitHub (README → Demo script).
+- `docker-compose.prod.yml` runs the whole stack from the production images (`Dockerfile` targets `server` and `app`).
 
 Default ports: app `5173`, api `3000`, Postgres `5432`, Redis `6379`, MinIO API `9000`, MinIO console `9001`.
 

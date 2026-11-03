@@ -83,7 +83,7 @@ Report results honestly: if something fails or was skipped, say so.
 
 ### Pull requests
 
-Use the template in `.github/pull_request_template.md`. Title follows the commit format. Put `Fixes LIN-<n>` in the description and link the roadmap ID. Target `develop` (only release and hotfix PRs target `main`). CI runs on every PR via `.github/workflows/ci.yml`; `.github/workflows/linear.yml` fails a PR into `develop` that has no Linear issue ID in its branch, title, or description.
+Use the template in `.github/pull_request_template.md`. Title follows the commit format. Put `Fixes LIN-<n>` in the description and link the roadmap ID. Target `develop` (only release and hotfix PRs target `main`). CI runs on every PR via `.github/workflows/ci.yml`; PRs into `main` also run `.github/workflows/release.yml` (check `docker`: build the production images and smoke-test the stack), and a push to `main` publishes them to GHCR as `:prod` and `:sha-<commit>`; `.github/workflows/linear.yml` fails a PR into `develop` that has no Linear issue ID in its branch, title, or description.
 
 ### Linear
 
