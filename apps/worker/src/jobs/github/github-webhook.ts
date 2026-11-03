@@ -33,6 +33,16 @@ export async function processGithubWebhook(
     }).catch((err: unknown) => logger.error({ err, deliveryId }, 'github-webhook: publish failed'))
   }
 
+  // A merge that finished a milestone's last issue wrote `milestone.completed` to its project.
+  for (const projectId of new Set(changedIssues.flatMap((issue) => issue.feedProjectIds))) {
+    await publish(workspaceId, {
+      type: 'project.updated',
+      projectId,
+      actorId: null,
+      originId: null,
+    }).catch((err: unknown) => logger.error({ err, deliveryId }, 'github-webhook: publish failed'))
+  }
+
   // Subscribers hear about new links and status moves (docs/domain.md → Notifications).
   // Job ids come from the delivery / activity entry, so a retried job enqueues nothing new.
   const base = { workspaceId, actorId: null }
