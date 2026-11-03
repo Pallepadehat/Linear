@@ -42,6 +42,8 @@ export const issues = pgTable(
       .notNull()
       .references(() => users.id),
     projectId: uuid().references(() => projects.id, { onDelete: 'set null' }),
+    // Points on the team's estimate scale; null = no estimate (docs/domain.md → Estimates).
+    estimate: integer(),
     // Sub-issues: same workspace, never a cycle (packages/core/src/issues/parent.ts).
     parentId: uuid().references((): AnyPgColumn => issues.id, { onDelete: 'set null' }),
     // A calendar day (YYYY-MM-DD), no time or timezone (docs/domain.md → Due dates).
@@ -58,11 +60,13 @@ export const issues = pgTable(
     index().on(t.parentId),
     // List filters and sorts (issues.list); the id is the keyset tie-breaker.
     index().on(t.workspaceId, t.priority),
+    index().on(t.workspaceId, t.estimate),
     index().on(t.workspaceId, t.createdAt, t.id),
     index().on(t.workspaceId, t.updatedAt, t.id),
     index().on(t.workspaceId, t.dueDate, t.id),
     check('issues_number_positive', sql`${t.number} > 0`),
     check('issues_priority_range', sql`${t.priority} between 0 and 4`),
+    check('issues_estimate_range', sql`${t.estimate} between 0 and 100`),
   ],
 )
 

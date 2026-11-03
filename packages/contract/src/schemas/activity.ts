@@ -13,6 +13,7 @@ export const activityKindSchema = z.enum([
   'assignee',
   'project',
   'labels',
+  'estimate',
   'due_date',
   'parent',
   'sub_issue',
@@ -20,7 +21,7 @@ export const activityKindSchema = z.enum([
 
 /**
  * Per kind: `title` text, `status`/`assignee`/`project` ids, `priority` number,
- * `labels` sorted label ids, `due_date` a `YYYY-MM-DD` day (null when unset), `parent`
+ * `labels` sorted label ids, `estimate` number or null, `due_date` a `YYYY-MM-DD` day (null when unset), `parent`
  * the old/new parent identifier (`TIP-12`), `sub_issue` the added (`to`) or removed
  * (`from`) sub-issue identifier. `created` and `description` carry no values.
  */

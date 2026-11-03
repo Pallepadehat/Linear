@@ -22,6 +22,9 @@ export const teamSchema = z.object({
   key: z.string(),
 })
 
+/** docs/domain.md → Estimates. `off` hides estimates for the team. */
+export const estimateScaleSchema = z.enum(['off', 'linear', 'fibonacci', 'exponential', 'tshirt'])
+
 /** 0 No priority … 4 Low; same scale as issue priority (docs/domain.md → Priorities). */
 const defaultPrioritySchema = z.number().int().min(0).max(4)
 
@@ -31,6 +34,9 @@ export const teamWithStatusesSchema = teamSchema.extend({
   defaultStatusId: z.uuid().nullable(),
   defaultPriority: defaultPrioritySchema,
   defaultAssigneeId: z.uuid().nullable(),
+  estimateScale: estimateScaleSchema,
+  /** Whether 0 is offered on the scale. */
+  estimateAllowZero: z.boolean(),
 })
 
 export const createTeamInputSchema = workspaceScopedSchema.extend({
@@ -46,8 +52,11 @@ export const updateTeamInputSchema = workspaceScopedSchema.extend({
   defaultStatusId: z.uuid().optional(),
   defaultPriority: defaultPrioritySchema.optional(),
   defaultAssigneeId: z.uuid().nullable().optional(),
+  estimateScale: estimateScaleSchema.optional(),
+  estimateAllowZero: z.boolean().optional(),
 })
 
+export type EstimateScale = z.infer<typeof estimateScaleSchema>
 export type StatusCategory = z.infer<typeof statusCategorySchema>
 export type WorkflowStatus = z.infer<typeof workflowStatusSchema>
 export type Team = z.infer<typeof teamSchema>

@@ -19,6 +19,7 @@ import {
   gt,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lt,
   notInArray,
@@ -34,6 +35,7 @@ import { subscribeUsers } from '../subscriptions/subscriptions.service'
 import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
+import { assertValidEstimate } from './estimates'
 import { findIssueRef, resolveParent, type ParentRef } from './parent'
 import { endOfWeek, isIsoDate, type IsoDate } from './due-dates'
 import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
@@ -58,6 +60,8 @@ export type CreateIssueInput = {
   /** `null` leaves the issue unassigned even when the team has a default assignee. */
   assigneeId?: string | null
   projectId?: string | null
+  /** Must be on the team's estimate scale; `null` = no estimate. */
+  estimate?: number | null
   labelIds?: string[]
   /** A sub-issue of this issue (same workspace, any team). */
   parentId?: string | null
@@ -76,6 +80,7 @@ export type UpdateIssueInput = {
   priority?: number
   assigneeId?: string | null
   projectId?: string | null
+  estimate?: number | null
   labelIds?: string[]
   /** `null` removes the parent. */
   parentId?: string | null
@@ -100,6 +105,8 @@ export type ListIssuesInput = {
   projectIds?: (string | null)[]
   /** Any of these labels. */
   labelIds?: string[]
+  /** Estimate values; `null` matches no estimate, `'any'` any estimate. */
+  estimates?: (number | 'any' | null)[]
   /** Any of these buckets; `overdue` and `dueThisWeek` are relative to `today`. */
   due?: DueFilter[]
   /** The viewer's local day (docs/domain.md → Due dates). */
@@ -147,6 +154,8 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       statusId: teams.defaultStatusId,
       priority: teams.defaultPriority,
       assigneeId: teams.defaultAssigneeId,
+      estimateScale: teams.estimateScale,
+      estimateAllowZero: teams.estimateAllowZero,
       key: teams.key,
     })
     .from(teams)
@@ -155,6 +164,8 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
 
   const priority = input.priority ?? teamDefaults.priority
   assertPriority(priority)
+  const estimate = input.estimate ?? null
+  assertValidEstimate(teamDefaults, estimate)
   assertDueDate(input.dueDate)
   const status = await resolveStatus(
     db,
@@ -201,6 +212,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         assigneeId,
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
+        estimate,
         parentId: parent?.id ?? null,
         dueDate: input.dueDate ?? null,
         completedAt: nextCompletedAt(status.category, null),
@@ -327,6 +339,7 @@ function listFilter(input: ListIssuesInput) {
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
+    estimateFilter(input.estimates),
     input.showSubIssues === false ? isNull(issues.parentId) : undefined,
     input.excludeSubtreeOf
       ? sql`${issues.id} not in (with recursive subtree(id) as (select ${input.excludeSubtreeOf}::uuid union select child.id from issues child join subtree on child.parent_id = subtree.id) select id from subtree)`
@@ -376,23 +389,34 @@ function anyOf(column: AnyColumn, values: (string | null)[] | undefined) {
   )
 }
 
+/** Values OR'd together: specific points, `null` for none, `'any'` for any estimate. */
+function estimateFilter(values: (number | 'any' | null)[] | undefined) {
+  if (!values?.length) return undefined
+  const points = values.filter((value): value is number => typeof value === 'number')
+  return or(
+    points.length ? inArray(issues.estimate, points) : undefined,
+    values.includes(null) ? isNull(issues.estimate) : undefined,
+    values.includes('any') ? isNotNull(issues.estimate) : undefined,
+  )
+}
+
 function sortOrder(sort: IssueSort, direction: SortDirection) {
+  if (sort === 'estimate') {
+    // Ascending rank in both directions; "No estimate" ranks past every value
+    // (estimates are 0–100), so it stays last either way.
+    const rank =
+      direction === 'desc'
+        ? sql<number>`coalesce(-${issues.estimate}, 1)`
+        : sql<number>`coalesce(${issues.estimate}, 101)`
+    return rankOrder(rank)
+  }
   if (sort === 'priority') {
     // Rank 1 is the first group shown; "No priority" (0) is 5, last in both directions.
     const rank =
       direction === 'desc'
         ? sql<number>`case when ${issues.priority} = 0 then 5 else ${issues.priority} end`
         : sql<number>`case when ${issues.priority} = 0 then 5 else 5 - ${issues.priority} end`
-    return {
-      // Within a priority, newest first.
-      orderBy: [asc(rank), desc(issues.id)],
-      cursorValue: sql<string>`(${rank})::text`,
-      after: (cursor: { value: string; id: string }) =>
-        or(
-          gt(rank, Number(cursor.value)),
-          and(eq(rank, Number(cursor.value)), lt(issues.id, cursor.id)),
-        ),
-    }
+    return rankOrder(rank)
   }
   if (sort === 'dueDate') {
     // No due date becomes ±infinity, so it sorts last in both directions.
@@ -426,6 +450,19 @@ function sortOrder(sort: IssueSort, direction: SortDirection) {
         and(sql`${column} = ${at}`, beyond(issues.id, cursor.id)),
       )
     },
+  }
+}
+
+/** Ascending by an integer rank; within a rank, newest first. */
+function rankOrder(rank: SQL<number>) {
+  return {
+    orderBy: [asc(rank), desc(issues.id)],
+    cursorValue: sql<string>`(${rank})::text`,
+    after: (cursor: { value: string; id: string }) =>
+      or(
+        gt(rank, Number(cursor.value)),
+        and(eq(rank, Number(cursor.value)), lt(issues.id, cursor.id)),
+      ),
   }
 }
 
@@ -472,6 +509,20 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     if (input.projectId !== undefined) {
       if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
       changes.projectId = input.projectId
+    }
+    // Only a changed value is checked, so an issue keeps an estimate that is no
+    // longer on the scale (after a scale change) while other fields are edited.
+    if (input.estimate !== undefined && input.estimate !== current.estimate) {
+      const [team] = await tx
+        .select({
+          estimateScale: teams.estimateScale,
+          estimateAllowZero: teams.estimateAllowZero,
+        })
+        .from(teams)
+        .where(eq(teams.id, current.teamId))
+      if (!team) throw new DomainError('NOT_FOUND', 'Team not found')
+      assertValidEstimate(team, input.estimate)
+      changes.estimate = input.estimate
     }
     let parentChange: { from: ParentRef | null; to: ParentRef | null } | null = null
     if (input.parentId !== undefined && input.parentId !== current.parentId) {
