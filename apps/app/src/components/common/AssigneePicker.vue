@@ -7,7 +7,7 @@ import UserAvatar from './UserAvatar.vue'
 
 export type AssigneeOption = { id: string; name: string; avatarUrl: string | null }
 
-const props = defineProps<{ users: AssigneeOption[] }>()
+const props = defineProps<{ users: AssigneeOption[]; compact?: boolean }>()
 // null = unassigned
 const model = defineModel<string | null>({ required: true })
 const open = ref(false)
@@ -27,11 +27,15 @@ function choose(id: string | null) {
     placeholder="Assign to..."
     hotkey="A"
     :current="model ?? 'unassigned'"
+    :compact="compact"
+    :align="compact ? 'end' : 'start'"
   >
     <template #trigger>
       <UserAvatar v-if="current" :name="current.name" :src="current.avatarUrl" size="xs" />
       <UnassignedIcon v-else />
-      <span :class="{ 'text-ink-subtle': !current }">{{ current?.name ?? 'Unassigned' }}</span>
+      <span :class="{ 'text-ink-subtle': !current, 'sr-only': compact }">{{
+        current?.name ?? 'Unassigned'
+      }}</span>
     </template>
     <PickerItem value="unassigned" :selected="model === null" shortcut="0" @select="choose(null)">
       <UnassignedIcon />

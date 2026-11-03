@@ -5,7 +5,7 @@ import PickerItem from './PickerItem.vue'
 import PickerPopover from './PickerPopover.vue'
 import StatusIcon from './StatusIcon.vue'
 
-const props = defineProps<{ statuses: WorkflowStatus[] }>()
+const props = defineProps<{ statuses: WorkflowStatus[]; compact?: boolean }>()
 const model = defineModel<string>({ required: true })
 const open = ref(false)
 
@@ -25,10 +25,11 @@ function choose(id: string) {
     placeholder="Change status..."
     hotkey="S"
     :current="model"
+    :compact="compact"
   >
     <template #trigger>
       <StatusIcon v-if="current" :category="current.category" />
-      <span>{{ current?.name ?? 'Status' }}</span>
+      <span :class="{ 'sr-only': compact }">{{ current?.name ?? 'Status' }}</span>
     </template>
     <PickerItem
       v-for="(status, i) in sorted"
