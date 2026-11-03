@@ -160,6 +160,7 @@ describe('issue filters in the URL', () => {
       'label-not': A,
       created: 'past-week',
       content: 'login',
+      milestone: 'none',
       q: 'x',
     }
     const filters = parseIssueFilters(query)
@@ -343,6 +344,10 @@ describe('toListInput', () => {
     expect(
       toListInput({ ...EMPTY_FILTERS, completed: { kind: 'after', date: '2026-10-01' } }, now),
     ).toEqual({ completedSince: new Date(2026, 9, 1) })
+    // Project milestones (M9-02): `null` = no milestone.
+    expect(toListInput({ ...EMPTY_FILTERS, milestoneIds: [A, null] }, now)).toEqual({
+      milestoneIds: [A, null],
+    })
     // "No links" is sent as `false`; no filter leaves the field out.
     expect(toListInput({ ...EMPTY_FILTERS, hasLinks: false }, now)).toMatchObject({
       hasLinks: false,
