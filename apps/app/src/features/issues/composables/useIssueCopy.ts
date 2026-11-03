@@ -1,4 +1,4 @@
-import type { Issue } from '@linear/contract'
+import type { Issue, IssueRelations } from '@linear/contract'
 import { useQuery } from '@tanstack/vue-query'
 import { useEventListener } from '@vueuse/core'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
@@ -13,11 +13,14 @@ import { copyKindFor, type CopyKind } from '../copy-shortcuts'
 import { issueBranchName } from '../issue-branch'
 import { buildIssuePrompt } from '../issue-prompt'
 
+/** The detail page's issue carries its relations; blocked-by goes into the prompt. */
+export type CopyableIssue = Issue & { relations?: Pick<IssueRelations, 'blockedBy'> }
+
 /**
  * Copy actions for the open issue (URL, identifier, git branch, prompt for a coding
  * agent) and their shortcuts. Mount once per detail page: it binds the keys.
  */
-export function useIssueCopy(issue: MaybeRefOrGetter<Issue>) {
+export function useIssueCopy(issue: MaybeRefOrGetter<CopyableIssue>) {
   const router = useRouter()
   const { slug, workspace } = useCurrentWorkspace()
   const { data: user } = useCurrentUser()
@@ -50,6 +53,7 @@ export function useIssueCopy(issue: MaybeRefOrGetter<Issue>) {
           team: { name: teams.value?.find((t) => t.id === current.teamId)?.name ?? '' },
           labels: current.labels,
           project: projects.value?.find((p) => p.id === current.projectId) ?? null,
+          relations: { blockedBy: current.relations?.blockedBy ?? [] },
           branch: branch.value,
         })
     }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Issue } from '@linear/contract'
+import type { IssueDetail } from '@linear/contract'
 import {
   ChevronDown,
   ChevronUp,
@@ -59,7 +59,7 @@ import { RELATION_KINDS, type RelationKind } from '../relation-kinds'
 
 const props = defineProps<{
   workspaceSlug: string
-  issue: Issue
+  issue: IssueDetail
   /** The issue's team, once loaded: the breadcrumb and the fallback list (its issues). */
   teamName?: string
   teamKey?: string

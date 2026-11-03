@@ -7,7 +7,7 @@ export type IssuePromptInput = {
   team: { name: string }
   labels: { name: string }[]
   project?: { name: string; description: string | null } | null
-  /** Issue relations arrive with M8-04; empty until then. */
+  /** Issues blocking this one (M8-04); the line is left out when there are none. */
   relations?: { blockedBy: IssueRef[] }
   branch: string
 }
