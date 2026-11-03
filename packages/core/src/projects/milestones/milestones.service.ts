@@ -1,5 +1,7 @@
 import { issues, projectMilestones, projects, workflowStatuses, type DbOrTx } from '@linear/db'
 import { and, asc, count, eq, inArray, isNotNull, max, sql } from 'drizzle-orm'
+import type { ActivityActor } from '../../activity/activity.service'
+import { recordProjectActivity } from '../../activity/project-activity.service'
 import { DomainError, isUniqueViolation } from '../../errors'
 import { assertProjectDates } from '../project-rules'
 import {
@@ -140,11 +142,15 @@ async function saving<T>(db: DbOrTx, name: string | undefined, write: (tx: DbOrT
   }
 }
 
-/** Adds a milestone at the end of the project's order. Names are unique per project. */
+/**
+ * Adds a milestone at the end of the project's order and writes `milestone.created` to the
+ * project's feed. Names are unique per project.
+ */
 export async function createMilestone(
   db: DbOrTx,
   workspaceId: string,
   input: MilestoneFields & { projectId: string; name: string },
+  actor: ActivityActor,
 ) {
   const fields = normalize(input)
   await assertProjectExists(db, workspaceId, input.projectId)
@@ -171,6 +177,14 @@ export async function createMilestone(
       })
       .returning()
     if (!inserted) throw new Error('milestone insert returned no row')
+    await recordProjectActivity(tx, {
+      workspaceId,
+      projectId: input.projectId,
+      actor,
+      events: [
+        { kind: 'milestone.created', payload: { milestoneId: inserted.id, name: inserted.name } },
+      ],
+    })
     return inserted
   })
   return getMilestone(db, workspaceId, row.id)
