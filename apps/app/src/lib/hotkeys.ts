@@ -62,6 +62,13 @@ export const SHORTCUTS = {
   'issue-back': { keys: 'escape', label: 'Go back', scope: 'issue' },
   'issue-delete': { keys: 'mod+backspace', label: 'Delete issue', scope: 'issue' },
   'issue-set-parent': { keys: 'mod+shift+p', label: 'Set parent issue', scope: 'issue' },
+  // Ctrl L on every platform: ⌃L on macOS (⌘L is the address bar), Ctrl+L elsewhere.
+  'issue-add-link': {
+    keys: isMacPlatform() ? 'ctrl+l' : 'mod+l',
+    label: 'Add link',
+    scope: 'issue',
+    allowInInputs: true,
+  },
   'issue-status': { keys: 's', label: 'Change status', scope: 'picker', inDialog: true },
   'issue-priority': { keys: 'p', label: 'Change priority', scope: 'picker', inDialog: true },
   'issue-assignee': { keys: 'a', label: 'Assign to', scope: 'picker', inDialog: true },

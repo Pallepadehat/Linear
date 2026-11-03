@@ -243,14 +243,12 @@ describe('issue links', () => {
         state: 'open',
       })
       .returning()
-    await db
-      .insert(issuePullRequestLinks)
-      .values({
-        workspaceId: workspace.id,
-        issueId: withPr.id,
-        pullRequestId: pr!.id,
-        type: 'closing',
-      })
+    await db.insert(issuePullRequestLinks).values({
+      workspaceId: workspace.id,
+      issueId: withPr.id,
+      pullRequestId: pr!.id,
+      type: 'closing',
+    })
 
     const ids = async (hasLinks: boolean) =>
       (await owner.client.issues.list({ workspaceSlug: 'tip', hasLinks })).items

@@ -68,6 +68,7 @@ beforeEach(() => {
     parent: null,
     children: [],
     relations: noRelations,
+    links: [],
   })
 })
 afterEach(() => vi.useRealTimers())
@@ -100,6 +101,7 @@ describe('realtime event handler', () => {
       parent: null,
       children: [],
       relations: { ...noRelations, blockedBy: [blocker] },
+      links: [],
     }))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
 

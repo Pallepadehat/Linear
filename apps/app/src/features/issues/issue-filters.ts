@@ -31,6 +31,8 @@ export type IssueFilters = {
   q: string
   sort: IssueSort
   direction: SortDirection
+  /** Only issues with a web link or a linked PR (domain.md → Links). */
+  hasLinks: boolean
   /** Display option: whether issues with a parent are listed (nested under it when loaded). */
   showSubIssues: boolean
 }
@@ -52,6 +54,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   sort: DEFAULT_SORT,
   direction: DEFAULT_DIRECTION,
   showSubIssues: true,
+  hasLinks: false,
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -100,6 +103,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
     direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_DIRECTION,
     showSubIssues: first(query.subIssues) !== 'hide',
+    hasLinks: first(query.links) === 'has',
   }
 }
 
@@ -121,6 +125,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
     dir: filters.direction === DEFAULT_DIRECTION ? undefined : filters.direction,
     subIssues: filters.showSubIssues ? undefined : 'hide',
+    links: filters.hasLinks ? 'has' : undefined,
   }
   return Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined))
 }
@@ -136,6 +141,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.estimates.length > 0 ||
     filters.due.length > 0 ||
     filters.subscriberIds.length > 0 ||
+    filters.hasLinks ||
     filters.q !== ''
   )
 }
