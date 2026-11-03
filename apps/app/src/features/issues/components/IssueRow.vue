@@ -19,7 +19,11 @@ const props = defineProps<{
   /** Nesting level when shown under its parent (each level indents the row). */
   depth?: number
 }>()
-const emit = defineEmits<{ update: [patch: IssuePatch] }>()
+const emit = defineEmits<{
+  update: [patch: IssuePatch]
+  /** The issue link was followed, so the list can hand the detail page its prev/next context. */
+  open: []
+}>()
 
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
 // The issue's own labels stay pickable even if the workspace list hasn't loaded.
@@ -73,6 +77,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
     <RouterLink
       :to="{ name: 'issue', params: { identifier: issue.identifier } }"
       class="ml-1 min-w-0 flex-1 truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
+      @click="emit('open')"
     >
       {{ issue.title }}
     </RouterLink>

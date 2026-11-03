@@ -3,10 +3,17 @@ import type { Issue } from '@linear/contract'
 import { Layers, ListFilter } from '@lucide/vue'
 import { useEventListener } from '@vueuse/core'
 import { computed, ref, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
+import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
-import { resolveDropTarget, toBoardColumns, type BoardColumn as Column } from '../board-columns'
+import {
+  boardOrder,
+  resolveDropTarget,
+  toBoardColumns,
+  type BoardColumn as Column,
+} from '../board-columns'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
@@ -24,7 +31,7 @@ const props = defineProps<{
 
 const ui = useUiStore()
 const { active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
+const { query, queryKey, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
   () => props.workspaceSlug,
   () => ({
     teamId: props.teamId,
@@ -47,6 +54,23 @@ const columns = computed(() =>
 const loading = computed(
   () => query.isPending.value || (!!props.teamId && !statusesByTeam.value.has(props.teamId)),
 )
+
+// The detail page steps through the cards in board order (J/K, "1 / 47").
+const router = useRouter()
+const nav = useIssueNavStore()
+function openIssue(issue: Issue) {
+  const statuses = statusesByTeam.value
+  const order = (list: Issue[]) => boardOrder(list, statuses)
+  nav.open(
+    {
+      queryKey: queryKey.value,
+      identifiers: order(issues.value),
+      order,
+      route: router.currentRoute.value.fullPath,
+    },
+    issue.identifier,
+  )
+}
 
 const dragging = ref<Issue | null>(null)
 
@@ -147,6 +171,7 @@ function onDrop(column: Column) {
         @dragstart="onDragStart"
         @dragend="endDrag"
         @drop="onDrop(column)"
+        @open="openIssue"
         @create="ui.openCreateIssue({ teamId, projectId, statusId: column.status.id })"
       />
     </div>
