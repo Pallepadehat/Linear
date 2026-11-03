@@ -49,3 +49,9 @@ export function toListRows(
       : group.issues.map((issue): IssueListRow => ({ type: 'issue', key: issue.id, issue }))),
   ])
 }
+
+/** Issue identifiers in list order as rendered: by group, skipping collapsed groups. */
+export const listOrder = (issues: Issue[], collapsed: ReadonlySet<string> = new Set()) =>
+  toListRows(groupIssuesByStatus(issues), collapsed).flatMap((row) =>
+    row.type === 'issue' ? [row.issue.identifier] : [],
+  )

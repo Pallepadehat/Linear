@@ -9,13 +9,14 @@ import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useCurrentUser } from '@/features/auth/composables/useSession'
+import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
 import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
-import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
+import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
 import type { IssuePatch } from '../issue-cache'
@@ -28,7 +29,6 @@ import {
 } from '../queries'
 
 const route = useRoute()
-const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const identifier = computed(() => String(route.params.identifier))
 
@@ -86,10 +86,6 @@ const names = computed<ActivityNames>(() => {
 })
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
 
-watchEffect(() => {
-  if (issue.value) ui.breadcrumb = [team.value?.name ?? 'Issues', issue.value.identifier]
-})
-
 const currentUser = useCurrentUser()
 
 // Teammates see that you're on this issue (presence heartbeats).
@@ -114,6 +110,14 @@ watchEffect(() => {
     if (query.hasNextPage.value && !query.isFetchingNextPage.value) void query.fetchNextPage()
   }
 })
+const { data: pullRequests } = useQuery(
+  computed(() => ({
+    ...issuePullRequestsOptions(slug.value, issueId.value),
+    enabled: Boolean(issue.value),
+  })),
+)
+// GitHub activity links to its PR while that PR is still linked.
+const pullRequestOf = (id: string) => pullRequests.value?.find((pr) => pr.id === id)
 const timeline = computed(() =>
   buildTimeline(
     comments.data.value?.pages.flatMap((p) => p.items) ?? [],
@@ -206,6 +210,13 @@ onBeforeUnmount(commitDescription)
     v-else-if="issue"
     class="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:overflow-hidden"
   >
+    <IssueDetailHeader
+      :workspace-slug="slug"
+      :issue="issue"
+      :team-name="team?.name"
+      :team-key="team?.key"
+      @change="save"
+    />
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
         <div class="flex items-center justify-between gap-2">
@@ -257,6 +268,7 @@ onBeforeUnmount(commitDescription)
             :workspace-slug="slug"
             :issue-id="issue.id"
             :current-user-id="currentUser.data.value?.id"
+            :pull-request-of="pullRequestOf"
           />
           <CommentComposer :workspace-slug="slug" :issue-id="issue.id" />
         </section>
@@ -269,6 +281,7 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :pull-requests="pullRequests"
       @change="save"
     />
   </div>
