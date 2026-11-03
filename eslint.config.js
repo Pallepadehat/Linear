@@ -93,7 +93,9 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
-          patterns: [{ group: ['@linear/worker*'], message: 'apps/api must not import the worker.' }],
+          patterns: [
+            { group: ['@linear/worker*'], message: 'apps/api must not import the worker.' },
+          ],
         },
       ],
     },
