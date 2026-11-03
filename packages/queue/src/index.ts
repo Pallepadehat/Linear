@@ -15,6 +15,7 @@ export {
   defaultJobOptions,
   enqueue,
   enqueueNotification,
+  notifyJobId,
   type Queues,
 } from './queues'
 export {
