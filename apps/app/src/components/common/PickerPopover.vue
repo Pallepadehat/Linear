@@ -99,7 +99,7 @@ function onKeydown(event: KeyboardEvent) {
     >
       <Command :model-value="current ?? ''" class="bg-transparent" @keydown="onKeydown">
         <PickerInput :placeholder="placeholder" :hotkey="hotkey" />
-        <CommandList class="max-h-80 p-1.5">
+        <CommandList class="max-h-80 p-1.5" :aria-label="label">
           <CommandEmpty class="py-4 text-ink-subtle">No results</CommandEmpty>
           <CommandGroup class="p-0">
             <slot />

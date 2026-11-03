@@ -56,7 +56,7 @@ function setLabels(ids: string[]) {
     data-hotkey-scope
     draggable="true"
     :aria-label="`${issue.identifier} ${issue.title}`"
-    class="flex cursor-grab flex-col gap-1 rounded-lg border border-hairline bg-board-card py-2 pr-2 pl-3 shadow-panel transition-opacity hover:border-hairline-strong active:cursor-grabbing"
+    class="relative flex cursor-grab flex-col gap-1 rounded-lg border border-hairline bg-board-card py-2 pr-2 pl-3 shadow-panel transition-opacity hover:border-hairline-strong active:cursor-grabbing has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
     :class="{ 'opacity-40': dragging }"
     @dragstart="emit('dragstart', $event)"
     @dragend="emit('dragend')"
@@ -72,7 +72,14 @@ function setLabels(ids: string[]) {
         @update:model-value="setAssignee"
       />
     </div>
-    <p class="line-clamp-2 pr-1 font-medium break-words text-ink">{{ issue.title }}</p>
+    <!-- Stretched link: the whole card opens the issue; pickers sit above it. Not draggable so the card stays the drag source. -->
+    <RouterLink
+      :to="{ name: 'issue', params: { identifier: issue.identifier } }"
+      draggable="false"
+      class="line-clamp-2 cursor-[inherit] pr-1 font-medium break-words text-ink outline-hidden after:absolute after:inset-0 after:rounded-lg after:content-['']"
+    >
+      {{ issue.title }}
+    </RouterLink>
     <div class="-ml-1.5 flex flex-wrap items-center gap-0.5">
       <StatusPicker
         v-if="statuses.length"
