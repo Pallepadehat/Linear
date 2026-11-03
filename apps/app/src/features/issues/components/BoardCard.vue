@@ -21,6 +21,8 @@ const emit = defineEmits<{
   update: [patch: IssuePatch]
   dragstart: [event: DragEvent]
   dragend: []
+  /** The issue link was followed, so the board can hand the detail page its prev/next context. */
+  open: []
 }>()
 
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
@@ -38,9 +40,8 @@ function setPriority(priority: number) {
 function setAssignee(assigneeId: string | null) {
   if (assigneeId !== props.issue.assigneeId) emit('update', { assigneeId })
 }
-function setLabels(ids: string[]) {
-  const byId = new Map(labelOptions.value.map((l) => [l.id, l]))
-  emit('update', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
+function setLabels(labels: Label[]) {
+  emit('update', { labels })
 }
 </script>
 
@@ -69,6 +70,7 @@ function setLabels(ids: string[]) {
       :to="{ name: 'issue', params: { identifier: issue.identifier } }"
       draggable="false"
       class="line-clamp-2 cursor-[inherit] pr-1 font-medium break-words text-ink outline-hidden after:absolute after:inset-0 after:rounded-lg after:content-['']"
+      @click="emit('open')"
     >
       {{ issue.title }}
     </RouterLink>
@@ -95,8 +97,9 @@ function setLabels(ids: string[]) {
         v-if="issue.labels.length"
         compact
         :labels="labelOptions"
+        :team-id="issue.teamId"
         :model-value="labelIds"
-        @update:model-value="setLabels"
+        @update:labels="setLabels"
       />
     </div>
   </article>

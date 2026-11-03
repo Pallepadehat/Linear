@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { issueTitleSchema } from '@linear/contract'
+import { issueTitleSchema, type Issue } from '@linear/contract'
 import { SearchX } from '@lucide/vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
@@ -8,28 +8,34 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { useCurrentUser } from '@/features/auth/composables/useSession'
+import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
 import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
-import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
+import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
-import IssueRelationMenu from '../components/IssueRelationMenu.vue'
 import IssueRelations from '../components/IssueRelations.vue'
+import IssueSearchDialog from '../components/IssueSearchDialog.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
+import SubscribeButton from '../components/SubscribeButton.vue'
 import type { IssuePatch } from '../issue-cache'
 import { buildTimeline, type ActivityNames } from '../issue-timeline'
 import {
   activityListOptions,
   commentListOptions,
   issueByIdentifierOptions,
+  issueSubscribersOptions,
+  useCreateRelation,
+  useIssueSubscription,
   useUpdateIssue,
 } from '../queries'
+import { RELATION_KINDS, relationFor, type RelationKind } from '../relation-kinds'
 
 const route = useRoute()
-const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const identifier = computed(() => String(route.params.identifier))
 
@@ -87,10 +93,6 @@ const names = computed<ActivityNames>(() => {
 })
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
 
-watchEffect(() => {
-  if (issue.value) ui.breadcrumb = [team.value?.name ?? 'Issues', issue.value.identifier]
-})
-
 // Teammates see that you're on this issue (presence heartbeats).
 useViewingIssue(() => issue.value?.id)
 
@@ -113,6 +115,14 @@ watchEffect(() => {
     if (query.hasNextPage.value && !query.isFetchingNextPage.value) void query.fetchNextPage()
   }
 })
+const { data: pullRequests } = useQuery(
+  computed(() => ({
+    ...issuePullRequestsOptions(slug.value, issueId.value),
+    enabled: Boolean(issue.value),
+  })),
+)
+// GitHub activity links to its PR while that PR is still linked.
+const pullRequestOf = (id: string) => pullRequests.value?.find((pr) => pr.id === id)
 const timeline = computed(() =>
   buildTimeline(
     comments.data.value?.pages.flatMap((p) => p.items) ?? [],
@@ -124,6 +134,48 @@ const timeline = computed(() =>
 const updateIssue = useUpdateIssue(slug)
 function save(patch: IssuePatch) {
   if (issue.value) updateIssue.mutate({ issue: issue.value, patch })
+}
+
+// "…" → Mark as ▸ opens the issue search; picking an issue creates the relation.
+const relationKind = ref<RelationKind | null>(null)
+const pickingRelation = computed({
+  get: () => relationKind.value !== null,
+  set: (open: boolean) => {
+    if (!open) relationKind.value = null
+  },
+})
+const relationTitle = computed(
+  () => RELATION_KINDS.find((k) => k.kind === relationKind.value)?.title ?? '',
+)
+const createRelation = useCreateRelation(slug)
+function relate(other: Issue) {
+  if (issue.value && relationKind.value)
+    createRelation.mutate(relationFor(relationKind.value, issue.value.id, other.id))
+}
+
+const { data: me } = useCurrentUser()
+const { data: subscribers } = useQuery(
+  computed(() => ({
+    ...issueSubscribersOptions(slug.value, issueId.value),
+    enabled: Boolean(issue.value),
+  })),
+)
+const subscription = useIssueSubscription(slug)
+function setSubscribed(
+  user: { id: string; name: string; avatarUrl: string | null },
+  subscribe: boolean,
+) {
+  if (!issue.value) return
+  const member = members.value?.find((m) => m.userId === user.id)
+  subscription.mutate({
+    issue: issue.value,
+    user: { id: user.id, name: user.name, email: member?.email ?? '', avatarUrl: user.avatarUrl },
+    subscribe,
+    isMe: user.id === me.value?.id,
+  })
+}
+function toggleMySubscription() {
+  if (issue.value && me.value) setSubscribed(me.value, !issue.value.isSubscribed)
 }
 
 // Title and description are drafts while focused, saved on blur (Enter for the title).
@@ -205,6 +257,16 @@ onBeforeUnmount(commitDescription)
     v-else-if="issue"
     class="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:overflow-hidden"
   >
+    <IssueDetailHeader
+      :workspace-slug="slug"
+      :issue="issue"
+      :team-name="team?.name"
+      :team-key="team?.key"
+      @change="save"
+      @mark-as="relationKind = $event"
+    >
+      <SubscribeButton :subscribed="issue.isSubscribed" @toggle="toggleMySubscription" />
+    </IssueDetailHeader>
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
         <div class="flex items-center justify-between gap-2">
@@ -249,7 +311,13 @@ onBeforeUnmount(commitDescription)
             aria-busy="true"
             aria-label="Loading activity"
           />
-          <IssueTimeline v-else :entries="timeline" :names="names" :avatar-of="avatarOf" />
+          <IssueTimeline
+            v-else
+            :entries="timeline"
+            :names="names"
+            :avatar-of="avatarOf"
+            :pull-request-of="pullRequestOf"
+          />
           <CommentComposer :workspace-slug="slug" :issue-id="issue.id" />
         </section>
       </div>
@@ -261,11 +329,17 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :pull-requests="pullRequests"
+      :subscribers="subscribers ?? []"
       @change="save"
-    >
-      <template #relations>
-        <IssueRelationMenu :issue="issue" :workspace-slug="slug" />
-      </template>
-    </IssueProperties>
+      @subscription="setSubscribed"
+    />
+    <IssueSearchDialog
+      v-model:open="pickingRelation"
+      :workspace-slug="slug"
+      :title="relationTitle"
+      :exclude-ids="[issue.id]"
+      @select="relate"
+    />
   </div>
 </template>

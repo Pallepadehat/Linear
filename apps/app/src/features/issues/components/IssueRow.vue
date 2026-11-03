@@ -3,6 +3,7 @@ import type { Issue, Label, WorkflowStatus } from '@linear/contract'
 import { Ban, OctagonAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
@@ -17,7 +18,11 @@ const props = defineProps<{
   users: AssigneeOption[]
   labels: Label[]
 }>()
-const emit = defineEmits<{ update: [patch: IssuePatch] }>()
+const emit = defineEmits<{
+  update: [patch: IssuePatch]
+  /** The issue link was followed, so the list can hand the detail page its prev/next context. */
+  open: []
+}>()
 
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
 // The issue's own labels stay pickable even if the workspace list hasn't loaded.
@@ -33,17 +38,21 @@ function setPriority(priority: number) {
 function setAssignee(assigneeId: string | null) {
   if (assigneeId !== props.issue.assigneeId) emit('update', { assigneeId })
 }
-function setLabels(ids: string[]) {
-  const byId = new Map(labelOptions.value.map((l) => [l.id, l]))
-  emit('update', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
+function setDueDate(dueDate: string | null) {
+  if (dueDate !== props.issue.dueDate) emit('update', { dueDate })
+}
+function setLabels(labels: Label[]) {
+  emit('update', { labels })
 }
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
 </script>
 
 <template>
-  <!-- The title link stretches over the whole row; the pickers sit above it. -->
+  <!-- The title link stretches over the whole row; the pickers sit above it. Their
+       hotkeys (⇧D, P, …) act on this row while focus is in it. -->
   <div
+    data-hotkey-scope
     class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
   >
     <PriorityPicker
@@ -70,6 +79,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
     <RouterLink
       :to="{ name: 'issue', params: { identifier: issue.identifier } }"
       class="ml-1 min-w-0 flex-1 truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
+      @click="emit('open')"
     >
       {{ issue.title }}
     </RouterLink>
@@ -95,10 +105,17 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       <LabelPicker
         compact
         :labels="labelOptions"
+        :team-id="issue.teamId"
         :model-value="labelIds"
-        @update:model-value="setLabels"
+        @update:labels="setLabels"
       />
     </span>
+    <DueDatePicker
+      row
+      :category="issue.status.category"
+      :model-value="issue.dueDate"
+      @update:model-value="setDueDate"
+    />
     <AssigneePicker
       compact
       :users="users"

@@ -9,6 +9,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import LabelsSettings from '@/features/labels/components/LabelsSettings.vue'
+import TemplateSettings from '@/features/templates/components/TemplateSettings.vue'
 import { errorCode, errorMessage } from '@/lib/errors'
 import { client, orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
@@ -117,6 +119,27 @@ const defaultAssigneeId = computed({
           <AssigneePicker v-model="defaultAssigneeId" :users="assignees" no-hotkey />
         </div>
       </div>
+    </section>
+    <section aria-labelledby="team-labels-heading" class="grid gap-3">
+      <div class="grid gap-1">
+        <h2
+          id="team-labels-heading"
+          class="text-xs font-medium tracking-wide text-ink-subtle uppercase"
+        >
+          Labels
+        </h2>
+        <p class="text-ink-subtle">Only issues in {{ team.name }} can use these labels.</p>
+      </div>
+      <LabelsSettings :team-id="team.id" />
+    </section>
+    <section aria-labelledby="templates-heading" class="grid gap-3">
+      <h2
+        id="templates-heading"
+        class="text-xs font-medium tracking-wide text-ink-subtle uppercase"
+      >
+        Templates
+      </h2>
+      <TemplateSettings :team-id="team.id" />
     </section>
   </div>
 </template>

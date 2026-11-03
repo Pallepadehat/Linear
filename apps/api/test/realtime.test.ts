@@ -98,7 +98,7 @@ describe('realtime', () => {
         {
           type: 'issue.updated',
           issueId: issue.id,
-          fields: ['status', 'assignee'],
+          fields: ['status', 'assignee', 'subscribers'],
           actorId: owner.userId,
         },
         {
@@ -190,6 +190,17 @@ describe('realtime', () => {
         { type: 'issue.created', issueId: own.id, actorId: outsider.userId },
       ]),
     )
+  })
+
+  it('announces template changes by id only', async () => {
+    const { owner, member } = await workspaceWithIssue()
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    const template = await owner.client.templates.create({ workspaceSlug: 'tip', name: 'Bug' })
+    await owner.client.templates.delete({ workspaceSlug: 'tip', id: template.id })
+
+    const event = { type: 'template.updated', templateId: template.id, actorId: owner.userId }
+    await eventually(() => expect(events).toEqual([event, event]))
   })
 
   it('delivers automation from the worker: a merged PR moving an issue to Done', async () => {

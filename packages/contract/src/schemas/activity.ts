@@ -13,14 +13,16 @@ export const activityKindSchema = z.enum([
   'assignee',
   'project',
   'labels',
+  'due_date',
   'relation',
 ])
 
 /**
  * Per kind: `title` text, `status`/`assignee`/`project` ids, `priority` number,
- * `labels` sorted label ids, `relation` `[role, otherIssueId, otherIdentifier]` (`to` when
- * added, `from` when removed; role is `blocks`, `blocked_by`, `related`, `duplicate_of` or
- * `duplicated_by`, read from this issue's side). `created` and `description` carry no values.
+ * `labels` sorted label ids, `due_date` a `YYYY-MM-DD` day (null when unset), `relation`
+ * `[role, otherIssueId, otherIdentifier]` (`to` when added, `from` when removed; role is
+ * `blocks`, `blocked_by`, `related`, `duplicate_of` or `duplicated_by`, read from this
+ * issue's side). `created` and `description` carry no values.
  */
 export const activityValueSchema = z.union([z.string(), z.number(), z.array(z.string())]).nullable()
 

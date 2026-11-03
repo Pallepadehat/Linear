@@ -8,7 +8,14 @@ import type { InfiniteData } from '@tanstack/vue-query'
 export type IssuePatch = Partial<
   Pick<
     Issue,
-    'title' | 'description' | 'status' | 'priority' | 'assigneeId' | 'projectId' | 'labels'
+    | 'title'
+    | 'description'
+    | 'status'
+    | 'priority'
+    | 'assigneeId'
+    | 'projectId'
+    | 'labels'
+    | 'dueDate'
   >
 >
 
@@ -86,6 +93,7 @@ export function toUpdateIssueInput(
     ...(patch.assigneeId !== undefined && { assigneeId: patch.assigneeId }),
     ...(patch.projectId !== undefined && { projectId: patch.projectId }),
     ...(patch.labels && { labelIds: patch.labels.map((label) => label.id) }),
+    ...(patch.dueDate !== undefined && { dueDate: patch.dueDate }),
   }
 }
 

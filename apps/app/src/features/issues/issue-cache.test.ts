@@ -20,7 +20,7 @@ const status = (name: string, category: WorkflowStatus['category']): WorkflowSta
 const todo = status('Todo', 'unstarted')
 const done = status('Done', 'completed')
 const canceled = status('Canceled', 'canceled')
-const bug = { id: crypto.randomUUID(), name: 'Bug', color: '#eb5757' }
+const bug = { id: crypto.randomUUID(), teamId: null, name: 'Bug', color: '#eb5757' }
 
 function issue(id: string, overrides: Partial<Issue> = {}): Issue {
   const created = new Date('2026-01-01')
@@ -36,7 +36,9 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    dueDate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: created,
     updatedAt: created,
     completedAt: null,
