@@ -2,7 +2,7 @@ import type { ContractClient } from '@linear/contract'
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/websocket'
 import { useQueryClient } from '@tanstack/vue-query'
-import { toValue, watch, type MaybeRefOrGetter } from 'vue'
+import { shallowRef, toValue, watch, type MaybeRefOrGetter, type ShallowRef } from 'vue'
 import { apiBase } from '@/lib/api-base'
 import { clientId } from '@/lib/client-id'
 import { createRealtimeEventHandler } from './realtime-events'
@@ -19,10 +19,12 @@ export function backoffDelay(attempt: number, random = Math.random) {
  * Keeps one WebSocket per open workspace and applies teammates' changes to the
  * query caches as they happen (docs/domain.md → Realtime events). Reconnects with
  * backoff; events missed while disconnected aren't replayed, so a reconnect
- * refetches the active queries.
+ * refetches the active queries. `client` is the subscribed socket's client while
+ * connected (presence heartbeats go over it), else null.
  */
 export function useRealtime(workspaceSlug: MaybeRefOrGetter<string>) {
   const queryClient = useQueryClient()
+  const client = shallowRef<ContractClient | null>(null)
 
   watch(
     () => toValue(workspaceSlug),
@@ -31,16 +33,20 @@ export function useRealtime(workspaceSlug: MaybeRefOrGetter<string>) {
       const controller = new AbortController()
       onCleanup(() => controller.abort())
       const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: slug })
-      void stayConnected(slug, controller.signal, handle, () => queryClient.invalidateQueries())
+      void stayConnected(slug, controller.signal, handle, client, () =>
+        queryClient.invalidateQueries(),
+      )
     },
     { immediate: true },
   )
+  return { client }
 }
 
 async function stayConnected(
   workspaceSlug: string,
   signal: AbortSignal,
   handle: ReturnType<typeof createRealtimeEventHandler>,
+  connected: ShallowRef<ContractClient | null>,
   resync: () => Promise<unknown>,
 ) {
   let attempt = 0
@@ -54,10 +60,12 @@ async function stayConnected(
       if (connectedBefore) void resync()
       connectedBefore = true
       attempt = 0
+      connected.value = realtime
       for await (const event of events) handle(event)
     } catch {
       // Closed socket, API restart, network drop: fall through to the retry.
     } finally {
+      connected.value = null
       socket?.close()
     }
     await wait(backoffDelay(attempt++), signal)

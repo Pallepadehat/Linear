@@ -189,6 +189,16 @@ export async function getIssue(db: DbOrTx, workspaceId: string, id: string, view
   return issue
 }
 
+/** Whether `id` is an issue of this workspace (a cheap check, no issue loaded). */
+export async function issueExistsInWorkspace(db: DbOrTx, workspaceId: string, id: string) {
+  const [row] = await db
+    .select({ id: issues.id })
+    .from(issues)
+    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
+    .limit(1)
+  return Boolean(row)
+}
+
 /** `teamKey` is expected uppercase (identifier lookups are case-insensitive upstream). */
 export async function getIssueByIdentifier(
   db: DbOrTx,
