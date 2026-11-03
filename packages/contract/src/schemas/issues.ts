@@ -38,6 +38,9 @@ export const issueProjectSchema = z.object({
   iconUploadId: z.uuid().nullable(),
 })
 
+/** The issue's milestone as its row chip shows it. */
+export const issueMilestoneSchema = z.object({ id: z.uuid(), name: z.string() })
+
 /** A linked PR as its row chip shows it; the full PR comes from `github.pullRequests`. */
 export const issuePullRequestChipSchema = z.object({
   number: z.number().int().positive(),
@@ -59,6 +62,7 @@ export const issueSchema = z.object({
   project: issueProjectSchema.nullable(),
   /** Always a milestone of `projectId` (docs/domain.md → Project milestones). */
   milestoneId: z.uuid().nullable(),
+  milestone: issueMilestoneSchema.nullable(),
   cycleId: z.uuid().nullable(),
   estimate: issueEstimateSchema.nullable(),
   dueDate: issueDueDateSchema,
@@ -294,6 +298,7 @@ export const issueFacetsSchema = z.object({
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
 export type Issue = z.infer<typeof issueSchema>
 export type IssueProject = z.infer<typeof issueProjectSchema>
+export type IssueMilestone = z.infer<typeof issueMilestoneSchema>
 export type IssuePullRequestChip = z.infer<typeof issuePullRequestChipSchema>
 export type IssueDetail = z.infer<typeof issueDetailSchema>
 export type SubIssueProgress = NonNullable<Issue['subIssueProgress']>
