@@ -63,7 +63,7 @@ const rows = computed(() => {
 // Column order and widths; Name takes the rest.
 const COLUMNS: { key: ProjectSortKey; class: string }[] = [
   { key: 'name', class: '' },
-  { key: 'health', class: 'hidden w-28 lg:table-cell' },
+  { key: 'health', class: 'hidden w-32 lg:table-cell' },
   { key: 'priority', class: 'w-20' },
   { key: 'lead', class: 'w-16' },
   { key: 'targetDate', class: 'hidden w-32 md:table-cell' },
@@ -205,7 +205,7 @@ const openCreate = () => (ui.createProjectOpen = true)
             </td>
             <td class="hidden px-3 lg:table-cell">
               <span
-                class="flex items-center gap-2"
+                class="flex items-center gap-2 whitespace-nowrap"
                 :class="project.health ? 'text-ink-muted' : 'text-ink-subtle'"
               >
                 <HealthIcon :health="project.health" />
