@@ -63,6 +63,7 @@ export const issuesRouter = {
       const page = await listIssues(context.db, {
         workspaceId: context.workspace.id,
         teamId: input.teamId,
+        projectId: input.projectId,
         cursor: input.cursor,
         limit: input.limit,
       })
