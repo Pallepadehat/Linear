@@ -8,7 +8,7 @@ import {
   type Team,
 } from '@linear/contract'
 import { ChevronDown, Ellipsis } from '@lucide/vue'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 import ImageUploadButton from '@/components/common/ImageUploadButton.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
@@ -24,6 +24,9 @@ import ProjectResources from './ProjectResources.vue'
 import ProjectStatusPicker from './ProjectStatusPicker.vue'
 import ProjectTeamsPicker from './ProjectTeamsPicker.vue'
 import ProjectUpdateCard from './ProjectUpdateCard.vue'
+
+// Lazy: the chart (M9-05) isn't needed to read or edit the overview.
+const ProjectProgressCard = defineAsyncComponent(() => import('./ProjectProgressCard.vue'))
 
 const props = defineProps<{
   workspaceSlug: string
@@ -128,6 +131,7 @@ const priority = computed({
 // The outline rail jumps to a section; ids are scoped to this page.
 const sections = [
   { id: 'project-section-properties', label: 'Properties' },
+  { id: 'project-section-progress', label: 'Progress' },
   { id: 'project-section-resources', label: 'Resources' },
   { id: 'project-section-update', label: 'Update' },
   { id: 'project-section-description', label: 'Description' },
@@ -243,6 +247,10 @@ const pickerRowClass =
           </button>
         </div>
       </section>
+
+      <div id="project-section-progress" tabindex="-1" :class="sectionClass">
+        <ProjectProgressCard :workspace-slug="workspaceSlug" :project-id="project.id" />
+      </div>
 
       <div id="project-section-resources" tabindex="-1" :class="sectionClass">
         <ProjectResources :workspace-slug="workspaceSlug" :project-id="project.id" />

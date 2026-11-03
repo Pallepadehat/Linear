@@ -894,13 +894,14 @@ export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
     const [issue] = await tx
       .delete(issues)
       .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
-      .returning({ id: issues.id, parentId: issues.parentId })
+      .returning({ id: issues.id, parentId: issues.parentId, projectId: issues.projectId })
     if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
     await deleteFavoritesOf(tx, workspaceId, 'issue', [issue.id])
     const deletedUploadIds = await releaseAttachments(tx, workspaceId, attachmentIds)
     return {
       id: issue.id,
       parentId: issue.parentId,
+      projectId: issue.projectId,
       childIds: children.map((child) => child.id),
       deletedUploadIds,
     }

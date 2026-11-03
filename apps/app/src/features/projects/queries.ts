@@ -11,6 +11,10 @@ export const projectListOptions = (workspaceSlug: string) =>
 export const projectOptions = (workspaceSlug: string, id: string) =>
   orpc.projects.get.queryOptions({ input: { workspaceSlug, id } })
 
+/** The Progress card; under `projects.key()`, so issue and project changes refetch it. */
+export const projectProgressOptions = (workspaceSlug: string, projectId: string) =>
+  orpc.projects.progress.queryOptions({ input: { workspaceSlug, projectId } })
+
 export const projectLabelListOptions = (workspaceSlug: string) =>
   orpc.projectLabels.list.queryOptions({ input: { workspaceSlug } })
 
