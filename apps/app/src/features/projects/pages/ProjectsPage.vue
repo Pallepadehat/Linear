@@ -3,7 +3,7 @@ import type { Project } from '@linear/contract'
 import { ArrowDown, ArrowUp, FolderKanban, Plus } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { storeToRefs } from 'pinia'
-import { computed, defineAsyncComponent, ref } from 'vue'
+import { computed } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
@@ -25,13 +25,10 @@ import { sortProjects, toggleProjectSort, type ProjectSortKey } from '../project
 import { progressPercent, projectStatusMeta } from '../project-status'
 import { projectListOptions, useUpdateProject, type ProjectChanges } from '../queries'
 
-const CreateProjectDialog = defineAsyncComponent(
-  () => import('../components/CreateProjectDialog.vue'),
-)
-
 const { slug } = useCurrentWorkspace()
 const { projectSort: sort } = storeToRefs(usePreferencesStore())
-const { projectStatusFilter: statusFilter } = storeToRefs(useUiStore())
+const ui = useUiStore()
+const { projectStatusFilter: statusFilter } = storeToRefs(ui)
 
 const query = useQuery(computed(() => projectListOptions(slug.value)))
 const { data: members } = useQuery(
@@ -78,13 +75,8 @@ function save(project: Project, changes: ProjectChanges) {
   update.mutate({ project, changes })
 }
 
-const createOpen = ref(false)
-// Mount the dialog on first use, then keep it so it can animate closed.
-const createLoaded = ref(false)
-function openCreate() {
-  createLoaded.value = true
-  createOpen.value = true
-}
+// The dialog lives in the workspace layout so the command menu can open it too.
+const openCreate = () => (ui.createProjectOpen = true)
 </script>
 
 <template>
@@ -251,7 +243,5 @@ function openCreate() {
         </tbody>
       </table>
     </div>
-
-    <CreateProjectDialog v-if="createLoaded" v-model:open="createOpen" />
   </div>
 </template>

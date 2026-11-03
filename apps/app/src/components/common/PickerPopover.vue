@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useEventListener } from '@vueuse/core'
 import { computed, provide, useTemplateRef } from 'vue'
 import { Button } from '@/components/ui/button'
+import { useHotkeys } from '@/composables/useHotkeys'
+import type { ShortcutId } from '@/lib/hotkeys'
 import { cn } from '@/lib/utils'
 import { Command, CommandEmpty, CommandGroup, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -33,6 +34,14 @@ const props = defineProps<{
   multiple?: boolean
 }>()
 
+// Registry ids for the picker hotkeys (`shift` pickers use ⇧+key).
+const PICKER_HOTKEYS: Record<string, ShortcutId> = {
+  s: 'issue-status',
+  p: 'issue-priority',
+  a: 'issue-assignee',
+  l: 'issue-labels',
+  'shift+d': 'issue-due-date',
+}
 const hotkeyHint = computed(() => (props.hotkey && props.shift ? `⇧${props.hotkey}` : props.hotkey))
 const ariaHotkey = computed(() =>
   props.hotkey && props.shift ? `Shift+${props.hotkey}` : props.hotkey,
@@ -41,27 +50,33 @@ const ariaHotkey = computed(() =>
 const open = defineModel<boolean>('open', { default: false })
 const trigger = useTemplateRef<{ $el: HTMLElement }>('trigger')
 
-useEventListener(document, 'keydown', (event: KeyboardEvent) => {
-  if (!props.hotkey || open.value || event.defaultPrevented) return
-  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey !== !!props.shift) return
-  if (event.key.toUpperCase() !== props.hotkey) return
-  const target = event.target
-  if (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || target.closest('input, textarea, select'))
-  )
-    return
-  const el = trigger.value?.$el
-  if (!(el instanceof HTMLElement) || !el.isConnected) return
-  const scope = el.closest('[data-hotkey-scope]')
-  if (scope ? !scope.contains(document.activeElement) : props.compact) return
-  // While a dialog is open, only its own pickers respond.
-  const dialogs = document.querySelectorAll('[role="dialog"][data-state="open"]')
-  const top = dialogs[dialogs.length - 1]
-  if (top ? !top.contains(el) : el.closest('[role="dialog"]')) return
-  event.preventDefault()
-  open.value = true
-})
+// The global hotkey goes through the shortcut registry (picker scope), so it
+// shows in the `?` sheet; every mounted picker for the key is tried in turn.
+const hotkeyId = props.hotkey
+  ? PICKER_HOTKEYS[`${props.shift ? 'shift+' : ''}${props.hotkey.toLowerCase()}`]
+  : undefined
+useHotkeys(
+  hotkeyId
+    ? [
+        {
+          id: hotkeyId,
+          run: () => {
+            if (open.value) return false
+            const el = trigger.value?.$el
+            if (!(el instanceof HTMLElement) || !el.isConnected) return false
+            const scope = el.closest('[data-hotkey-scope]')
+            if (scope ? !scope.contains(document.activeElement) : props.compact) return false
+            // While a dialog is open, only its own pickers respond (a picker's own
+            // popover counts as a dialog too, but then `open` is already true).
+            const dialogs = document.querySelectorAll('[role="dialog"][data-state="open"]')
+            const top = dialogs[dialogs.length - 1]
+            if (top ? !top.contains(el) : el.closest('[role="dialog"]')) return false
+            open.value = true
+          },
+        },
+      ]
+    : [],
+)
 
 const shortcuts: PickerShortcuts = new Map()
 provide(pickerShortcutsKey, shortcuts)
