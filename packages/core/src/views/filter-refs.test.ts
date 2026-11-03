@@ -11,6 +11,7 @@ describe('collectFilterRefs', () => {
         subscriberIds: ['me', 'u2'],
         creatorIds: ['u1'],
         projectIds: [null, 'p1'],
+        milestoneIds: ['m1', null],
         cycleIds: ['c1'],
         labelIds: ['l1'],
         priorities: [1],
@@ -20,12 +21,13 @@ describe('collectFilterRefs', () => {
       status: ['s1', 's2'],
       member: ['u1', 'u2'],
       project: ['p1'],
+      milestone: ['m1'],
       cycle: ['c1'],
       label: ['l1'],
     })
   })
 
   it('refuses an id filter it has no check for', () => {
-    expect(() => collectFilterRefs({ milestoneIds: ['m1'] })).toThrow(/milestoneIds/)
+    expect(() => collectFilterRefs({ sprintIds: ['s1'] })).toThrow(/sprintIds/)
   })
 })

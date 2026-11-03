@@ -1,6 +1,7 @@
 import {
   cycles,
   labels,
+  projectMilestones,
   projects,
   teams,
   users,
@@ -161,6 +162,7 @@ const LABELS: Record<FilterRefKind, string> = {
   status: 'Status',
   member: 'User',
   project: 'Project',
+  milestone: 'Milestone',
   cycle: 'Cycle',
   label: 'Label',
 }
@@ -192,6 +194,13 @@ async function assertFilterRefs(db: DbOrTx, workspaceId: string, filters: Record
           .select({ id: projects.id })
           .from(projects)
           .where(and(eq(projects.workspaceId, workspaceId), inArray(projects.id, ids)))
+      case 'milestone':
+        return db
+          .select({ id: projectMilestones.id })
+          .from(projectMilestones)
+          .where(
+            and(eq(projectMilestones.workspaceId, workspaceId), inArray(projectMilestones.id, ids)),
+          )
       case 'cycle':
         return db
           .select({ id: cycles.id })

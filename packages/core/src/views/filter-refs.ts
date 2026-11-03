@@ -1,5 +1,5 @@
 /** What an id inside a view's filters must be in the view's workspace. */
-export type FilterRefKind = 'status' | 'member' | 'project' | 'cycle' | 'label'
+export type FilterRefKind = 'status' | 'member' | 'project' | 'milestone' | 'cycle' | 'label'
 
 // `<entity>Ids` and `<entity>IdsNot` filters (docs/domain.md → Views); new ones are checked as
 // soon as they follow the naming.
@@ -9,6 +9,7 @@ const ENTITY_KINDS: Record<string, FilterRefKind> = {
   creator: 'member',
   subscriber: 'member',
   project: 'project',
+  milestone: 'milestone',
   cycle: 'cycle',
   label: 'label',
 }
@@ -25,6 +26,7 @@ export function collectFilterRefs(filters: Record<string, unknown>): FilterRefs 
     status: new Set(),
     member: new Set(),
     project: new Set(),
+    milestone: new Set(),
     cycle: new Set(),
     label: new Set(),
   }
@@ -40,6 +42,7 @@ export function collectFilterRefs(filters: Record<string, unknown>): FilterRefs 
     status: [...refs.status],
     member: [...refs.member],
     project: [...refs.project],
+    milestone: [...refs.milestone],
     cycle: [...refs.cycle],
     label: [...refs.label],
   }

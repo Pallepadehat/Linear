@@ -26,6 +26,7 @@ export function fromViewFilters(stored: ViewFilters): IssueFilters {
     priorities: stored.priorities ?? [],
     assigneeIds: stored.assigneeIds ?? [],
     projectIds: stored.projectIds ?? [],
+    milestoneIds: stored.milestoneIds ?? [],
     cycleIds: stored.cycleIds ?? [],
     labelIds: stored.labelIds ?? [],
     estimates: stored.estimates ?? [],

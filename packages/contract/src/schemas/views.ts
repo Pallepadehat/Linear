@@ -35,6 +35,7 @@ const NON_VIEW_FILTER_KEYS = {
   workspaceSlug: true,
   teamId: true,
   projectId: true,
+  milestoneId: true,
   cycleId: true,
   assignee: true,
   creator: true,
