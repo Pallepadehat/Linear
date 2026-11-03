@@ -1,7 +1,13 @@
 import type { Issue, IssuePage, WorkflowStatus } from '@linear/contract'
 import type { InfiniteData } from '@tanstack/vue-query'
 import { describe, expect, it } from 'vitest'
-import { applyIssuePatch, patchIssue, patchIssueInPages, toUpdateIssueInput } from './issue-cache'
+import {
+  applyIssuePatch,
+  patchIssue,
+  patchIssueInPages,
+  removeIssueFromPages,
+  toUpdateIssueInput,
+} from './issue-cache'
 
 const status = (name: string, category: WorkflowStatus['category']): WorkflowStatus => ({
   id: crypto.randomUUID(),
@@ -122,5 +128,21 @@ describe('toUpdateIssueInput', () => {
     expect(
       toUpdateIssueInput('tip', 'a', { title: 'New', description: null, projectId: null }),
     ).toEqual({ workspaceSlug: 'tip', id: 'a', title: 'New', description: null, projectId: null })
+  })
+})
+
+describe('removeIssueFromPages', () => {
+  it('drops the issue from whichever page holds it', () => {
+    const data = pages([issue('a'), issue('b')], [issue('c')])
+    expect(removeIssueFromPages(data, 'b')!.pages.map((p) => p.items.map((i) => i.id))).toEqual([
+      ['a'],
+      ['c'],
+    ])
+  })
+
+  it('returns the same object when the issue is not loaded', () => {
+    const data = pages([issue('a')])
+    expect(removeIssueFromPages(data, 'z')).toBe(data)
+    expect(removeIssueFromPages(undefined, 'z')).toBeUndefined()
   })
 })
