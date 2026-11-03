@@ -117,4 +117,10 @@ describe('toUpdateIssueInput', () => {
       labelIds: [],
     })
   })
+
+  it('sends title, description and project edits, including clears', () => {
+    expect(
+      toUpdateIssueInput('tip', 'a', { title: 'New', description: null, projectId: null }),
+    ).toEqual({ workspaceSlug: 'tip', id: 'a', title: 'New', description: null, projectId: null })
+  })
 })

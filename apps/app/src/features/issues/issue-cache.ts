@@ -5,7 +5,12 @@ import type { InfiniteData } from '@tanstack/vue-query'
  * A property change as the UI sees it: full status/label objects, so the
  * optimistic issue renders exactly like the server's response will.
  */
-export type IssuePatch = Partial<Pick<Issue, 'status' | 'priority' | 'assigneeId' | 'labels'>>
+export type IssuePatch = Partial<
+  Pick<
+    Issue,
+    'title' | 'description' | 'status' | 'priority' | 'assigneeId' | 'projectId' | 'labels'
+  >
+>
 
 /** The issue as it will look after the patch; `completedAt` follows the category (domain.md). */
 export function applyIssuePatch(issue: Issue, patch: IssuePatch, now = new Date()): Issue {
@@ -59,9 +64,12 @@ export function toUpdateIssueInput(
   return {
     workspaceSlug,
     id,
+    ...(patch.title !== undefined && { title: patch.title }),
+    ...(patch.description !== undefined && { description: patch.description }),
     ...(patch.status && { statusId: patch.status.id }),
     ...(patch.priority !== undefined && { priority: patch.priority }),
     ...(patch.assigneeId !== undefined && { assigneeId: patch.assigneeId }),
+    ...(patch.projectId !== undefined && { projectId: patch.projectId }),
     ...(patch.labels && { labelIds: patch.labels.map((label) => label.id) }),
   }
 }
