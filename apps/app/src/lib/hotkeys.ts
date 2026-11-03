@@ -55,6 +55,8 @@ export const SHORTCUTS = {
   'list-select': { keys: 'x', label: 'Select focused issue', scope: 'list' },
   'list-clear': { keys: 'escape', label: 'Clear focus', scope: 'list' },
   'list-delete': { keys: 'mod+backspace', label: 'Delete focused issue', scope: 'list' },
+  'issue-next': { keys: 'j', label: 'Next issue', scope: 'issue' },
+  'issue-prev': { keys: 'k', label: 'Previous issue', scope: 'issue' },
   'issue-back': { keys: 'escape', label: 'Go back', scope: 'issue' },
   'issue-delete': { keys: 'mod+backspace', label: 'Delete issue', scope: 'issue' },
   'issue-status': { keys: 's', label: 'Change status', scope: 'picker', inDialog: true },
