@@ -2,13 +2,16 @@
 import type { Issue, Label, WorkflowStatus } from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import type { EstimateSettings } from '@/lib/estimates'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
+import SubIssueProgressRing from './SubIssueProgressRing.vue'
 
 const props = defineProps<{
   issue: Issue
@@ -16,6 +19,10 @@ const props = defineProps<{
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
   labels: Label[]
+  /** The issue team's estimate scale; no chip while unknown or off. */
+  estimates?: EstimateSettings
+  /** Nesting level when shown under its parent (each level indents the row). */
+  depth?: number
   /** Keyboard focus (J/K) and selection (X); see `useIssueListKeyboard`. */
   focused?: boolean
   selected?: boolean
@@ -37,6 +44,9 @@ function setStatus(id: string) {
 function setPriority(priority: number) {
   if (priority !== props.issue.priority) emit('update', { priority })
 }
+function setEstimate(estimate: number | null) {
+  if (estimate !== props.issue.estimate) emit('update', { estimate })
+}
 function setAssignee(assigneeId: string | null) {
   if (assigneeId !== props.issue.assigneeId) emit('update', { assigneeId })
 }
@@ -54,6 +64,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
   <!-- The title link stretches over the whole row; the pickers sit above it. Their
        hotkeys (⇧D, P, …) act on this row while focus is in it. -->
   <div
+    :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
     data-hotkey-scope
     class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
     :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
@@ -89,6 +100,14 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       <span v-if="selected" class="sr-only">Selected,</span>
       {{ issue.title }}
     </RouterLink>
+    <span
+      v-if="issue.subIssueProgress?.total"
+      class="flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-subtle tabular-nums"
+    >
+      <SubIssueProgressRing v-bind="issue.subIssueProgress" />
+      {{ issue.subIssueProgress.done }}/{{ issue.subIssueProgress.total }}
+      <span class="sr-only">sub-issues done</span>
+    </span>
     <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
       <LabelPicker
         compact
@@ -98,6 +117,14 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
         @update:labels="setLabels"
       />
     </span>
+    <EstimatePicker
+      v-if="estimates && estimates.scale !== 'off'"
+      compact
+      :scale="estimates.scale"
+      :allow-zero="estimates.allowZero"
+      :model-value="issue.estimate"
+      @update:model-value="setEstimate"
+    />
     <DueDatePicker
       row
       :category="issue.status.category"

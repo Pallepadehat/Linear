@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { issueTitleSchema } from '@linear/contract'
+import type { Issue } from '@linear/contract'
 import { SearchX } from '@lucide/vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
+import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useHotkeys } from '@/composables/useHotkeys'
@@ -14,6 +16,7 @@ import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
 import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
+import { estimateLabel } from '@/lib/estimates'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
@@ -21,6 +24,8 @@ import CommentComposer from '../components/CommentComposer.vue'
 import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
+import ParentIssueDialog from '../components/ParentIssueDialog.vue'
+import SubIssueSection from '../components/SubIssueSection.vue'
 import SubscribeButton from '../components/SubscribeButton.vue'
 import type { IssuePatch } from '../issue-cache'
 import { buildTimeline, type ActivityNames } from '../issue-timeline'
@@ -89,8 +94,13 @@ const names = computed<ActivityNames>(() => {
     user: byId(users.value),
     project: byId(projects.value),
     label: byId(labels.value),
+    estimate:
+      team.value?.estimateScale === 'tshirt' ? (v) => estimateLabel(v, 'tshirt') : undefined,
   }
 })
+const estimates = computed(() =>
+  team.value ? { scale: team.value.estimateScale, allowZero: team.value.estimateAllowZero } : null,
+)
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
 
 // The open issue is the command menu's context; Esc goes back (⌘⌫ is in the header).
@@ -162,6 +172,27 @@ function save(patch: IssuePatch) {
   if (issue.value) updateIssue.mutate({ issue: issue.value, patch })
 }
 
+// "Set parent issue…" (⇧⌘P, Ctrl on other platforms) and "Remove parent".
+const parentDialogOpen = ref(false)
+useHotkeys([
+  {
+    id: 'issue-set-parent',
+    run: () => {
+      if (issue.value) parentDialogOpen.value = true
+    },
+  },
+])
+function setParent(parent: Issue) {
+  save({
+    parentId: parent.id,
+    parent: {
+      id: parent.id,
+      identifier: parent.identifier,
+      title: parent.title,
+      status: parent.status,
+    },
+  })
+}
 const { data: me } = useCurrentUser()
 const { data: subscribers } = useQuery(
   computed(() => ({
@@ -272,15 +303,27 @@ onBeforeUnmount(commitDescription)
       :team-name="team?.name"
       :team-key="team?.key"
       @change="save"
+      @set-parent="parentDialogOpen = true"
     >
       <SubscribeButton :subscribed="issue.isSubscribed" @toggle="toggleMySubscription" />
     </IssueDetailHeader>
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex h-7 items-center gap-2">
           <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
+          <span class="flex-1" aria-hidden="true" />
           <IssueViewers :issue-id="issue.id" />
         </div>
+        <RouterLink
+          v-if="issue.parent"
+          :to="{ name: 'issue', params: { identifier: issue.parent.identifier } }"
+          class="-mx-1 flex h-6 max-w-full items-center gap-1.5 self-start rounded-md px-1 text-[13px] text-ink-subtle outline-hidden hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span class="sr-only">Parent issue:</span>
+          <StatusIcon :category="issue.parent.status.category" />
+          <span class="font-mono text-xs">{{ issue.parent.identifier }}</span>
+          <span class="truncate">{{ issue.parent.title }}</span>
+        </RouterLink>
         <label for="issue-title" class="sr-only">Issue title</label>
         <textarea
           id="issue-title"
@@ -307,6 +350,13 @@ onBeforeUnmount(commitDescription)
             class="min-h-16 py-1"
           />
         </div>
+
+        <SubIssueSection
+          :workspace-slug="slug"
+          :issue="issue"
+          :users="users"
+          :labels="labels ?? []"
+        />
 
         <section aria-labelledby="activity-heading" class="mt-8 grid gap-4">
           <h2 id="activity-heading" class="border-t border-hairline pt-6 font-medium text-ink">
@@ -339,10 +389,18 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :estimates="estimates"
       :pull-requests="pullRequests"
       :subscribers="subscribers ?? []"
       @change="save"
       @subscription="setSubscribed"
+    />
+    <ParentIssueDialog
+      v-model:open="parentDialogOpen"
+      :workspace-slug="slug"
+      :issue-id="issue.id"
+      :current-parent-id="issue.parentId"
+      @select="setParent"
     />
   </div>
 </template>

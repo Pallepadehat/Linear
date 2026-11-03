@@ -27,6 +27,10 @@ const sort = computed({
   get: () => filters.value.sort,
   set: (value: IssueSort) => update({ sort: value }),
 })
+const showSubIssues = computed({
+  get: () => filters.value.showSubIssues,
+  set: (value: boolean) => update({ showSubIssues: value }),
+})
 const direction = computed({
   get: () => filters.value.direction,
   set: (value: SortDirection) => update({ direction: value }),
@@ -97,7 +101,11 @@ function clearSearch(event: KeyboardEvent) {
           @keydown.esc.prevent="clearSearch"
         />
       </div>
-      <IssueSortMenu v-model:sort="sort" v-model:direction="direction" />
+      <IssueSortMenu
+        v-model:sort="sort"
+        v-model:direction="direction"
+        v-model:show-sub-issues="showSubIssues"
+      />
     </div>
   </div>
 </template>

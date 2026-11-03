@@ -2,11 +2,13 @@
 import type { Issue, Label, LinkedPullRequest, WorkflowStatus } from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import type { EstimateSettings } from '@/lib/estimates'
 import LinkedPullRequests from '@/features/github/components/LinkedPullRequests.vue'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { fullDate, timeAgo } from '@/lib/relative-time'
@@ -19,6 +21,8 @@ const props = defineProps<{
   users: AssigneeOption[]
   labels: Label[]
   projects: ProjectOption[]
+  /** The issue team's estimate scale; the picker is hidden while unknown or off. */
+  estimates?: EstimateSettings | null
   /** Undefined while loading. */
   pullRequests: LinkedPullRequest[] | undefined
   subscribers: AssigneeOption[]
@@ -59,6 +63,12 @@ const labelOptions = computed(() => {
   const known = new Set(props.labels.map((l) => l.id))
   return [...props.labels, ...props.issue.labels.filter((l) => !known.has(l.id))]
 })
+const estimate = computed({
+  get: () => props.issue.estimate,
+  set: (value: number | null) => {
+    if (value !== props.issue.estimate) emit('change', { estimate: value })
+  },
+})
 function setLabels(labels: Label[]) {
   emit('change', { labels })
 }
@@ -80,6 +90,12 @@ const projectId = computed({
       <StatusPicker v-model="statusId" :statuses="statuses" />
       <PriorityPicker v-model="priority" />
       <AssigneePicker v-model="assigneeId" :users="users" />
+      <EstimatePicker
+        v-if="estimates && estimates.scale !== 'off'"
+        v-model="estimate"
+        :scale="estimates.scale"
+        :allow-zero="estimates.allowZero"
+      />
       <DueDatePicker v-model="dueDate" :category="issue.status.category" />
     </section>
     <section class="grid gap-1">

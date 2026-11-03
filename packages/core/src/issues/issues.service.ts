@@ -19,6 +19,7 @@ import {
   gt,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lt,
   notInArray,
@@ -34,6 +35,8 @@ import { subscribeUsers } from '../subscriptions/subscriptions.service'
 import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
+import { assertValidEstimate } from './estimates'
+import { findIssueRef, resolveParent, type ParentRef } from './parent'
 import { endOfWeek, isIsoDate, type IsoDate } from './due-dates'
 import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
 import {
@@ -57,7 +60,11 @@ export type CreateIssueInput = {
   /** `null` leaves the issue unassigned even when the team has a default assignee. */
   assigneeId?: string | null
   projectId?: string | null
+  /** Must be on the team's estimate scale; `null` = no estimate. */
+  estimate?: number | null
   labelIds?: string[]
+  /** A sub-issue of this issue (same workspace, any team). */
+  parentId?: string | null
   /** `YYYY-MM-DD`; null or omitted = no due date. */
   dueDate?: IsoDate | null
 }
@@ -73,7 +80,10 @@ export type UpdateIssueInput = {
   priority?: number
   assigneeId?: string | null
   projectId?: string | null
+  estimate?: number | null
   labelIds?: string[]
+  /** `null` removes the parent. */
+  parentId?: string | null
   dueDate?: IsoDate | null
 }
 
@@ -95,6 +105,8 @@ export type ListIssuesInput = {
   projectIds?: (string | null)[]
   /** Any of these labels. */
   labelIds?: string[]
+  /** Estimate values; `null` matches no estimate, `'any'` any estimate. */
+  estimates?: (number | 'any' | null)[]
   /** Any of these buckets; `overdue` and `dueThisWeek` are relative to `today`. */
   due?: DueFilter[]
   /** The viewer's local day (docs/domain.md → Due dates). */
@@ -104,6 +116,10 @@ export type ListIssuesInput = {
   /** Who is asking; `isSubscribed` on each issue is for this user. */
   viewerId?: string
   q?: string
+  /** `false` leaves out issues that have a parent. Defaults to true. */
+  showSubIssues?: boolean
+  /** Leaves out this issue and all of its descendants (the parent picker). */
+  excludeSubtreeOf?: string
   sort?: IssueSort
   direction?: SortDirection
   cursor?: string | null
@@ -111,6 +127,7 @@ export type ListIssuesInput = {
 }
 
 export type IssueRecord = Awaited<ReturnType<typeof withLabels>>[number]
+export type IssueDetailRecord = Awaited<ReturnType<typeof getIssue>>
 
 function normalizeTitle(title: string) {
   const trimmed = title.trim()
@@ -137,6 +154,9 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       statusId: teams.defaultStatusId,
       priority: teams.defaultPriority,
       assigneeId: teams.defaultAssigneeId,
+      estimateScale: teams.estimateScale,
+      estimateAllowZero: teams.estimateAllowZero,
+      key: teams.key,
     })
     .from(teams)
     .where(and(eq(teams.id, input.teamId), eq(teams.workspaceId, input.workspaceId)))
@@ -144,6 +164,8 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
 
   const priority = input.priority ?? teamDefaults.priority
   assertPriority(priority)
+  const estimate = input.estimate ?? null
+  assertValidEstimate(teamDefaults, estimate)
   assertDueDate(input.dueDate)
   const status = await resolveStatus(
     db,
@@ -173,6 +195,9 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       .where(and(eq(teams.id, input.teamId), eq(teams.workspaceId, input.workspaceId)))
       .returning({ number: teams.issueCounter })
     if (!team) throw new DomainError('NOT_FOUND', 'Team not found')
+    const parent = input.parentId
+      ? await resolveParent(tx, input.workspaceId, null, input.parentId)
+      : null
 
     const [issue] = await tx
       .insert(issues)
@@ -187,6 +212,8 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         assigneeId,
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
+        estimate,
+        parentId: parent?.id ?? null,
         dueDate: input.dueDate ?? null,
         completedAt: nextCompletedAt(status.category, null),
       })
@@ -201,6 +228,14 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       actor: { type: 'user', id: input.creatorId },
       changes: [{ kind: 'created', from: null, to: null }],
     })
+    if (parent) {
+      await recordActivity(tx, {
+        workspaceId: input.workspaceId,
+        issueId: parent.id,
+        actor: { type: 'user', id: input.creatorId },
+        changes: [{ kind: 'sub_issue', from: null, to: `${teamDefaults.key}-${issue.number}` }],
+      })
+    }
     return issue
   })
 }
@@ -209,7 +244,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
 export async function getIssue(db: DbOrTx, workspaceId: string, id: string, viewerId?: string) {
   const [issue] = await loadIssues(db, workspaceId, eq(issues.id, id), viewerId)
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
-  return issue
+  return withFamily(db, workspaceId, issue, viewerId)
 }
 
 /** Whether `id` is an issue of this workspace (a cheap check, no issue loaded). */
@@ -237,7 +272,22 @@ export async function getIssueByIdentifier(
     viewerId,
   )
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
-  return issue
+  return withFamily(db, workspaceId, issue, viewerId)
+}
+
+async function withFamily(
+  db: DbOrTx,
+  workspaceId: string,
+  issue: IssueRecord,
+  viewerId: string | undefined,
+) {
+  const [parent] = issue.parentId
+    ? await loadIssues(db, workspaceId, eq(issues.id, issue.parentId), viewerId)
+    : []
+  const children = await loadIssues(db, workspaceId, eq(issues.parentId, issue.id), viewerId, [
+    asc(issues.id),
+  ])
+  return { ...issue, parent: parent ?? null, children }
 }
 
 /**
@@ -289,6 +339,11 @@ function listFilter(input: ListIssuesInput) {
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
+    estimateFilter(input.estimates),
+    input.showSubIssues === false ? isNull(issues.parentId) : undefined,
+    input.excludeSubtreeOf
+      ? sql`${issues.id} not in (with recursive subtree(id) as (select ${input.excludeSubtreeOf}::uuid union select child.id from issues child join subtree on child.parent_id = subtree.id) select id from subtree)`
+      : undefined,
     input.labelIds?.length
       ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
       : undefined,
@@ -334,23 +389,34 @@ function anyOf(column: AnyColumn, values: (string | null)[] | undefined) {
   )
 }
 
+/** Values OR'd together: specific points, `null` for none, `'any'` for any estimate. */
+function estimateFilter(values: (number | 'any' | null)[] | undefined) {
+  if (!values?.length) return undefined
+  const points = values.filter((value): value is number => typeof value === 'number')
+  return or(
+    points.length ? inArray(issues.estimate, points) : undefined,
+    values.includes(null) ? isNull(issues.estimate) : undefined,
+    values.includes('any') ? isNotNull(issues.estimate) : undefined,
+  )
+}
+
 function sortOrder(sort: IssueSort, direction: SortDirection) {
+  if (sort === 'estimate') {
+    // Ascending rank in both directions; "No estimate" ranks past every value
+    // (estimates are 0–100), so it stays last either way.
+    const rank =
+      direction === 'desc'
+        ? sql<number>`coalesce(-${issues.estimate}, 1)`
+        : sql<number>`coalesce(${issues.estimate}, 101)`
+    return rankOrder(rank)
+  }
   if (sort === 'priority') {
     // Rank 1 is the first group shown; "No priority" (0) is 5, last in both directions.
     const rank =
       direction === 'desc'
         ? sql<number>`case when ${issues.priority} = 0 then 5 else ${issues.priority} end`
         : sql<number>`case when ${issues.priority} = 0 then 5 else 5 - ${issues.priority} end`
-    return {
-      // Within a priority, newest first.
-      orderBy: [asc(rank), desc(issues.id)],
-      cursorValue: sql<string>`(${rank})::text`,
-      after: (cursor: { value: string; id: string }) =>
-        or(
-          gt(rank, Number(cursor.value)),
-          and(eq(rank, Number(cursor.value)), lt(issues.id, cursor.id)),
-        ),
-    }
+    return rankOrder(rank)
   }
   if (sort === 'dueDate') {
     // No due date becomes ±infinity, so it sorts last in both directions.
@@ -387,8 +453,21 @@ function sortOrder(sort: IssueSort, direction: SortDirection) {
   }
 }
 
+/** Ascending by an integer rank; within a rank, newest first. */
+function rankOrder(rank: SQL<number>) {
+  return {
+    orderBy: [asc(rank), desc(issues.id)],
+    cursorValue: sql<string>`(${rank})::text`,
+    after: (cursor: { value: string; id: string }) =>
+      or(
+        gt(rank, Number(cursor.value)),
+        and(eq(rank, Number(cursor.value)), lt(issues.id, cursor.id)),
+      ),
+  }
+}
+
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
-  await db.transaction(async (tx) => {
+  const parentChange = await db.transaction(async (tx) => {
     // Locking the row keeps `completedAt` consistent with concurrent status changes.
     const [current] = await tx
       .select()
@@ -431,6 +510,31 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
       changes.projectId = input.projectId
     }
+    // Only a changed value is checked, so an issue keeps an estimate that is no
+    // longer on the scale (after a scale change) while other fields are edited.
+    if (input.estimate !== undefined && input.estimate !== current.estimate) {
+      const [team] = await tx
+        .select({
+          estimateScale: teams.estimateScale,
+          estimateAllowZero: teams.estimateAllowZero,
+        })
+        .from(teams)
+        .where(eq(teams.id, current.teamId))
+      if (!team) throw new DomainError('NOT_FOUND', 'Team not found')
+      assertValidEstimate(team, input.estimate)
+      changes.estimate = input.estimate
+    }
+    let parentChange: { from: ParentRef | null; to: ParentRef | null } | null = null
+    if (input.parentId !== undefined && input.parentId !== current.parentId) {
+      const to = input.parentId
+        ? await resolveParent(tx, input.workspaceId, current.id, input.parentId)
+        : null
+      const from = current.parentId
+        ? ((await findIssueRef(tx, input.workspaceId, current.parentId)) ?? null)
+        : null
+      changes.parentId = to?.id ?? null
+      parentChange = { from, to }
+    }
 
     const labelIds =
       input.labelIds === undefined
@@ -466,13 +570,64 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       actor: input.actor,
       changes: activity,
     })
+    if (parentChange) {
+      await recordParentChange(tx, input.workspaceId, input.actor, current, parentChange)
+    }
+    return parentChange
   })
-  return getIssue(
+  const issue = await getIssue(
     db,
     input.workspaceId,
     input.id,
     input.actor.type === 'user' ? input.actor.id : undefined,
   )
+  return {
+    ...issue,
+    /** Old and new parent ids when the parent changed, so callers can notify both. */
+    parentChange: parentChange
+      ? { from: parentChange.from?.id ?? null, to: parentChange.to?.id ?? null }
+      : null,
+  }
+}
+
+/**
+ * `parent` on the child (parent identifiers), `sub_issue` on the old and new
+ * parent (the child's identifier). Identifiers are stored because team keys never
+ * change, so the timeline can name issues without loading them.
+ */
+async function recordParentChange(
+  tx: DbOrTx,
+  workspaceId: string,
+  actor: ActivityActor,
+  child: { id: string },
+  change: { from: ParentRef | null; to: ParentRef | null },
+) {
+  const childRef = await findIssueRef(tx, workspaceId, child.id)
+  if (!childRef) return
+  await recordActivity(tx, {
+    workspaceId,
+    issueId: child.id,
+    actor,
+    changes: [
+      { kind: 'parent', from: change.from?.identifier ?? null, to: change.to?.identifier ?? null },
+    ],
+  })
+  if (change.from) {
+    await recordActivity(tx, {
+      workspaceId,
+      issueId: change.from.id,
+      actor,
+      changes: [{ kind: 'sub_issue', from: childRef.identifier, to: null }],
+    })
+  }
+  if (change.to) {
+    await recordActivity(tx, {
+      workspaceId,
+      issueId: change.to.id,
+      actor,
+      changes: [{ kind: 'sub_issue', from: null, to: childRef.identifier }],
+    })
+  }
 }
 
 /**
@@ -483,13 +638,23 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
 export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
   return db.transaction(async (tx) => {
     const attachmentIds = await listIssueAttachmentIds(tx, workspaceId, id)
+    // Sub-issues lose their parent (`ON DELETE SET NULL`); returned so callers can notify them.
+    const children = await tx
+      .select({ id: issues.id })
+      .from(issues)
+      .where(and(eq(issues.workspaceId, workspaceId), eq(issues.parentId, id)))
     const [issue] = await tx
       .delete(issues)
       .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
-      .returning({ id: issues.id })
+      .returning({ id: issues.id, parentId: issues.parentId })
     if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
     const deletedUploadIds = await releaseAttachments(tx, workspaceId, attachmentIds)
-    return { id: issue.id, deletedUploadIds }
+    return {
+      id: issue.id,
+      parentId: issue.parentId,
+      childIds: children.map((child) => child.id),
+      deletedUploadIds,
+    }
   })
 }
 
@@ -499,8 +664,13 @@ async function loadIssues(
   workspaceId: string,
   where: SQL | undefined,
   viewerId: string | undefined,
+  orderBy?: SQL[],
 ) {
-  return withLabels(db, workspaceId, await selectIssueRows(db, workspaceId, { where, viewerId }))
+  return withLabels(
+    db,
+    workspaceId,
+    await selectIssueRows(db, workspaceId, { where, viewerId, orderBy }),
+  )
 }
 
 type IssueRowsQuery = {
@@ -549,6 +719,11 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
       ),
     )
     .orderBy(asc(labels.name))
+  const progress = await subIssueProgress(
+    db,
+    workspaceId,
+    rows.map((row) => row.issue.id),
+  )
 
   return rows.map(({ issue, teamKey, status, isSubscribed }) => ({
     ...issue,
@@ -556,7 +731,30 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
     status,
     isSubscribed,
     labels: attached.filter((row) => row.issueId === issue.id).map((row) => row.label),
+    subIssueProgress: progress.get(issue.id) ?? null,
   }))
+}
+
+/**
+ * Per parent: `done` counts sub-issues in a `completed` status; `total` leaves
+ * canceled ones out. Issues without sub-issues are missing from the map.
+ */
+async function subIssueProgress(db: DbOrTx, workspaceId: string, parentIds: string[]) {
+  const rows = await db
+    .select({
+      parentId: issues.parentId,
+      done: sql<number>`(count(*) filter (where ${workflowStatuses.category} = 'completed'))::int`,
+      total: sql<number>`(count(*) filter (where ${workflowStatuses.category} <> 'canceled'))::int`,
+    })
+    .from(issues)
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, issues.statusId))
+    .where(and(eq(issues.workspaceId, workspaceId), inArray(issues.parentId, parentIds)))
+    .groupBy(issues.parentId)
+  return new Map(
+    rows.flatMap((row) =>
+      row.parentId ? [[row.parentId, { done: row.done, total: row.total }] as const] : [],
+    ),
+  )
 }
 
 /** Workspace labels, or the issue team's own labels; anything else is BAD_REQUEST. */

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   type AnyPgColumn,
   type PgTableExtraConfigValue,
+  boolean,
   check,
   foreignKey,
   index,
@@ -24,6 +25,15 @@ export const statusCategory = pgEnum('status_category', [
   'canceled',
 ])
 
+/** docs/domain.md → Estimates. `off` hides estimates for the team. */
+export const estimateScale = pgEnum('estimate_scale', [
+  'off',
+  'linear',
+  'fibonacci',
+  'exponential',
+  'tshirt',
+])
+
 export const teams = pgTable(
   'teams',
   {
@@ -40,6 +50,8 @@ export const teams = pgTable(
     defaultStatusId: uuid(),
     defaultPriority: integer().notNull().default(0),
     defaultAssigneeId: uuid().references(() => users.id, { onDelete: 'set null' }),
+    estimateScale: estimateScale().notNull().default('off'),
+    estimateAllowZero: boolean().notNull().default(false),
     ...timestamps,
   },
   // Annotated: the FK to workflow_statuses makes the two table types refer to each other.
