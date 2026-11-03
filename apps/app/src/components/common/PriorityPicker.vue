@@ -6,7 +6,7 @@ import PickerPopover from './PickerPopover.vue'
 import PriorityIcon from './PriorityIcon.vue'
 
 // `noHotkey` outside issue views, so a picker there doesn't clash with the create dialog's.
-defineProps<{ noHotkey?: boolean }>()
+defineProps<{ compact?: boolean; noHotkey?: boolean }>()
 const model = defineModel<Priority>({ required: true })
 const open = ref(false)
 
@@ -23,10 +23,11 @@ function choose(priority: Priority) {
     placeholder="Set priority..."
     :hotkey="noHotkey ? undefined : 'P'"
     :current="String(model)"
+    :compact="compact"
   >
     <template #trigger>
       <PriorityIcon :priority="model" />
-      <span>{{ priorityLabel(model) }}</span>
+      <span :class="{ 'sr-only': compact }">{{ priorityLabel(model) }}</span>
     </template>
     <PickerItem
       v-for="priority in PRIORITIES"
