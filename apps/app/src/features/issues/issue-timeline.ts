@@ -1,14 +1,17 @@
-import type { Activity, Comment } from '@linear/contract'
+import type { Activity, CommentThread } from '@linear/contract'
 import { pointsText } from '@/lib/estimates'
 import { formatDueDate, todayIso } from '@/lib/due-dates'
 import { priorityLabel, toPriority } from '@/lib/priorities'
 
 export type TimelineEntry =
-  | { type: 'comment'; key: string; at: Date; comment: Comment }
+  | { type: 'comment'; key: string; at: Date; comment: CommentThread }
   | { type: 'activity'; key: string; at: Date; activity: Activity }
 
-/** Comments and activity in one list, oldest first. Ties keep ids in order (UUIDv7). */
-export function buildTimeline(comments: Comment[], activity: Activity[]): TimelineEntry[] {
+/**
+ * Comment threads (placed by their root) and activity in one list, oldest first.
+ * Ties keep ids in order (UUIDv7).
+ */
+export function buildTimeline(comments: CommentThread[], activity: Activity[]): TimelineEntry[] {
   const entries: TimelineEntry[] = [
     ...comments.map((comment) => ({
       type: 'comment' as const,

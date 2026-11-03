@@ -1,4 +1,4 @@
-import type { Activity, Comment } from '@linear/contract'
+import type { Activity, CommentThread } from '@linear/contract'
 import { describe, expect, it } from 'vitest'
 import {
   activityActor,
@@ -28,14 +28,19 @@ function activity(
   }
 }
 
-function comment(body: string, at: Date): Comment {
+function comment(body: string, at: Date): CommentThread {
   return {
     id: crypto.randomUUID(),
     issueId,
+    parentId: null,
     author: { id: crypto.randomUUID(), name: 'Ada', avatarUrl: null },
     body,
+    reactions: [],
+    resolvedAt: null,
     createdAt: at,
     updatedAt: at,
+    replies: [],
+    replyCount: 0,
   }
 }
 
