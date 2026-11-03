@@ -9,11 +9,20 @@ export const labelColorSchema = z
 
 export const labelSchema = z.object({
   id: z.uuid(),
+  /** Null = workspace label; otherwise the team that owns it. */
+  teamId: z.uuid().nullable(),
   name: z.string(),
   color: z.string(),
 })
 
+export const listLabelsInputSchema = workspaceScopedSchema.extend({
+  /** Workspace labels plus this team's; omitted = every label in the workspace. */
+  teamId: z.uuid().optional(),
+})
+
 export const createLabelInputSchema = workspaceScopedSchema.extend({
+  /** Null or omitted creates a workspace label. */
+  teamId: z.uuid().nullable().optional(),
   name: nameSchema,
   color: labelColorSchema,
 })
@@ -27,5 +36,6 @@ export const updateLabelInputSchema = workspaceScopedSchema.extend({
 export const labelIdInputSchema = workspaceScopedSchema.extend({ id: z.uuid() })
 
 export type Label = z.infer<typeof labelSchema>
+export type ListLabelsInput = z.infer<typeof listLabelsInputSchema>
 export type CreateLabelInput = z.infer<typeof createLabelInputSchema>
 export type UpdateLabelInput = z.infer<typeof updateLabelInputSchema>

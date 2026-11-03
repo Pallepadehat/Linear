@@ -9,8 +9,8 @@ const inWorkspace = requireWorkspace()
 export const labelsRouter = {
   list: authed.labels.list
     .use(inWorkspace, (input) => input.workspaceSlug)
-    .handler(async ({ context }) => {
-      const labels = await listLabels(context.db, context.workspace.id)
+    .handler(async ({ context, input }) => {
+      const labels = await listLabels(context.db, context.workspace.id, input.teamId)
       return labels.map(toLabelDto)
     }),
 
@@ -19,6 +19,7 @@ export const labelsRouter = {
     .handler(async ({ context, input }) => {
       const label = await createLabel(context.db, {
         workspaceId: context.workspace.id,
+        teamId: input.teamId,
         name: input.name,
         color: input.color,
       })

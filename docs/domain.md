@@ -281,8 +281,11 @@ Subscribers are the audience for Inbox notifications (M10-02). Stored in `issue_
 
 ## Labels
 
-- Labels are workspace-wide (shared by all teams). Any member may create, rename, recolor or delete them.
-- Names are trimmed, 1–80 characters, and unique per workspace (exact match, so `Bug` and `bug` can coexist); a duplicate is `CONFLICT`.
+- A label is either a **workspace label** (`teamId` null, usable by every team) or a **team label** (owned by one team, usable only on that team's issues; another team's label on an issue is `BAD_REQUEST`). Team labels are deleted with their team. Any member may create, rename, recolor or delete either kind.
+- Names are trimmed, 1–80 characters, and unique per scope: among the workspace labels, and within each team (exact match, so `Bug` and `bug` can coexist). A team label may share a name with a workspace label or another team's label. A duplicate is `CONFLICT`. A `teamId` from another workspace is `NOT_FOUND`.
+- `labels.list` with a `teamId` returns the workspace labels plus that team's; without one, every label in the workspace (the filter menus and pickers load this once and narrow per issue team on the client). Each label carries its `teamId`.
+- Label picker (`L`): sections Selected (as the picker opened, so rows don't jump while toggling), Team labels, Workspace labels; each row a checkbox, color dot and name. Typing a name with no case-insensitive exact match in those sections shows "Create new label: “…”" as the last row; ↵ or a click creates it as a **team** label in the issue's team and applies it, without closing the picker. The color is the label palette color used least by the labels in scope (palette order breaks ties; `features/labels/label-options.ts`). The create request runs first; applying the new label then goes through `useUpdateIssue()` (optimistic, rollback + toast). A `CONFLICT` on create (someone just created that name) applies the existing team label instead. Space toggles the highlighted row while the filter is empty. In the create dialog, changing team drops the old team's labels. In the template form the picker follows the template's scope: a team template offers that team's labels too, a workspace template only workspace labels (and creates workspace labels).
+- Workspace settings → Labels manages workspace labels; team settings → Labels manages that team's labels: rename inline (Enter/blur saves, Esc reverts), recolor from the palette, delete after a confirmation. New labels are created from the picker.
 - Colors are stored as lowercase `#rrggbb`. They are user data rendered as-is, not design tokens.
 - Deleting a label removes it from every issue (`issue_labels` cascades).
 
