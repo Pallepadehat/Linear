@@ -9,10 +9,17 @@ import { Button } from '@/components/ui/button'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import { groupIssuesByStatus, toListRows, type IssueListRow } from '../group-issues'
-import { issueListOptions, type IssueListFilter } from '../queries'
+import { issueListOptions } from '../queries'
 import IssueRow from './IssueRow.vue'
 
-const props = defineProps<{ workspaceSlug: string } & IssueListFilter>()
+// Spelled out: Vue's SFC compiler can't resolve the zod-inferred `IssueListFilter` for props.
+const props = defineProps<{
+  workspaceSlug: string
+  teamId?: string
+  projectId?: string
+  assignee?: 'me'
+  creator?: 'me'
+}>()
 // Replaces the default "No issues yet" state, e.g. for My Issues tabs.
 defineSlots<{ empty?: () => unknown }>()
 
