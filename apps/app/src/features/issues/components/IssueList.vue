@@ -1,16 +1,20 @@
 <script setup lang="ts">
+import type { Issue } from '@linear/contract'
 import { ChevronDown, Layers, ListFilter, Plus } from '@lucide/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import EstimateIcon from '@/components/common/EstimateIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { pointsText, sumEstimates } from '@/lib/estimates'
+import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import {
   groupIssuesByStatus,
+  listOrder,
   toListRows,
   type IssueGroup,
   type IssueListRow,
@@ -40,7 +44,7 @@ const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, issues, users, labels, statusesByTeam, estimatesByTeam, updateIssue } =
+const { query, queryKey, issues, users, labels, statusesByTeam, estimatesByTeam, updateIssue } =
   useIssueViewData(
     () => props.workspaceSlug,
     () => ({
@@ -68,6 +72,23 @@ function toggleGroup(key: string) {
   const next = new Set(collapsed.value)
   if (!next.delete(key)) next.add(key)
   collapsed.value = next
+}
+
+// The detail page steps through the issues in the order shown here (J/K, "1 / 47").
+const router = useRouter()
+const nav = useIssueNavStore()
+function openIssue(issue: Issue) {
+  const hidden = new Set(collapsed.value)
+  const order = (list: Issue[]) => listOrder(list, hidden)
+  nav.open(
+    {
+      queryKey: queryKey.value,
+      identifiers: order(issues.value),
+      order,
+      route: router.currentRoute.value.fullPath,
+    },
+    issue.identifier,
+  )
 }
 
 const scrollEl = ref<HTMLElement | null>(null)
@@ -236,6 +257,7 @@ watchEffect(() => {
             :labels="labels"
             :estimates="estimatesByTeam.get(row.issue.teamId)"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
+            @open="openIssue(row.issue)"
           />
         </div>
       </div>

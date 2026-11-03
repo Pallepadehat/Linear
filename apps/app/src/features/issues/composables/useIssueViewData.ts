@@ -16,9 +16,8 @@ export function useIssueViewData(
 ) {
   const slug = computed(() => toValue(workspaceSlug))
   const { filters } = useIssueFilters()
-  const query = useInfiniteQuery(
-    computed(() => issueListOptions(slug.value, toValue(filter), filters.value)),
-  )
+  const listOptions = computed(() => issueListOptions(slug.value, toValue(filter), filters.value))
+  const query = useInfiniteQuery(listOptions)
   const { data: members } = useQuery(
     computed(() =>
       orpc.workspaces.listMembers.queryOptions({ input: { workspaceSlug: slug.value } }),
@@ -77,6 +76,8 @@ export function useIssueViewData(
 
   return {
     query,
+    /** The list query's key, for the detail page's prev/next context. */
+    queryKey: computed(() => listOptions.value.queryKey),
     issues,
     users,
     labels: computed(() => labels.value ?? []),

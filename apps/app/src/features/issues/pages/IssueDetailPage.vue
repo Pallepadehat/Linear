@@ -15,8 +15,8 @@ import { projectListOptions } from '@/features/projects/queries'
 import { estimateLabel } from '@/lib/estimates'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
-import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
+import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
 import type { IssuePatch } from '../issue-cache'
@@ -29,7 +29,6 @@ import {
 } from '../queries'
 
 const route = useRoute()
-const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const identifier = computed(() => String(route.params.identifier))
 
@@ -91,10 +90,6 @@ const estimates = computed(() =>
   team.value ? { scale: team.value.estimateScale, allowZero: team.value.estimateAllowZero } : null,
 )
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
-
-watchEffect(() => {
-  if (issue.value) ui.breadcrumb = [team.value?.name ?? 'Issues', issue.value.identifier]
-})
 
 // Teammates see that you're on this issue (presence heartbeats).
 useViewingIssue(() => issue.value?.id)
@@ -218,6 +213,13 @@ onBeforeUnmount(commitDescription)
     v-else-if="issue"
     class="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:overflow-hidden"
   >
+    <IssueDetailHeader
+      :workspace-slug="slug"
+      :issue="issue"
+      :team-name="team?.name"
+      :team-key="team?.key"
+      @change="save"
+    />
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
         <div class="flex items-center justify-between gap-2">
