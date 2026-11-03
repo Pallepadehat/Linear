@@ -10,9 +10,12 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { FilterDimension } from '../composables/useFilterDimensions'
 
-defineProps<{ dimensions: FilterDimension[] }>()
+// `compact`: a round icon button with a tooltip, for the view toolbar (which binds `F` to `open`).
+defineProps<{ dimensions: FilterDimension[]; compact?: boolean }>()
+const open = defineModel<boolean>('open', { default: false })
 
 // Keep the submenu open so several values can be toggled in a row.
 function keepOpen(event: Event) {
@@ -21,8 +24,27 @@ function keepOpen(event: Event) {
 </script>
 
 <template>
-  <DropdownMenu>
-    <DropdownMenuTrigger as-child>
+  <DropdownMenu v-model:open="open">
+    <Tooltip v-if="compact">
+      <TooltipTrigger as-child>
+        <DropdownMenuTrigger as-child>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="text-ink-subtle data-[state=open]:bg-surface-2 data-[state=open]:text-ink"
+            aria-label="Filter"
+            aria-keyshortcuts="F"
+          >
+            <ListFilter aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+      </TooltipTrigger>
+      <TooltipContent class="flex items-center gap-2">
+        Filter
+        <kbd class="font-sans text-ink-subtle">F</kbd>
+      </TooltipContent>
+    </Tooltip>
+    <DropdownMenuTrigger v-else as-child>
       <Button variant="ghost" size="sm" class="text-ink-muted data-[state=open]:bg-surface-2">
         <ListFilter aria-hidden="true" />
         Filter
