@@ -22,6 +22,7 @@ const props = defineProps<{
   current?: string
   compact?: boolean
   triggerClass?: string
+  align?: 'start' | 'end'
 }>()
 
 const open = defineModel<boolean>('open', { default: false })
@@ -84,7 +85,7 @@ function onKeydown(event: KeyboardEvent) {
       </Button>
     </PopoverTrigger>
     <PopoverContent
-      align="start"
+      :align="align ?? 'start'"
       class="w-60 overflow-hidden rounded-lg border-hairline bg-floating p-0 shadow-floating"
     >
       <Command :model-value="current ?? ''" class="bg-transparent" @keydown="onKeydown">

@@ -26,6 +26,7 @@ function toggle(id: string) {
     placeholder="Change labels..."
     hotkey="L"
     :compact="compact"
+    :align="compact ? 'end' : 'start'"
     :trigger-class="compact ? 'h-auto w-auto gap-1 px-0 has-[>svg]:px-0' : undefined"
   >
     <!-- Compact (list rows): the label chips themselves open the picker. -->

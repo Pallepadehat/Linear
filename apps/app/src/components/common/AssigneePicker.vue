@@ -28,6 +28,7 @@ function choose(id: string | null) {
     hotkey="A"
     :current="model ?? 'unassigned'"
     :compact="compact"
+    :align="compact ? 'end' : 'start'"
   >
     <template #trigger>
       <UserAvatar v-if="current" :name="current.name" :src="current.avatarUrl" size="xs" />
