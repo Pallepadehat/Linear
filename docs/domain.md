@@ -223,6 +223,19 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - An edited comment keeps `createdAt` and gets a new `updatedAt`; saving the same body is a no-op. Edits and deletes are not written to `activity_log`.
 - `comments.list` returns one issue's comments **oldest first** as `{ items, nextCursor }`, cursor = last comment id (UUIDv7), page size 50 (max 100). Each comment carries its author's `id`, `name` and `avatarUrl`. An issue or comment outside the workspace is `NOT_FOUND`.
 
+## Realtime events
+
+Open clients learn about changes as they happen (ADR 0011). Events are hints, not data: they carry IDs and the client refetches what it shows.
+
+- **Events:** `issue.created`, `issue.updated` (with `fields`: any of `title`, `description`, `status`, `priority`, `assignee`, `project`, `labels`, `pullRequests`), `issue.deleted`, `comment.created`, `comment.updated`, `comment.deleted`. Each has `issueId` and `actorId` (the user, or `null` for GitHub automation); comment events add `commentId`. Schemas: `packages/contract` (client DTO) and `packages/queue` (Redis bus, same shape plus the internal `originId`).
+- **Who publishes:** the API after a successful `issues.create`/`update`/`delete` and `comments.create`/`update`/`delete`; the worker after a `pull_request` delivery commits, one `issue.updated` per issue whose links or status it changed (`fields` = `pullRequests`, plus `status` when automation moved it). Skipped redeliveries publish nothing. `issue.updated.fields` lists the fields the request set, even if a value didn't change.
+- **Channel:** Redis pub/sub `workspace:<workspaceId>`. Every API instance subscribes to a workspace's channel while one of its sockets watches that workspace.
+- **Who receives:** only sockets subscribed through `realtime.subscribe`, which requires a session and workspace membership (`requireWorkspace`; non-members get `NOT_FOUND` and no events). The upgrade at `/rpc/ws` is rejected with `401` without a session and `403` for a foreign `Origin`. Membership is checked when subscribing; there is no member removal yet, so it isn't rechecked mid-stream.
+- **Echoes:** each browser tab has a random client id, sent as `x-client-id` on every request and with the subscription. Events caused by a tab are not sent back to that tab (it already applied them optimistically). Other tabs of the same user do receive them.
+- **Delivery:** best effort, at most once, no replay. A failed publish is logged and never fails the change. Clients reconnect with backoff (1 s doubling to 30 s, jittered) and refetch their active queries after a reconnect.
+- **Client handling:** `issue.updated` fetches that issue once and patches it into every cached list and detail copy (skipped while the tab has its own edit in flight, which refetches when it settles); lists refetch, coalesced, only on create or when `assignee`/`project` changed (membership of My Issues and project views); deletes drop the issue from lists; comment events refetch that issue's comments.
+- **Not covered yet:** presence, collaborative editing, notifications.
+
 ## Labels
 
 - Labels are workspace-wide (shared by all teams). Any member may create, rename, recolor or delete them.

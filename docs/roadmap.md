@@ -73,9 +73,15 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M5-03  | [ ]    | Accessibility + both-theme UI pass                         | M3-*       |
 | M5-04  | [x]    | README: setup, env, Docker, GitHub App, demo script        | M4-06      |
 
+## M6 — Realtime
+
+| ID     | Status | Task                                                                                   | Depends on   |
+| ------ | ------ | -------------------------------------------------------------------------------------- | ------------ |
+| M6-01  | [x]    | Realtime updates over WebSockets: issue/comment events via Redis pub/sub, live caches | M2-08, M3-04 |
+
 ## P1 backlog (after P0)
 
-Keyboard shortcuts · command menu · rich-text editor · notifications · due dates · sub-issues · project progress · issue relations · issue/comment attachments · draft/review PR indicators.
+Keyboard shortcuts · command menu · rich-text editor · notifications · realtime presence (who's online / viewing) · due dates · sub-issues · project progress · issue relations · issue/comment attachments · draft/review PR indicators.
 
 ## Log
 
@@ -124,3 +130,4 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-11-03 · LIN-36 / M3-04 · board view (`IssueBoard` → `BoardColumn` → `BoardCard`, lazy-loaded) on the team and All issues pages with a list/board toggle in the panel header (persisted in the preferences store). Native drag and drop and the card's status picker (keyboard) move issues through the optimistic `useUpdateIssue()`; columns per status in workflow order, merged across teams by category + name, virtualized, all pages loaded in the background. Pure `board-columns.ts` with unit tests; `board-card` token. Verified in the browser with ~3 600 issues: drag, reload, keyboard move and rollback on a failing update, light and dark. Lint, typecheck and all tests pass.
 2026-11-03 · LIN-14 / M2-08 · lazy `/:workspaceSlug/issue/:identifier` detail page (rows in the list link to it): editable title, markdown description, combined comments + activity timeline with readable change descriptions, comment composer (⌘↵) that refreshes without reload, properties sidebar (status/priority/assignee/labels/project pickers, created/updated) with optimistic saves, empty "Linked pull requests" placeholder for M4-07, not-found state. Unit tests for timeline merge/wording and relative time. Lint, typecheck and all tests pass; detail page edits go through the shared `useUpdateIssue()` (patch extended to title/description/project); checked in the browser in light and dark (row click, property edits, title, comments without reload, not-found, `S` picker hotkey).
 2026-11-03 · LIN-44 / M5-04 · README (Docker-only quick start, dev setup, every env var, GitHub App + tunnel + fallback, demo script, light/dark screenshots); production `Dockerfile` (`server` + nginx `app`) and `docker-compose.prod.yml` with migrate/seed job; Release workflow builds, smoke-tests and pushes `:prod` / `:sha-*` to GHCR on `main`; `demo:github` sends signed PR webhooks (verified Backlog → In Progress → Done in the prod stack); `S3_PUBLIC_ENDPOINT`; blank env values count as unset.
+2026-11-03 · LIN-51 / M6-01 · `realtime.subscribe` (oRPC `eventIterator`) over a WebSocket at `/rpc/ws` (`@fastify/websocket`, upgrade needs a session and the app `Origin`, `requireWorkspace` before any event); ID-only `issue.*`/`comment.*` events published by the API and by the worker after GitHub automation to Redis `workspace:<id>`, fanned out per API instance with reference-counted channel subscriptions (ADR 0011). App: `useRealtime` in `WorkspaceLayout` patches updated issues into list/board/detail caches, refetches lists only for create/assignee/project, refetches comments; per-tab `x-client-id` suppresses echoes; reconnect with jittered backoff and resync. Vite proxy and nginx pass the upgrade. Integration tests: member receives a teammate's changes and worker automation, outsider gets `NOT_FOUND` and no events, 401/403 upgrades, echo suppression. Checked end to end through the Vite proxy against the dev stack. Lint, typecheck, all tests and build pass.
