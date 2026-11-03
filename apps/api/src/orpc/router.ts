@@ -1,3 +1,4 @@
+import { presenceRouter } from '../modules/presence/presence.router'
 import { projectsRouter } from '../modules/projects/projects.router'
 import { issueRelationsRouter } from '../modules/relations/relations.router'
 import { realtimeRouter } from '../modules/realtime/realtime.router'
@@ -25,6 +26,7 @@ export const router = os.router({
   activity: activityRouter,
   comments: commentsRouter,
   realtime: realtimeRouter,
+  presence: presenceRouter,
 })
 
 export type Router = typeof router

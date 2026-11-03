@@ -5,6 +5,7 @@ import type {
 } from '@orpc/contract'
 import { projectsContract } from './routers/projects'
 import { issueRelationsContract } from './routers/relations'
+import { presenceContract } from './routers/presence'
 import { realtimeContract } from './routers/realtime'
 import { activityContract } from './routers/activity'
 import { commentsContract } from './routers/comments'
@@ -29,6 +30,7 @@ export const contract = {
   activity: activityContract,
   comments: commentsContract,
   realtime: realtimeContract,
+  presence: presenceContract,
 }
 
 export type Contract = typeof contract
