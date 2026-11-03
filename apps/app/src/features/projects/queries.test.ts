@@ -18,6 +18,7 @@ const project: Project = {
   id: '00000000-0000-7000-8000-000000000001',
   name: 'Launch',
   description: null,
+  summary: null,
   status: 'planned',
   iconUploadId: null,
   iconUrl: null,

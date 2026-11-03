@@ -36,11 +36,15 @@ export const projectsKey = () => orpc.projects.key()
 /** Matches every milestone list; milestone progress depends on issue changes too. */
 export const milestonesKey = () => orpc.milestones.key()
 
-/** Refetches project and milestone progress (both count issues by status and project). */
+/**
+ * Refetches project and milestone progress (both count issues by status and project) and,
+ * since `project.updated` also covers them, the project's resource links.
+ */
 export function invalidateProjects(queryClient: QueryClient) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: projectsKey() }),
     queryClient.invalidateQueries({ queryKey: milestonesKey() }),
+    queryClient.invalidateQueries({ queryKey: orpc.projectLinks.key() }),
   ])
 }
 

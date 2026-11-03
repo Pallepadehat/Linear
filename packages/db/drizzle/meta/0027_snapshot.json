@@ -1,5 +1,5 @@
 {
-  "id": "b8684508-6955-4406-9c99-bd0ed3dfaace",
+  "id": "cf5382ef-2401-403e-8b63-04616914d558",
   "prevId": "edb89793-0600-4db6-aea0-9c0428ed8eff",
   "version": "7",
   "dialect": "postgresql",
@@ -3230,132 +3230,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.project_progress_snapshots": {
-      "name": "project_progress_snapshots",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "date": {
-          "name": "date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scope": {
-          "name": "scope",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "started": {
-          "name": "started",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "completed": {
-          "name": "completed",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "project_progress_snapshots_workspace_id_index": {
-          "name": "project_progress_snapshots_workspace_id_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "project_progress_snapshots_workspace_id_workspaces_id_fk": {
-          "name": "project_progress_snapshots_workspace_id_workspaces_id_fk",
-          "tableFrom": "project_progress_snapshots",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "project_progress_snapshots_project_id_projects_id_fk": {
-          "name": "project_progress_snapshots_project_id_projects_id_fk",
-          "tableFrom": "project_progress_snapshots",
-          "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "project_progress_snapshots_project_id_date_unique": {
-          "name": "project_progress_snapshots_project_id_date_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "project_id",
-            "date"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "project_progress_snapshots_counts": {
-          "name": "project_progress_snapshots_counts",
-          "value": "\"project_progress_snapshots\".\"started\" >= 0 and \"project_progress_snapshots\".\"completed\" >= 0 and \"project_progress_snapshots\".\"started\" + \"project_progress_snapshots\".\"completed\" <= \"project_progress_snapshots\".\"scope\""
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.project_teams": {
       "name": "project_teams",
       "schema": "",
@@ -3511,6 +3385,12 @@
         },
         "description": {
           "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "summary": {
+          "name": "summary",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -5257,6 +5137,153 @@
         "issue_links_created_by_id_users_id_fk": {
           "name": "issue_links_created_by_id_users_id_fk",
           "tableFrom": "issue_links",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.project_links": {
+      "name": "project_links",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_by_id": {
+          "name": "created_by_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "project_links_project_id_sort_order_index": {
+          "name": "project_links_project_id_sort_order_index",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sort_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_links_workspace_id_index": {
+          "name": "project_links_workspace_id_index",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "project_links_workspace_id_workspaces_id_fk": {
+          "name": "project_links_workspace_id_workspaces_id_fk",
+          "tableFrom": "project_links",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_links_project_id_projects_id_fk": {
+          "name": "project_links_project_id_projects_id_fk",
+          "tableFrom": "project_links",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_links_created_by_id_users_id_fk": {
+          "name": "project_links_created_by_id_users_id_fk",
+          "tableFrom": "project_links",
           "tableTo": "users",
           "columnsFrom": [
             "created_by_id"

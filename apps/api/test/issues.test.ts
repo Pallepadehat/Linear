@@ -733,8 +733,14 @@ describe('issues.list filters, sorting and search', () => {
 
   it('counts issues per assignee, label, priority and project for the same filters', async () => {
     const { owner, member, project, bug, ui, team, issues } = await seeded()
-    const facets = (filter: Partial<ListIssuesInput> = {}) =>
-      issues.facets({ workspaceSlug: 'tip', ...filter })
+    // Status counts are checked in their own test below.
+    const facets = async (filter: Partial<ListIssuesInput> = {}) => {
+      const { statuses: _statuses, ...rest } = await issues.facets({
+        workspaceSlug: 'tip',
+        ...filter,
+      })
+      return rest
+    }
 
     // Most common first; ties by id. Unassigned / no project are `null` rows, and
     // TIP-4 (Bug + UI) counts once under each label.
@@ -799,6 +805,23 @@ describe('issues.list filters, sorting and search', () => {
       priorities: [],
       projects: [],
     })
+  })
+
+  it('counts issues per status for the same filters', async () => {
+    const { status, issues } = await seeded()
+    const counts = async (filter: Partial<ListIssuesInput> = {}) =>
+      new Map(
+        (await issues.facets({ workspaceSlug: 'tip', ...filter })).statuses.map((row) => [
+          row.id,
+          row.count,
+        ]),
+      )
+    const all = await counts()
+    expect([...all.values()].reduce((sum, n) => sum + n, 0)).toBe(5)
+    expect(all.get(status('Todo').id)).toBe(2)
+    // A filter narrows the status counts too (the hidden-by-filters footer subtracts them).
+    expect((await counts({ statusCategories: ['unstarted'] })).get(status('Todo').id)).toBe(2)
+    expect(await counts({ q: 'nothing matches' })).toEqual(new Map())
   })
 
   it('rejects facets for another workspace and its team, project or cycle scope', async () => {

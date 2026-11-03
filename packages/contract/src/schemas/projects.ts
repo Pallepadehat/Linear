@@ -6,9 +6,15 @@ import { labelColorSchema } from './labels'
 export const projectStatusSchema = z.enum(['planned', 'in_progress', 'completed', 'canceled'])
 /** A calendar day, `YYYY-MM-DD` (day resolution only; docs/domain.md → Projects). */
 export const projectDateSchema = z.iso.date()
+export const projectSummarySchema = z
+  .string()
+  .trim()
+  .max(255, { message: 'Keep the summary under 255 characters' })
 const fields = {
   name: nameSchema,
   description: z.string().nullable(),
+  /** One line under the name on the project page; empty is stored as null. */
+  summary: projectSummarySchema.nullable(),
   status: projectStatusSchema,
   iconUploadId: z.uuid().nullable(),
   teamIds: z.array(z.uuid()),
