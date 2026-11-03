@@ -6,6 +6,7 @@ import { useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { useUiStore } from '@/stores/ui'
 import AppSidebar from './AppSidebar.vue'
+import { PANEL_HEADER_ACTIONS } from './panel-header'
 
 const CreateIssueDialog = defineAsyncComponent(
   () => import('@/features/issues/components/CreateIssueDialog.vue'),
@@ -63,13 +64,8 @@ watch(
             </span>
           </template>
         </h1>
-        <Button
-          variant="ghost"
-          size="sm"
-          class="ml-auto"
-          aria-keyshortcuts="C"
-          @click="ui.openCreateIssue()"
-        >
+        <div :id="PANEL_HEADER_ACTIONS.slice(1)" class="ml-auto flex items-center gap-2" />
+        <Button variant="ghost" size="sm" aria-keyshortcuts="C" @click="ui.openCreateIssue()">
           <Plus aria-hidden="true" />
           New issue
         </Button>
