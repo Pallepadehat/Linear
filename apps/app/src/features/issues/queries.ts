@@ -2,6 +2,7 @@ import type {
   Comment,
   Issue,
   IssueDetail,
+  IssueFiltersInput,
   IssuePage,
   IssueRelationType,
   ListIssuesInput,
@@ -42,6 +43,28 @@ export type IssueListFilter = Pick<
 >
 
 /**
+ * The shared list filters (`issueFiltersSchema`) for the page's scope and view tab plus
+ * the user's filters, so the list and the Details panel always ask for the same issues.
+ */
+function issueFiltersInput(
+  workspaceSlug: string,
+  filter: IssueListFilter,
+  filters: IssueFilters,
+): IssueFiltersInput {
+  const { q, due, sort: _sort, direction: _direction, ...rest } = filters
+  // Relative due filters are evaluated against the viewer's local day (domain.md).
+  const relative = due.some((bucket) => bucket !== 'noDueDate')
+  return {
+    workspaceSlug,
+    ...filter,
+    ...rest,
+    ...(due.length && { due }),
+    ...(relative && { today: todayIso() }),
+    q: q || undefined,
+  }
+}
+
+/**
  * Issue pages for a workspace, narrowed by the page's scope (team, project,
  * assignee or creator) and view tab, then by the user's filters and sort.
  */
@@ -50,17 +73,11 @@ export function issueListOptions(
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const { q, due, ...rest } = filters
-  // Relative due filters are evaluated against the viewer's local day (domain.md).
-  const relative = due.some((bucket) => bucket !== 'noDueDate')
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
-      workspaceSlug,
-      ...filter,
-      ...rest,
-      ...(due.length && { due }),
-      ...(relative && { today: todayIso() }),
-      q: q || undefined,
+      ...issueFiltersInput(workspaceSlug, filter, filters),
+      sort: filters.sort,
+      direction: filters.direction,
       cursor,
       limit: PAGE_SIZE,
     }),
@@ -80,9 +97,8 @@ export function issueFacetsOptions(
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const { q, sort: _sort, direction: _direction, ...rest } = filters
   return orpc.issues.facets.queryOptions({
-    input: { workspaceSlug, ...filter, ...rest, q: q || undefined },
+    input: issueFiltersInput(workspaceSlug, filter, filters),
     placeholderData: keepPreviousData,
   })
 }
