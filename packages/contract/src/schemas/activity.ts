@@ -20,6 +20,7 @@ export const activityKindSchema = z.enum([
   'relation',
   'cycle',
   'link',
+  'mentioned_in',
 ])
 
 /**
@@ -29,7 +30,8 @@ export const activityKindSchema = z.enum([
  * (`from`) sub-issue identifier, `relation` `[role, otherIssueId, otherIdentifier]` (`to`
  * when added, `from` when removed; role is `blocks`, `blocked_by`, `related`,
  * `duplicate_of` or `duplicated_by`, read from this issue's side), `link` `[title, url]` (`to`
- * when added, `from` when removed). `created` and
+ * when added, `from` when removed), `mentioned_in` `[sourceIssueId, sourceIdentifier]` plus the
+ * comment id when the mention is in a comment (`to`, on the mentioned issue). `created` and
  * `description` carry no values.
  */
 export const activityValueSchema = z.union([z.string(), z.number(), z.array(z.string())]).nullable()
@@ -45,6 +47,18 @@ export const activitySchema = z.object({
   kind: activityKindSchema,
   from: activityValueSchema,
   to: activityValueSchema,
+  /**
+   * `mentioned_in`: where this issue was mentioned, with the source's current title (null
+   * when the source issue was deleted since). Null for every other kind.
+   */
+  mentionedIn: z
+    .object({
+      issueId: z.uuid(),
+      identifier: z.string(),
+      title: z.string().nullable(),
+      commentId: z.uuid().nullable(),
+    })
+    .nullable(),
   createdAt: z.date(),
 })
 
@@ -63,5 +77,6 @@ export const activityPageSchema = z.object({
 export type ActivityActorType = z.infer<typeof activityActorTypeSchema>
 export type ActivityKind = z.infer<typeof activityKindSchema>
 export type Activity = z.infer<typeof activitySchema>
+export type ActivityMentionSource = NonNullable<Activity['mentionedIn']>
 export type ActivityPage = z.infer<typeof activityPageSchema>
 export type ListActivityInput = z.input<typeof listActivityInputSchema>
