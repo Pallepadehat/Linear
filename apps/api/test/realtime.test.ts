@@ -264,6 +264,35 @@ describe('realtime', () => {
     )
   })
 
+  it('tells the project when an issue completes its milestone', async () => {
+    const { owner, member, team } = await workspaceWithIssue()
+    const scope = { workspaceSlug: 'tip' }
+    const project = await owner.client.projects.create({ ...scope, name: 'Launch' })
+    const milestone = await owner.client.milestones.create({
+      ...scope,
+      projectId: project.id,
+      name: 'Alpha',
+    })
+    const issue = await owner.client.issues.create({
+      ...scope,
+      teamId: team.id,
+      title: 'Last one',
+      projectId: project.id,
+      milestoneId: milestone.id,
+    })
+    const done = team.statuses.find((s) => s.category === 'completed')!
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    await owner.client.issues.update({ ...scope, id: issue.id, statusId: done.id })
+
+    await eventually(() =>
+      expect(events).toEqual([
+        { type: 'issue.updated', issueId: issue.id, fields: ['status'], actorId: owner.userId },
+        { type: 'project.updated', projectId: project.id, actorId: owner.userId },
+      ]),
+    )
+  })
+
   it('tells both the sub-issue and its parent when the parent changes', async () => {
     const { owner, member, team, issue } = await workspaceWithIssue()
     const parent = await owner.client.issues.create({

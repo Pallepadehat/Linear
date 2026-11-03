@@ -112,6 +112,113 @@ describe('projects.activity', () => {
     expect(added).toHaveLength(2)
   })
 
+  it('logs created milestones with the creator as actor', async () => {
+    const { owner, project, feed } = await projectInTip()
+    const milestone = await owner.client.milestones.create({
+      ...scope,
+      projectId: project.id,
+      name: 'M3 — Projects and views',
+    })
+    expect((await feed()).items[0]).toMatchObject({
+      kind: 'milestone.created',
+      actor: { id: owner.userId },
+      payload: { milestoneId: milestone.id, name: 'M3 — Projects and views' },
+    })
+  })
+
+  it('logs milestone.completed only when its last open issue moves to done', async () => {
+    const { owner, team, project, feed } = await projectInTip()
+    const status = (category: string) => team.statuses.find((s) => s.category === category)!
+    const milestone = await owner.client.milestones.create({
+      ...scope,
+      projectId: project.id,
+      name: 'Alpha',
+    })
+    const [first, second] = await Promise.all(
+      ['First', 'Second'].map((title) =>
+        owner.client.issues.create({
+          ...scope,
+          teamId: team.id,
+          title,
+          projectId: project.id,
+          milestoneId: milestone.id,
+        }),
+      ),
+    )
+    const completed = async () =>
+      (await feed()).items.filter((item) => item.kind === 'milestone.completed')
+    const move = (id: string, category: string) =>
+      owner.client.issues.update({ ...scope, id, statusId: status(category).id })
+
+    await move(first!.id, 'completed')
+    expect(await completed()).toEqual([])
+
+    await move(second!.id, 'completed')
+    expect(await completed()).toEqual([
+      expect.objectContaining({
+        actor: expect.objectContaining({ id: owner.userId }),
+        payload: { milestoneId: milestone.id, name: 'Alpha' },
+      }),
+    ])
+
+    // Editing a done issue, or saving the same done status, doesn't complete it again.
+    await owner.client.issues.update({ ...scope, id: second!.id, priority: 1 })
+    await move(second!.id, 'completed')
+    expect(await completed()).toHaveLength(1)
+
+    // Reopened and finished again: completed again.
+    await move(second!.id, 'started')
+    await move(second!.id, 'completed')
+    expect(await completed()).toHaveLength(2)
+  })
+
+  it('does not complete a milestone when a done issue is moved into it', async () => {
+    const { owner, team, project, feed } = await projectInTip()
+    const done = team.statuses.find((s) => s.category === 'completed')!
+    const milestone = await owner.client.milestones.create({
+      ...scope,
+      projectId: project.id,
+      name: 'Alpha',
+    })
+    const issue = await owner.client.issues.create({
+      ...scope,
+      teamId: team.id,
+      title: 'Done already',
+      projectId: project.id,
+      statusId: done.id,
+    })
+    await owner.client.issues.update({ ...scope, id: issue.id, milestoneId: milestone.id })
+    expect((await feed()).items.map((item) => item.kind)).not.toContain('milestone.completed')
+  })
+
+  it('writes one milestone.completed when the last two issues finish at once', async () => {
+    const { owner, team, project, feed } = await projectInTip()
+    const done = team.statuses.find((s) => s.category === 'completed')!
+    const milestone = await owner.client.milestones.create({
+      ...scope,
+      projectId: project.id,
+      name: 'Alpha',
+    })
+    const created = await Promise.all(
+      ['One', 'Two', 'Three'].map((title) =>
+        owner.client.issues.create({
+          ...scope,
+          teamId: team.id,
+          title,
+          projectId: project.id,
+          milestoneId: milestone.id,
+        }),
+      ),
+    )
+    await Promise.all(
+      created.map((issue) =>
+        owner.client.issues.update({ ...scope, id: issue.id, statusId: done.id }),
+      ),
+    )
+    const kinds = (await feed()).items.map((item) => item.kind)
+    expect(kinds.filter((kind) => kind === 'milestone.completed')).toHaveLength(1)
+  })
+
   it('pages newest first with a cursor', async () => {
     const { owner, project, feed } = await projectInTip()
     for (const priority of [1, 2, 3, 4]) {
