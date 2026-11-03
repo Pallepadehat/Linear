@@ -95,6 +95,12 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/features/views/pages/ViewsPage.vue'),
       },
       {
+        path: 'view/:viewId',
+        name: 'view',
+        meta: { title: 'View' },
+        component: () => import('@/features/views/pages/ViewPage.vue'),
+      },
+      {
         // A team opens on its issues, like Linear.
         path: 'team/:teamKey',
         name: 'team',
