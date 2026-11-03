@@ -47,7 +47,10 @@ describe('notifyJobId', () => {
     actorId: null,
     commentId: '01890a5d-ac96-774b-bcce-b302099a8059',
   }
-  const [ada, bob] = ['01890a5d-ac96-774b-bcce-b302099a805a', '01890a5d-ac96-774b-bcce-b302099a805b']
+  const [ada, bob] = [
+    '01890a5d-ac96-774b-bcce-b302099a805a',
+    '01890a5d-ac96-774b-bcce-b302099a805b',
+  ]
 
   it('is the source key for events other than mentions', () => {
     const payload = { ...base, event: 'commented' as const }

@@ -56,10 +56,9 @@ describe('parseMentions', () => {
   })
 
   it('needs word boundaries and a real number', () => {
-    expect(parseMentions('aTIP-1 TIP-1x A-1 TIP-0 TIP-1-2 (TIP-3) TIP-4.').issueIdentifiers).toEqual([
-      'TIP-3',
-      'TIP-4',
-    ])
+    expect(
+      parseMentions('aTIP-1 TIP-1x A-1 TIP-0 TIP-1-2 (TIP-3) TIP-4.').issueIdentifiers,
+    ).toEqual(['TIP-3', 'TIP-4'])
   })
 
   it('does not read a user mention as plain text identifiers', () => {
@@ -81,7 +80,10 @@ describe('parseMentions', () => {
 describe('addedMentions', () => {
   it('returns only what the edit adds', () => {
     expect(
-      addedMentions(`${mention('Ada', ada)} TIP-1`, `${mention('Ada', ada)} ${mention('Bob', bob)} TIP-1 TIP-2`),
+      addedMentions(
+        `${mention('Ada', ada)} TIP-1`,
+        `${mention('Ada', ada)} ${mention('Bob', bob)} TIP-1 TIP-2`,
+      ),
     ).toEqual({ userIds: [bob], issueIdentifiers: ['TIP-2'] })
   })
 
