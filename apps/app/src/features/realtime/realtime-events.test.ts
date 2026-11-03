@@ -33,12 +33,15 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     creatorId: 'user',
     projectId: null,
     cycleId: null,
+    estimate: null,
     dueDate: null,
     labels: [],
     isSubscribed: false,
     createdAt: created,
     updatedAt: created,
     completedAt: null,
+    parentId: null,
+    subIssueProgress: null,
     ...overrides,
   }
 }
@@ -57,7 +60,7 @@ beforeEach(() => {
     pages: [{ items: [issue('a'), issue('b')], nextCursor: null }],
     pageParams: [null],
   })
-  queryClient.setQueryData(detailKey, issue('a'))
+  queryClient.setQueryData(detailKey, { ...issue('a'), parent: null, children: [] })
 })
 afterEach(() => vi.useRealTimers())
 
@@ -158,6 +161,14 @@ describe('realtime event handler', () => {
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byPriority), stale(byTitle)]).toEqual([false, true, true])
 
+    const byEstimate = keyFor({ estimates: [null] })
+    queryClient.setQueryData<InfiniteData<IssuePage>>(byEstimate, {
+      pages: [{ items: [issue('a')], nextCursor: null }],
+      pageParams: [null],
+    })
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['estimate'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), stale(byEstimate)]).toEqual([false, true])
     const overdue = keyFor({ due: ['overdue'] })
     const byDueDate = keyFor({ sort: 'dueDate' })
     for (const key of [overdue, byDueDate]) {

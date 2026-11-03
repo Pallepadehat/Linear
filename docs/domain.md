@@ -80,6 +80,17 @@ Each team stores the defaults used when an issue is created without that field (
 
 Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medium, `4` Low. Sorting by priority puts Urgent first and No priority last.
 
+## Estimates
+
+- Each team picks an estimate scale (`teams.estimate_scale`, owner-only like other team settings): `off` (default, estimates hidden), `linear` 1–5, `fibonacci` 1, 2, 3, 5, 8, `exponential` 1, 2, 4, 8, 16, `tshirt` XS, S, M, L, XL stored as 1, 2, 3, 5, 8 so they sum like points.
+- `teams.estimate_allow_zero` (default off) adds `0` to any scale; Fibonacci's 0 follows the same flag. A t-shirt `0` is shown as the raw number "0".
+- `issues.estimate` is a nullable integer (`null` = no estimate, DB check 0–100). Create and update accept a value only if it is on the issue team's current scale (`BAD_REQUEST` otherwise, and for any value while the scale is `off`); `null` (clear) is always allowed.
+- Changing the scale or the zero flag keeps existing estimates; the UI shows a value that is no longer on the scale as its raw number. Only a *changed* estimate is validated, so editing other fields of such an issue still works.
+- `issues.list` filter `estimates`: specific values, `null` = no estimate, `'any'` = has an estimate (OR'd). Sort `estimate`: `desc` largest first, `asc` smallest first, no estimate last in both directions, newest first within a value.
+- Activity kind `estimate` with numeric `from`/`to` (null when unset); the timeline reads "set estimate to 3 points" / "removed estimate" (t-shirt teams name the size).
+- Group headers and board columns show the sum of their issues' estimates, counting only issues whose team uses estimates; hidden when the sum is 0.
+- `E` opens the estimate picker on the issue page, in the create dialog, and on the focused list row or board card (compact pickers answer their hotkey while focus is inside their row).
+
 ## Due dates
 
 - An issue's `dueDate` is a calendar day (`YYYY-MM-DD`, Postgres `date`), with no time and no timezone; null = no due date. `issues.create` / `issues.update` take it (null clears it); anything that isn't a real day (`2026-02-30`, a timestamp) is `BAD_REQUEST`. Changes are logged as activity kind `due_date` (`from`/`to` = the days) and published as `issue.updated` with field `dueDate`.
@@ -239,11 +250,22 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - **Prev/next** (`issueNav` Pinia store): clicking an issue in a list or board stores the list's query key, the identifiers in the order rendered (list: by group, collapsed groups skipped; board: column by column) and the list's full path. The header shows `n / total` with ↓/↑ buttons; `J`/`K` step when focus isn't in an input, editor, menu or dialog. Steps use `router.replace`, so Back returns to the list. The context only applies to the issue it was opened for or stepped to: any other way of reaching an issue (URL, search, a link) clears it and hides the counter. The total counts the issues the list had **loaded** (pages of 50), like the list's group counts. While the detail page is open, the source list's query (inactive) is refetched when invalidated (realtime) and the order is re-derived from its cache; if the current issue leaves the list, the counter hides.
 - The "…" menu has only items for built features: **Remove ▸** (assignee, project, all labels, priority — only those set; optimistic like the sidebar), **Make a copy…** (create dialog in the issue's team, prefilled through `issuePrefill` like a template) and **Delete** (`⌘⌫` / `Ctrl ⌫`): a confirmation dialog, then `issues.delete`, a toast and `router.replace` back to the source list. Create related ▸ (needs M8 relations / sub-issues), Copy ▸ (M7-08), Due date, Add link…, Mark as ▸ and Favorite (M8-02/05/04/07) are omitted until those exist, as is the favorite star.
 
+## Sub-issues
+
+- An issue may have one parent (`parentId`); any number of issues may share it. The parent must be in the same workspace (otherwise `NOT_FOUND`, so ids can't be probed); teams may differ. An issue can't be its own parent, nor the sub-issue of one of its descendants (`BAD_REQUEST`). Checks run in the write transaction, serialized per workspace by an advisory lock so two concurrent moves can't form a loop.
+- Deleting a parent leaves its sub-issues as top-level issues (`ON DELETE SET NULL`); no activity is written for that, but each sub-issue gets an `issue.updated` (`parent`) event.
+- Progress (`subIssueProgress`, null without sub-issues): `done` counts sub-issues in a `completed` status; canceled ones are left out of `total`. Lists and details show it as `done/total`.
+- Activity: the child logs `parent` with the old/new parent **identifiers** (`TIP-12`); the old and new parent log `sub_issue` with the child's identifier (`to` when added, `from` when removed). Identifiers are stored rather than ids because team keys never change, so the timeline names issues without loading them. Creating an issue with a parent logs `sub_issue` on the parent only.
+- Realtime: a parent change publishes `issue.updated` with `parent` for the child and `subIssues` for the old and new parent; a sub-issue's status change and creating or deleting a sub-issue also publish `subIssues` for its parent.
+- Inline "Add sub-issues" creates in the parent's team, status and project; Enter creates and keeps the row open for the next title, Esc closes it. Sub-issues are listed oldest first; drag reorder is not supported yet.
+- "Set parent issue…" (⇧⌘P, Ctrl+Shift+P off macOS) searches the workspace with `issues.list` (`excludeSubtreeOf` drops the issue and its descendants); "Remove parent" clears it. Both go through the optimistic `useUpdateIssue()`.
+- Lists: `showSubIssues` (default on; URL `?subIssues=hide` turns it off) decides whether issues with a parent are listed. When shown, a sub-issue renders indented right after its parent if the parent is in the same status group and loaded; otherwise at the top level. Until the display options popover (M7-03) exists, the toggle lives in the order-by menu; "Clear" keeps it, like the sort.
+
 ## Activity
 
 - Every issue change is logged in `activity_log`, in the same transaction as the change: `created` on create, then one entry per field whose value actually changed. Setting a field to the value it already had (including the same label set in another order, or a title that trims to the current one) writes nothing.
 - Actor is `user` (with `actorId`) for changes made through the API, `github` (no `actorId`, with `pullRequestId` of the triggering PR) for automation. A deleted user's entries keep `actorType: user` with `actorId` null.
-- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` number; `labels` sorted label-id arrays; `due_date` `YYYY-MM-DD` days. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
+- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` and `estimate` numbers (estimate null when unset); `labels` sorted label-id arrays; `due_date` `YYYY-MM-DD` days. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
 - `activity.list` returns one issue's entries **oldest first** as `{ items, nextCursor }`, cursor = last entry id (UUIDv7), page size 50 (max 100). An issue outside the workspace is `NOT_FOUND`.
 
 ## Comments

@@ -19,6 +19,7 @@ const FILTER_KEYS = [
   'q',
   'sort',
   'dir',
+  'subIssues',
 ]
 
 /**
@@ -43,10 +44,10 @@ export function useIssueFilters() {
     })
   }
 
-  /** Clears filters and search; the sort stays. */
+  /** Clears filters and search; the sort and display options stay. */
   function clear() {
-    const { sort, direction } = filters.value
-    update({ ...EMPTY_FILTERS, sort, direction })
+    const { sort, direction, showSubIssues } = filters.value
+    update({ ...EMPTY_FILTERS, sort, direction, showSubIssues })
   }
 
   return { filters, active, update, clear }

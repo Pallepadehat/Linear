@@ -26,5 +26,7 @@ export function toTeamWithStatusesDto(
     cycleUpcomingCount: row.cycleUpcomingCount,
     cycleAutoAddStarted: row.cycleAutoAddStarted,
     cycleRolloverUnfinished: row.cycleRolloverUnfinished,
+    estimateScale: row.estimateScale,
+    estimateAllowZero: row.estimateAllowZero,
   }
 }

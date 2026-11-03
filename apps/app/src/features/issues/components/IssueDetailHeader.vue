@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Issue } from '@linear/contract'
-import { ChevronDown, ChevronUp, Copy, Ellipsis, Trash2, X } from '@lucide/vue'
+import { ChevronDown, ChevronUp, Copy, Ellipsis, ListTree, Trash2, Unlink, X } from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watchEffect } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
@@ -43,7 +43,8 @@ const props = defineProps<{
   teamName?: string
   teamKey?: string
 }>()
-const emit = defineEmits<{ change: [patch: IssuePatch] }>()
+// `setParent` opens the parent picker, which the page owns (it also answers ⇧⌘P).
+const emit = defineEmits<{ change: [patch: IssuePatch]; setParent: [] }>()
 
 const ui = useUiStore()
 const router = useRouter()
@@ -191,6 +192,19 @@ const itemClass = 'h-8 rounded-md text-[13px]'
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem :class="itemClass" @select="emit('setParent')">
+          <ListTree class="text-ink-subtle" aria-hidden="true" />
+          Set parent issue…
+          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">⇧⌘P</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          v-if="issue.parentId"
+          :class="itemClass"
+          @select="emit('change', { parentId: null, parent: null })"
+        >
+          <Unlink class="text-ink-subtle" aria-hidden="true" />
+          Remove parent
+        </DropdownMenuItem>
         <DropdownMenuItem :class="itemClass" @select="makeCopy">
           <Copy class="text-ink-subtle" aria-hidden="true" />
           Make a copy…

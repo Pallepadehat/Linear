@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { cycleListOptions } from '@/features/cycles/queries'
+import type { EstimateSettings } from '@/lib/estimates'
 import { orpc } from '@/lib/orpc'
 import { issueListOptions, useUpdateIssue, type IssueListFilter } from '../queries'
 import { useIssueFilters } from './useIssueFilters'
@@ -77,6 +78,16 @@ export function useIssueViewData(
     }
     return map
   })
+  // Every team's estimate scale, for the estimate chips and the group sums.
+  const estimatesByTeam = computed(
+    () =>
+      new Map<string, EstimateSettings>(
+        (teams.value ?? []).map((team) => [
+          team.id,
+          { scale: team.estimateScale, allowZero: team.estimateAllowZero },
+        ]),
+      ),
+  )
 
   const updateIssue = useUpdateIssue(slug)
 
@@ -89,6 +100,7 @@ export function useIssueViewData(
     labels: computed(() => labels.value ?? []),
     statusesByTeam,
     cyclesByTeam,
+    estimatesByTeam,
     updateIssue,
   }
 }

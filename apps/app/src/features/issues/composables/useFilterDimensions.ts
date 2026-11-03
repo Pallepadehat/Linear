@@ -14,6 +14,7 @@ import {
 import { useQuery } from '@tanstack/vue-query'
 import { computed, h, type Component, type MaybeRefOrGetter, toValue } from 'vue'
 import CycleIcon from '@/components/common/CycleIcon.vue'
+import EstimateIcon from '@/components/common/EstimateIcon.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
@@ -22,9 +23,16 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import { cycleName, cyclePercent } from '@/features/cycles/cycles'
 import { cycleListOptions } from '@/features/cycles/queries'
 import { orpc } from '@/lib/orpc'
+import { estimateLabel, estimateValues } from '@/lib/estimates'
 import { PRIORITIES } from '@/lib/priorities'
 import { CATEGORY_ORDER } from '../group-issues'
-import { ME, toggleValues, type IssueFilters } from '../issue-filters'
+import {
+  ANY,
+  ME,
+  toggleValues,
+  type EstimateFilterValue,
+  type IssueFilters,
+} from '../issue-filters'
 import type { IssueDueFilter } from '@linear/contract'
 
 export type FilterOption = {
@@ -37,7 +45,16 @@ export type FilterOption = {
 }
 
 export type FilterDimension = {
-  key: 'status' | 'priority' | 'assignee' | 'project' | 'cycle' | 'label' | 'due' | 'subscriber'
+  key:
+    | 'status'
+    | 'priority'
+    | 'assignee'
+    | 'project'
+    | 'cycle'
+    | 'label'
+    | 'estimate'
+    | 'due'
+    | 'subscriber'
   label: string
   icon: Component
   options: FilterOption[]
@@ -195,6 +212,31 @@ export function useFilterDimensions(
       values: [l.id],
     }))
 
+    // Only teams that use estimates; values are the union of their scales.
+    const estimateTeams = (teams.value ?? []).filter(
+      (team) => (!teamId || team.id === teamId) && team.estimateScale !== 'off',
+    )
+    const scales = new Set(estimateTeams.map((team) => team.estimateScale))
+    const [onlyScale] = scales.size === 1 ? [...scales] : []
+    const points = [
+      ...new Set(
+        estimateTeams.flatMap((team) =>
+          estimateValues({ scale: team.estimateScale, allowZero: team.estimateAllowZero }),
+        ),
+      ),
+    ].sort((a, b) => a - b)
+    const estimateIcon = () => h(EstimateIcon)
+    const estimateOptions = [
+      { key: ANY, label: 'Has estimate', icon: estimateIcon, values: [ANY as EstimateFilterValue] },
+      { key: 'none', label: 'No estimate', icon: estimateIcon, values: [null] },
+      ...points.map((value) => ({
+        key: String(value),
+        label: estimateLabel(value, onlyScale ?? 'linear'),
+        icon: estimateIcon,
+        values: [value as EstimateFilterValue],
+      })),
+    ]
+
     const dueOptions: { key: string; label: string; icon: Component; values: IssueDueFilter[] }[] =
       [
         { key: 'overdue', label: 'Overdue', icon: CalendarClock, values: ['overdue'] },
@@ -277,6 +319,18 @@ export function useFilterDimensions(
         (v) => update({ subscriberIds: v }),
         subscriberOptions,
       ),
+      ...(estimateTeams.length || f.estimates.length
+        ? [
+            dimension(
+              'estimate',
+              'Estimate',
+              EstimateIcon,
+              f.estimates,
+              (v) => update({ estimates: v }),
+              estimateOptions,
+            ),
+          ]
+        : []),
     ]
   })
 }

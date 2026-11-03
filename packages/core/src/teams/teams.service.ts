@@ -9,6 +9,7 @@ import {
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { DomainError, isUniqueViolation } from '../errors'
 import { TEAM_KEY_PATTERN, normalizeTeamKey } from '../identifiers'
+import type { EstimateScale } from '../issues/estimates'
 import { ISSUE_PRIORITIES, type IssuePriority } from '../issues/priorities'
 import { pickDefaultStatus } from './default-status'
 
@@ -85,6 +86,9 @@ export type UpdateTeamDefaultsInput = {
   defaultStatusId?: string
   defaultPriority?: number
   defaultAssigneeId?: string | null
+  /** Changing the scale keeps existing issue estimates (docs/domain.md → Estimates). */
+  estimateScale?: EstimateScale
+  estimateAllowZero?: boolean
 }
 
 export async function updateTeamDefaults(db: DbOrTx, input: UpdateTeamDefaultsInput) {
@@ -125,6 +129,8 @@ export async function updateTeamDefaults(db: DbOrTx, input: UpdateTeamDefaultsIn
     }
     changes.defaultAssigneeId = input.defaultAssigneeId
   }
+  if (input.estimateScale !== undefined) changes.estimateScale = input.estimateScale
+  if (input.estimateAllowZero !== undefined) changes.estimateAllowZero = input.estimateAllowZero
 
   const [team] = await db
     .update(teams)

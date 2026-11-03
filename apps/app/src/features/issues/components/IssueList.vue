@@ -5,12 +5,20 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import EstimateIcon from '@/components/common/EstimateIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
+import { pointsText, sumEstimates } from '@/lib/estimates'
 import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
 import { useIssueFilters } from '../composables/useIssueFilters'
-import { groupIssuesByStatus, listOrder, toListRows, type IssueListRow } from '../group-issues'
+import {
+  groupIssuesByStatus,
+  listOrder,
+  toListRows,
+  type IssueGroup,
+  type IssueListRow,
+} from '../group-issues'
 import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
@@ -38,18 +46,27 @@ const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, queryKey, issues, users, labels, statusesByTeam, cyclesByTeam, updateIssue } =
-  useIssueViewData(
-    () => props.workspaceSlug,
-    () => ({
-      teamId: props.teamId,
-      projectId: props.projectId,
-      cycleId: props.cycleId,
-      assignee: props.assignee,
-      creator: props.creator,
-      statusCategories: viewStatusCategories(props.view),
-    }),
-  )
+const {
+  query,
+  queryKey,
+  issues,
+  users,
+  labels,
+  statusesByTeam,
+  cyclesByTeam,
+  estimatesByTeam,
+  updateIssue,
+} = useIssueViewData(
+  () => props.workspaceSlug,
+  () => ({
+    teamId: props.teamId,
+    projectId: props.projectId,
+    cycleId: props.cycleId,
+    assignee: props.assignee,
+    creator: props.creator,
+    statusCategories: viewStatusCategories(props.view),
+  }),
+)
 const viewEmpty = computed(() =>
   props.view === 'active'
     ? { title: 'No active issues', description: 'Issues in Todo or In Progress show up here.' }
@@ -58,6 +75,9 @@ const viewEmpty = computed(() =>
       : null,
 )
 const collapsed = ref(new Set<string>())
+// Sums come from the cached issues, so optimistic estimate changes show at once.
+const groupEstimate = (group: IssueGroup) =>
+  sumEstimates(group.issues, (teamId) => estimatesByTeam.value.get(teamId)?.scale)
 const rows = computed(() => toListRows(groupIssuesByStatus(issues.value), collapsed.value))
 
 function toggleGroup(key: string) {
@@ -238,6 +258,17 @@ watchEffect(() => {
               <StatusIcon :category="row.group.status.category" />
               <span class="font-medium text-ink">{{ row.group.status.name }}</span>
               <span class="text-ink-subtle tabular-nums">{{ row.group.issues.length }}</span>
+              <span
+                v-if="groupEstimate(row.group) > 0"
+                class="ml-1 flex items-center gap-1 text-xs text-ink-subtle tabular-nums"
+                :title="`Estimate: ${pointsText(groupEstimate(row.group))}`"
+              >
+                <EstimateIcon class="size-3.5" />
+                {{ groupEstimate(row.group) }}
+                <span class="sr-only">{{
+                  groupEstimate(row.group) === 1 ? 'point' : 'points'
+                }}</span>
+              </span>
             </button>
             <Button
               v-if="teamId"
@@ -255,6 +286,7 @@ watchEffect(() => {
             v-else
             class="flex-1"
             :issue="row.issue"
+            :depth="row.depth"
             :data-issue-id="row.issue.id"
             :focused="row.issue.id === focusedId"
             :selected="selectedIds.has(row.issue.id)"
@@ -262,6 +294,7 @@ watchEffect(() => {
             :cycles="cyclesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"
+            :estimates="estimatesByTeam.get(row.issue.teamId)"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
             @open="openIssue(row.issue)"
           />

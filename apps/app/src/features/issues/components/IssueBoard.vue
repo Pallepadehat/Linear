@@ -32,15 +32,16 @@ const props = defineProps<{
 
 const ui = useUiStore()
 const { active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, queryKey, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
-  () => props.workspaceSlug,
-  () => ({
-    teamId: props.teamId,
-    projectId: props.projectId,
-    cycleId: props.cycleId,
-    statusCategories: viewStatusCategories(props.view),
-  }),
-)
+const { query, queryKey, issues, users, labels, statusesByTeam, estimatesByTeam, updateIssue } =
+  useIssueViewData(
+    () => props.workspaceSlug,
+    () => ({
+      teamId: props.teamId,
+      projectId: props.projectId,
+      cycleId: props.cycleId,
+      statusCategories: viewStatusCategories(props.view),
+    }),
+  )
 
 // Pages are newest-first across all statuses, so every column is only complete
 // once every page is in; keep loading in the background. Columns are virtualized.
@@ -167,6 +168,7 @@ function onDrop(column: Column) {
         :key="column.key"
         :column="column"
         :statuses-by-team="statusesByTeam"
+        :estimates-by-team="estimatesByTeam"
         :users="users"
         :labels="labels"
         :dragging-id="dragging?.id ?? null"

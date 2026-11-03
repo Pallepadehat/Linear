@@ -8,6 +8,7 @@ import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
 import CyclePicker from '@/components/common/CyclePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
@@ -32,6 +33,7 @@ import { projectListOptions, projectsKey } from '@/features/projects/queries'
 import TemplatePicker from '@/features/templates/components/TemplatePicker.vue'
 import { templateListOptions } from '@/features/templates/queries'
 import { errorMessage } from '@/lib/errors'
+import { estimateValues } from '@/lib/estimates'
 import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
@@ -71,6 +73,7 @@ const {
     assigneeId: null,
     projectId: null,
     cycleId: null,
+    estimate: null,
     labelIds: [],
     dueDate: null,
   },
@@ -196,6 +199,16 @@ const projectId = computed({
     setFieldValue('projectId', id, false)
   },
 })
+const estimate = computed({
+  get: () => values.estimate ?? null,
+  set: (value: number | null) => setFieldValue('estimate', value, false),
+})
+// Hidden while the team's scale is unknown or off.
+const estimates = computed(() =>
+  loadedTeam.value && loadedTeam.value.estimateScale !== 'off'
+    ? { scale: loadedTeam.value.estimateScale, allowZero: loadedTeam.value.estimateAllowZero }
+    : null,
+)
 const dueDate = computed({
   get: () => values.dueDate ?? null,
   set: (value: string | null) => setFieldValue('dueDate', value, false),
@@ -318,7 +331,15 @@ function applyPrefill() {
   })
   for (const field of Object.keys(next) as PrefillField[]) {
     setFieldValue(field, next[field], false)
-  }
+  } // An estimate picked for another team may not be on this team's scale.
+  const picked = values.estimate ?? null
+  if (
+    picked !== null &&
+    !estimateValues({ scale: team.estimateScale, allowZero: team.estimateAllowZero }).includes(
+      picked,
+    )
+  )
+    setFieldValue('estimate', null, false)
 }
 watch([loadedTeam, assignees], applyPrefill)
 // A cycle picked for another team (or one that has ended) is dropped once the team's cycles load.
@@ -457,6 +478,12 @@ function onKeydown(event: KeyboardEvent) {
           <StatusPicker v-model="statusId" :statuses="statuses" />
           <PriorityPicker v-model="priority" />
           <AssigneePicker v-model="assigneeId" :users="assignees" />
+          <EstimatePicker
+            v-if="estimates"
+            v-model="estimate"
+            :scale="estimates.scale"
+            :allow-zero="estimates.allowZero"
+          />
           <LabelPicker
             v-if="values.teamId"
             v-model="labelIds"

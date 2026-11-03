@@ -32,7 +32,9 @@ const ISSUE_INPUT_FIELDS = {
   assigneeId: 'assignee',
   projectId: 'project',
   cycleId: 'cycle',
+  estimate: 'estimate',
   labelIds: 'labels',
+  parentId: 'parent',
   dueDate: 'dueDate',
 } as const satisfies Record<string, IssueField>
 

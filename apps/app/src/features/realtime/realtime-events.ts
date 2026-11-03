@@ -28,8 +28,11 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
     (fields.has('labels') && !!input.labelIds?.length) ||
+    (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
     (fields.has('subscribers') && !!input.subscriberIds?.length) ||
-    (fields.has('title') && !!input.q)
+    (fields.has('title') && !!input.q) ||
+    // Gaining or losing a parent moves the issue in or out of lists that hide sub-issues.
+    (fields.has('parent') && (input.showSubIssues === false || !!input.excludeSubtreeOf))
   )
 }
 const listInput = (query: Query) =>

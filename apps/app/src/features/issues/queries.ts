@@ -1,6 +1,7 @@
 import type {
   Comment,
   Issue,
+  IssueDetail,
   IssuePage,
   ListIssuesInput,
   ReactionEmoji,
@@ -90,7 +91,7 @@ export function writeIssueToCaches(
     (data) => patchIssueInPages(data, id, update),
   )
   for (const queryKey of issueDetailKeys())
-    queryClient.setQueriesData<Issue>({ queryKey }, (data) => patchIssue(data, id, update))
+    queryClient.setQueriesData<IssueDetail>({ queryKey }, (data) => patchIssue(data, id, update))
 }
 
 /**

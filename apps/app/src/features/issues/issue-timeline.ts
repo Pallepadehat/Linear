@@ -1,4 +1,5 @@
 import type { Activity, CommentThread } from '@linear/contract'
+import { pointsText } from '@/lib/estimates'
 import { formatDueDate, todayIso } from '@/lib/due-dates'
 import { priorityLabel, toPriority } from '@/lib/priorities'
 
@@ -36,6 +37,8 @@ export type ActivityNames = {
   /** Absent where cycles aren't loaded; entries then read "a cycle". */
   cycle?: (id: string) => string | undefined
   label: (id: string) => string | undefined
+  /** How the issue's team names an estimate ("M" on t-shirt scales); defaults to points. */
+  estimate?: (value: number) => string
 }
 
 export function activityActor(entry: Activity, names: ActivityNames): string {
@@ -71,6 +74,10 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
     case 'priority': {
       const to = toPriority(typeof entry.to === 'number' ? entry.to : 0)
       return to === 0 ? 'removed the priority' : `set priority to ${priorityLabel(to)}`
+    }
+    case 'estimate': {
+      if (typeof entry.to !== 'number') return 'removed estimate'
+      return `set estimate to ${names.estimate?.(entry.to) ?? pointsText(entry.to)}`
     }
     case 'assignee': {
       const to = asString(entry.to)
@@ -108,6 +115,15 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
           : '',
       ].filter(Boolean)
       return parts.join(' and ') || 'changed the labels'
+    }
+    // Identifiers are stored as-is (team keys never change).
+    case 'parent': {
+      const to = asString(entry.to)
+      return to ? `set parent to ${to}` : 'removed parent'
+    }
+    case 'sub_issue': {
+      const to = asString(entry.to)
+      return to ? `added sub-issue ${to}` : `removed sub-issue ${asString(entry.from) ?? ''}`.trim()
     }
   }
 }

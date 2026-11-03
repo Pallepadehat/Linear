@@ -25,6 +25,15 @@ export const statusCategory = pgEnum('status_category', [
   'canceled',
 ])
 
+/** docs/domain.md → Estimates. `off` hides estimates for the team. */
+export const estimateScale = pgEnum('estimate_scale', [
+  'off',
+  'linear',
+  'fibonacci',
+  'exponential',
+  'tshirt',
+])
+
 export const teams = pgTable(
   'teams',
   {
@@ -49,6 +58,8 @@ export const teams = pgTable(
     cycleUpcomingCount: integer().notNull().default(2),
     cycleAutoAddStarted: boolean().notNull().default(true),
     cycleRolloverUnfinished: boolean().notNull().default(true),
+    estimateScale: estimateScale().notNull().default('off'),
+    estimateAllowZero: boolean().notNull().default(false),
     ...timestamps,
   },
   // Annotated: the FK to workflow_statuses makes the two table types refer to each other.
