@@ -107,6 +107,7 @@ describe('issue filters in the URL', () => {
     expect(hasActiveFilters({ ...EMPTY_FILTERS, estimates: [null] })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, creatorIds: ['me'] })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, hasPullRequests: false })).toBe(true)
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, hasLinks: false })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, content: 'x' })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, completed: { kind: 'past', period: 'day' } })).toBe(
       true,
@@ -130,6 +131,7 @@ describe('issue filters in the URL', () => {
       labelIds: [A, B],
       operators: { status: 'not', priority: 'not', assignee: 'not', creator: 'not', label: 'all' },
       hasPullRequests: false,
+      hasLinks: false,
     }
     const query = serializeIssueFilters(filters)
     expect(query).toEqual({
@@ -140,6 +142,7 @@ describe('issue filters in the URL', () => {
       'creator-not': 'me',
       'label-all': `${A},${B}`,
       pr: 'no',
+      links: 'none',
     })
     expect(parseIssueFilters(query as Record<string, string>)).toEqual(filters)
     expect(
@@ -168,6 +171,7 @@ describe('issue filters in the URL', () => {
         updated: 'after-2026-02-30',
         completed: 'before-yesterday',
         pr: 'maybe',
+        links: 'some',
         creator: 'you,me',
         content: '   ',
       }),
@@ -283,6 +287,7 @@ describe('toListInput', () => {
           updated: { kind: 'after', date: '2026-09-01' },
           content: ' login ',
           hasPullRequests: false,
+          hasLinks: true,
           due: ['overdue'],
           q: 'tip',
           showSubIssues: false,
@@ -295,6 +300,7 @@ describe('toListInput', () => {
       completedBefore: new Date(2026, 9, 1),
       content: 'login',
       hasPullRequests: false,
+      hasLinks: true,
       due: ['overdue'],
       today: '2026-11-03',
       q: 'tip',
@@ -302,5 +308,10 @@ describe('toListInput', () => {
     })
     // "No due date" needs no today.
     expect(toListInput({ ...EMPTY_FILTERS, due: ['noDueDate'] }, now)).not.toHaveProperty('today')
+    // "No links" is sent as `false`; no filter leaves the field out.
+    expect(toListInput({ ...EMPTY_FILTERS, hasLinks: false }, now)).toMatchObject({
+      hasLinks: false,
+    })
+    expect(toListInput(EMPTY_FILTERS, now)).not.toHaveProperty('hasLinks')
   })
 })

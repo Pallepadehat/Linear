@@ -16,6 +16,7 @@ import {
   Signal,
   Tag,
   TextSearch,
+  Unlink,
   UserPen,
 } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
@@ -214,19 +215,40 @@ export function useFilterDimensions(
     }
   }
 
-  /** Links: linked pull requests for now (`hasLinks` comes with issue links, M8-05). */
-  function linksDimension(value: boolean | null): FilterDimension {
-    const set = (next: boolean | null) => update({ hasPullRequests: next })
-    const options = [
-      { key: 'yes', label: 'Has pull requests', icon: GitPullRequest, value: true },
-      { key: 'no', label: 'No pull requests', icon: GitPullRequestClosed, value: false },
-    ].map((option) => ({
-      key: option.key,
-      label: option.label,
-      icon: option.icon,
-      selected: value === option.value,
-      toggle: () => set(value === option.value ? null : option.value),
-    }))
+  /**
+   * Links: any link (web link or linked PR, `hasLinks`) and linked pull requests
+   * (`hasPullRequests`). Each is has / has none; picking the other side replaces it.
+   */
+  function linksDimension(f: IssueFilters): FilterDimension {
+    const options = (
+      [
+        { key: 'has', label: 'Has links', icon: Link2, field: 'hasLinks', value: true },
+        { key: 'none', label: 'No links', icon: Unlink, field: 'hasLinks', value: false },
+        {
+          key: 'pr',
+          label: 'Has pull requests',
+          icon: GitPullRequest,
+          field: 'hasPullRequests',
+          value: true,
+        },
+        {
+          key: 'no-pr',
+          label: 'No pull requests',
+          icon: GitPullRequestClosed,
+          field: 'hasPullRequests',
+          value: false,
+        },
+      ] as const
+    ).map((option) => {
+      const selected = f[option.field] === option.value
+      return {
+        key: option.key,
+        label: option.label,
+        icon: option.icon,
+        selected,
+        toggle: () => update({ [option.field]: selected ? null : option.value }),
+      }
+    })
     const selected = options.filter((o) => o.selected).map((o) => o.label)
     return {
       key: 'links',
@@ -234,11 +256,11 @@ export function useFilterDimensions(
       icon: Link2,
       options,
       selectedLabels: selected,
-      active: value !== null,
+      active: selected.length > 0,
       operator: 'is',
-      summary: selected[0] ?? '',
+      summary: selected.join(', '),
       single: true,
-      clear: () => set(null),
+      clear: () => update({ hasLinks: null, hasPullRequests: null }),
     }
   }
 
@@ -521,7 +543,7 @@ export function useFilterDimensions(
         text: { value: f.content, set: (content) => update({ content: content.trim() }) },
         clear: () => update({ content: '' }),
       },
-      linksDimension(f.hasPullRequests),
+      linksDimension(f),
     ]
   })
 }
