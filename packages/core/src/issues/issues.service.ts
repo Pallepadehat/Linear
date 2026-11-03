@@ -1,5 +1,6 @@
 import {
   issueLabels,
+  issueSubscriptions,
   issues,
   projects,
   labels,
@@ -7,10 +8,12 @@ import {
   workflowStatuses,
   workspaceMembers,
   type DbOrTx,
+  type StatusCategory,
 } from '@linear/db'
 import {
   and,
   asc,
+  between,
   desc,
   eq,
   gt,
@@ -18,6 +21,7 @@ import {
   inArray,
   isNull,
   lt,
+  notInArray,
   or,
   sql,
   type AnyColumn,
@@ -27,9 +31,11 @@ import { recordActivity, type ActivityActor } from '../activity/activity.service
 import { diffIssue } from '../activity/diff'
 import { assignCycle, autoAddCycleId } from '../cycles/cycles.service'
 import { DomainError } from '../errors'
+import { subscribeUsers } from '../subscriptions/subscriptions.service'
 import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
+import { endOfWeek, isIsoDate, type IsoDate } from './due-dates'
 import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
 import {
   decodeListCursor,
@@ -55,6 +61,8 @@ export type CreateIssueInput = {
   /** Must be an open cycle of the issue's team. */
   cycleId?: string | null
   labelIds?: string[]
+  /** `YYYY-MM-DD`; null or omitted = no due date. */
+  dueDate?: IsoDate | null
 }
 
 /** Omitted fields are left unchanged; `labelIds` replaces the whole set. */
@@ -70,7 +78,10 @@ export type UpdateIssueInput = {
   projectId?: string | null
   cycleId?: string | null
   labelIds?: string[]
+  dueDate?: IsoDate | null
 }
+
+export type DueFilter = 'overdue' | 'dueThisWeek' | 'noDueDate'
 
 export type ListIssuesInput = {
   workspaceId: string
@@ -80,6 +91,8 @@ export type ListIssuesInput = {
   assigneeId?: string
   creatorId?: string
   statusIds?: string[]
+  /** The issue's status category is one of these. */
+  statusCategories?: StatusCategory[]
   priorities?: number[]
   /** `null` matches unassigned issues. */
   assigneeIds?: (string | null)[]
@@ -89,6 +102,14 @@ export type ListIssuesInput = {
   cycleIds?: (string | null)[]
   /** Any of these labels. */
   labelIds?: string[]
+  /** Any of these buckets; `overdue` and `dueThisWeek` are relative to `today`. */
+  due?: DueFilter[]
+  /** The viewer's local day (docs/domain.md → Due dates). */
+  today?: IsoDate
+  /** Any of these users is subscribed. */
+  subscriberIds?: string[]
+  /** Who is asking; `isSubscribed` on each issue is for this user. */
+  viewerId?: string
   q?: string
   sort?: IssueSort
   direction?: SortDirection
@@ -102,6 +123,12 @@ function normalizeTitle(title: string) {
   const trimmed = title.trim()
   if (trimmed.length === 0) throw new DomainError('BAD_REQUEST', 'Issue title is required')
   return trimmed
+}
+
+function assertDueDate(dueDate: string | null | undefined) {
+  if (dueDate && !isIsoDate(dueDate)) {
+    throw new DomainError('BAD_REQUEST', 'Due date must be a date like 2026-11-07')
+  }
 }
 
 function assertPriority(priority: number) {
@@ -124,6 +151,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
 
   const priority = input.priority ?? teamDefaults.priority
   assertPriority(priority)
+  assertDueDate(input.dueDate)
   const status = await resolveStatus(
     db,
     input.workspaceId,
@@ -145,7 +173,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
   if (cycleId) await assignCycle(db, input.workspaceId, input.teamId, cycleId)
   else if (input.cycleId === undefined && status.category === 'started')
     cycleId = await autoAddCycleId(db, input.workspaceId, input.teamId)
-  const labelIds = await resolveLabelIds(db, input.workspaceId, input.labelIds ?? [])
+  const labelIds = await resolveLabelIds(db, input.workspaceId, input.teamId, input.labelIds ?? [])
 
   return db.transaction(async (tx) => {
     // The row lock on the team serializes concurrent creates, so numbers are
@@ -171,11 +199,13 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
         cycleId,
+        dueDate: input.dueDate ?? null,
         completedAt: nextCompletedAt(status.category, null),
       })
       .returning()
     if (!issue) throw new Error('issue insert returned no row')
     await setIssueLabels(tx, input.workspaceId, issue.id, labelIds)
+    await subscribeUsers(tx, issue.id, [input.creatorId, assigneeId])
     await syncIssueAttachments(tx, input.workspaceId, issue.id, issue.description)
     await recordActivity(tx, {
       workspaceId: input.workspaceId,
@@ -187,8 +217,9 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
   })
 }
 
-export async function getIssue(db: DbOrTx, workspaceId: string, id: string) {
-  const [issue] = await loadIssues(db, workspaceId, eq(issues.id, id))
+/** `viewerId` decides `isSubscribed`; without it the field is `false`. */
+export async function getIssue(db: DbOrTx, workspaceId: string, id: string, viewerId?: string) {
+  const [issue] = await loadIssues(db, workspaceId, eq(issues.id, id), viewerId)
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
   return issue
 }
@@ -209,11 +240,13 @@ export async function getIssueByIdentifier(
   workspaceId: string,
   teamKey: string,
   number: number,
+  viewerId?: string,
 ) {
   const [issue] = await loadIssues(
     db,
     workspaceId,
     and(eq(teams.key, teamKey.toUpperCase()), eq(issues.number, number)),
+    viewerId,
   )
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
   return issue
@@ -228,6 +261,12 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
   const sort = input.sort ?? 'createdAt'
   const direction = input.direction ?? 'desc'
   const cursor = input.cursor ? decodeListCursor(input.cursor, sort, direction) : null
+  if (input.today !== undefined && !isIsoDate(input.today)) {
+    throw new DomainError('BAD_REQUEST', 'today must be a date like 2026-11-07')
+  }
+  if (!input.today && input.due?.some((bucket) => bucket !== 'noDueDate')) {
+    throw new DomainError('BAD_REQUEST', 'Relative due date filters need today')
+  }
   const order = sortOrder(sort, direction)
 
   const rows = await selectIssueRows(db, input.workspaceId, {
@@ -235,6 +274,7 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
     orderBy: order.orderBy,
     cursorValue: order.cursorValue,
     limit: input.limit + 1,
+    viewerId: input.viewerId,
   })
   const page = rows.slice(0, input.limit)
   const last = page.at(-1)
@@ -255,12 +295,20 @@ function listFilter(input: ListIssuesInput) {
     input.assigneeId ? eq(issues.assigneeId, input.assigneeId) : undefined,
     input.creatorId ? eq(issues.creatorId, input.creatorId) : undefined,
     input.statusIds?.length ? inArray(issues.statusId, input.statusIds) : undefined,
+    // `workflowStatuses` is joined in `selectIssueRows`.
+    input.statusCategories?.length
+      ? inArray(workflowStatuses.category, input.statusCategories)
+      : undefined,
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
     anyOf(issues.cycleId, input.cycleIds),
     input.labelIds?.length
       ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
+      : undefined,
+    dueFilter(input.due, input.today),
+    input.subscriberIds?.length
+      ? sql`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.workspaceId, input.workspaceId)} and ${inArray(issueSubscriptions.userId, input.subscriberIds)})`
       : undefined,
     search
       ? or(
@@ -270,6 +318,23 @@ function listFilter(input: ListIssuesInput) {
             : undefined,
         )
       : undefined,
+  )
+}
+
+/** OR of the due date buckets; `today` is checked by the caller when one needs it. */
+function dueFilter(buckets: DueFilter[] | undefined, today: IsoDate | undefined) {
+  if (!buckets?.length) return undefined
+  return or(
+    ...[...new Set(buckets)].map((bucket) => {
+      if (bucket === 'noDueDate') return isNull(issues.dueDate)
+      if (bucket === 'overdue') {
+        return and(
+          lt(issues.dueDate, today!),
+          notInArray(workflowStatuses.category, ['completed', 'canceled']),
+        )
+      }
+      return between(issues.dueDate, today!, endOfWeek(today!))
+    }),
   )
 }
 
@@ -299,6 +364,24 @@ function sortOrder(sort: IssueSort, direction: SortDirection) {
           gt(rank, Number(cursor.value)),
           and(eq(rank, Number(cursor.value)), lt(issues.id, cursor.id)),
         ),
+    }
+  }
+  if (sort === 'dueDate') {
+    // No due date becomes ±infinity, so it sorts last in both directions.
+    const key =
+      direction === 'asc'
+        ? sql`coalesce(${issues.dueDate}, 'infinity'::date)`
+        : sql`coalesce(${issues.dueDate}, '-infinity'::date)`
+    const dir = direction === 'desc' ? desc : asc
+    return {
+      orderBy: [dir(key), dir(issues.id)],
+      cursorValue: sql<string>`(${key})::text`,
+      after: (cursor: { value: string; id: string }) => {
+        const at = sql`${cursor.value}::date`
+        return direction === 'desc'
+          ? or(sql`${key} < ${at}`, and(sql`${key} = ${at}`, lt(issues.id, cursor.id)))
+          : or(sql`${key} > ${at}`, and(sql`${key} = ${at}`, gt(issues.id, cursor.id)))
+      },
     }
   }
   const column = sort === 'createdAt' ? issues.createdAt : issues.updatedAt
@@ -337,6 +420,10 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       changes.priority = input.priority
     }
     let status: Awaited<ReturnType<typeof resolveStatus>> | undefined
+    if (input.dueDate !== undefined) {
+      assertDueDate(input.dueDate)
+      changes.dueDate = input.dueDate
+    }
     if (input.statusId !== undefined) {
       status = await resolveStatus(tx, input.workspaceId, current.teamId, input.statusId, null)
       changes.statusId = status.id
@@ -346,6 +433,9 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       if (input.assigneeId) await assertWorkspaceMember(tx, input.workspaceId, input.assigneeId)
       changes.assigneeId = input.assigneeId
     }
+    // Re-saving the same assignee doesn't re-subscribe someone who unsubscribed.
+    const newAssigneeId =
+      input.assigneeId && input.assigneeId !== current.assigneeId ? input.assigneeId : null
     if (input.projectId !== undefined) {
       if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
       changes.projectId = input.projectId
@@ -366,7 +456,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     const labelIds =
       input.labelIds === undefined
         ? undefined
-        : await resolveLabelIds(tx, input.workspaceId, input.labelIds)
+        : await resolveLabelIds(tx, input.workspaceId, current.teamId, input.labelIds)
     const currentLabels = await tx
       .select({ labelId: issueLabels.labelId })
       .from(issueLabels)
@@ -390,6 +480,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
         )
       await setIssueLabels(tx, input.workspaceId, current.id, labelIds)
     }
+    if (newAssigneeId) await subscribeUsers(tx, current.id, [newAssigneeId])
     await recordActivity(tx, {
       workspaceId: input.workspaceId,
       issueId: current.id,
@@ -397,7 +488,12 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       changes: activity,
     })
   })
-  return getIssue(db, input.workspaceId, input.id)
+  return getIssue(
+    db,
+    input.workspaceId,
+    input.id,
+    input.actor.type === 'user' ? input.actor.id : undefined,
+  )
 }
 
 /**
@@ -419,8 +515,13 @@ export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
 }
 
 /** Issues with their team key, status and labels, scoped to the workspace. */
-async function loadIssues(db: DbOrTx, workspaceId: string, where: SQL | undefined) {
-  return withLabels(db, workspaceId, await selectIssueRows(db, workspaceId, { where }))
+async function loadIssues(
+  db: DbOrTx,
+  workspaceId: string,
+  where: SQL | undefined,
+  viewerId: string | undefined,
+) {
+  return withLabels(db, workspaceId, await selectIssueRows(db, workspaceId, { where, viewerId }))
 }
 
 type IssueRowsQuery = {
@@ -429,6 +530,7 @@ type IssueRowsQuery = {
   /** Selected alongside each row so the last one can become the next cursor. */
   cursorValue?: SQL<string>
   limit?: number
+  viewerId?: string
 }
 
 async function selectIssueRows(db: DbOrTx, workspaceId: string, query: IssueRowsQuery) {
@@ -438,6 +540,9 @@ async function selectIssueRows(db: DbOrTx, workspaceId: string, query: IssueRows
       teamKey: teams.key,
       status: workflowStatuses,
       cursorValue: query.cursorValue ?? sql<string>`''`,
+      isSubscribed: query.viewerId
+        ? sql<boolean>`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.userId, query.viewerId)})`
+        : sql<boolean>`false`,
     })
     .from(issues)
     .innerJoin(teams, eq(teams.id, issues.teamId))
@@ -466,21 +571,34 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
     )
     .orderBy(asc(labels.name))
 
-  return rows.map(({ issue, teamKey, status }) => ({
+  return rows.map(({ issue, teamKey, status, isSubscribed }) => ({
     ...issue,
     identifier: `${teamKey}-${issue.number}`,
     status,
+    isSubscribed,
     labels: attached.filter((row) => row.issueId === issue.id).map((row) => row.label),
   }))
 }
 
-async function resolveLabelIds(db: DbOrTx, workspaceId: string, labelIds: string[]) {
+/** Workspace labels, or the issue team's own labels; anything else is BAD_REQUEST. */
+async function resolveLabelIds(
+  db: DbOrTx,
+  workspaceId: string,
+  teamId: string,
+  labelIds: string[],
+) {
   const unique = [...new Set(labelIds)]
   if (unique.length === 0) return unique
   const found = await db
     .select({ id: labels.id })
     .from(labels)
-    .where(and(eq(labels.workspaceId, workspaceId), inArray(labels.id, unique)))
+    .where(
+      and(
+        eq(labels.workspaceId, workspaceId),
+        or(isNull(labels.teamId), eq(labels.teamId, teamId)),
+        inArray(labels.id, unique),
+      ),
+    )
   if (found.length !== unique.length) throw new DomainError('BAD_REQUEST', 'Label not found')
   return unique
 }

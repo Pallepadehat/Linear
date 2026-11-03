@@ -37,7 +37,8 @@ function choose(id: string | null) {
     v-model:open="open"
     label="Change cycle"
     placeholder="Add to cycle..."
-    :hotkey="noHotkey ? undefined : 'Shift+C'"
+    :hotkey="noHotkey ? undefined : 'C'"
+    shift
     :compact="compact"
     :current="model ?? NONE"
   >

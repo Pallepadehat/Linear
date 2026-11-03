@@ -92,19 +92,39 @@ describe('realtime', () => {
       issueId: issue.id,
       body: 'On it',
     })
+    await owner.client.comments.react({ workspaceSlug: 'tip', commentId: comment.id, emoji: '🚀' })
+    const reply = await owner.client.comments.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      parentId: comment.id,
+      body: 'Done',
+    })
 
     await eventually(() =>
       expect(events).toEqual([
         {
           type: 'issue.updated',
           issueId: issue.id,
-          fields: ['status', 'assignee'],
+          fields: ['status', 'assignee', 'subscribers'],
           actorId: owner.userId,
         },
         {
           type: 'comment.created',
           issueId: issue.id,
           commentId: comment.id,
+          actorId: owner.userId,
+        },
+        // A reaction is an update of its comment; a reply is a new comment (ids only).
+        {
+          type: 'comment.updated',
+          issueId: issue.id,
+          commentId: comment.id,
+          actorId: owner.userId,
+        },
+        {
+          type: 'comment.created',
+          issueId: issue.id,
+          commentId: reply.id,
           actorId: owner.userId,
         },
       ]),
@@ -162,6 +182,17 @@ describe('realtime', () => {
         { type: 'issue.created', issueId: own.id, actorId: outsider.userId },
       ]),
     )
+  })
+
+  it('announces template changes by id only', async () => {
+    const { owner, member } = await workspaceWithIssue()
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    const template = await owner.client.templates.create({ workspaceSlug: 'tip', name: 'Bug' })
+    await owner.client.templates.delete({ workspaceSlug: 'tip', id: template.id })
+
+    const event = { type: 'template.updated', templateId: template.id, actorId: owner.userId }
+    await eventually(() => expect(events).toEqual([event, event]))
   })
 
   it('delivers automation from the worker: a merged PR moving an issue to Done', async () => {

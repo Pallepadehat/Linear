@@ -1,14 +1,19 @@
 <script setup lang="ts">
+import type { Issue } from '@linear/contract'
 import { ChevronDown, Layers, ListFilter, Plus } from '@lucide/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
+import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
 import { useIssueFilters } from '../composables/useIssueFilters'
-import { groupIssuesByStatus, toListRows, type IssueListRow } from '../group-issues'
+import { groupIssuesByStatus, listOrder, toListRows, type IssueListRow } from '../group-issues'
+import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
 import { useIssueViewData } from '../composables/useIssueViewData'
+import { viewStatusCategories } from '../issue-view'
 import IssueFilterBar from './IssueFilterBar.vue'
 import IssueRow from './IssueRow.vue'
 
@@ -20,6 +25,8 @@ const props = defineProps<{
   cycleId?: string
   assignee?: 'me'
   creator?: 'me'
+  /** The view tab (team and All issues pages); My issues and project lists have none. */
+  view?: 'all' | 'active' | 'backlog'
 }>()
 // Replaces the default "No issues yet" state, e.g. for My Issues tabs.
 defineSlots<{ empty?: () => unknown }>()
@@ -31,7 +38,7 @@ const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, issues, users, labels, statusesByTeam, cyclesByTeam, updateIssue } =
+const { query, queryKey, issues, users, labels, statusesByTeam, cyclesByTeam, updateIssue } =
   useIssueViewData(
     () => props.workspaceSlug,
     () => ({
@@ -40,8 +47,16 @@ const { query, issues, users, labels, statusesByTeam, cyclesByTeam, updateIssue 
       cycleId: props.cycleId,
       assignee: props.assignee,
       creator: props.creator,
+      statusCategories: viewStatusCategories(props.view),
     }),
   )
+const viewEmpty = computed(() =>
+  props.view === 'active'
+    ? { title: 'No active issues', description: 'Issues in Todo or In Progress show up here.' }
+    : props.view === 'backlog'
+      ? { title: 'No backlog issues', description: 'Issues waiting in the backlog show up here.' }
+      : null,
+)
 const collapsed = ref(new Set<string>())
 const rows = computed(() => toListRows(groupIssuesByStatus(issues.value), collapsed.value))
 
@@ -49,6 +64,23 @@ function toggleGroup(key: string) {
   const next = new Set(collapsed.value)
   if (!next.delete(key)) next.add(key)
   collapsed.value = next
+}
+
+// The detail page steps through the issues in the order shown here (J/K, "1 / 47").
+const router = useRouter()
+const nav = useIssueNavStore()
+function openIssue(issue: Issue) {
+  const hidden = new Set(collapsed.value)
+  const order = (list: Issue[]) => listOrder(list, hidden)
+  nav.open(
+    {
+      queryKey: queryKey.value,
+      identifiers: order(issues.value),
+      order,
+      route: router.currentRoute.value.fullPath,
+    },
+    issue.identifier,
+  )
 }
 
 const scrollEl = ref<HTMLElement | null>(null)
@@ -92,9 +124,26 @@ watch(rows, async (next, prev) => {
   el.scrollTop += after - before
 })
 
-// A new filter or sort is a different list; start it from the top.
-watch(filters, () => {
+// A new filter, sort or view is a different list; start it from the top.
+watch([filters, () => props.view], () => {
   if (scrollEl.value) scrollEl.value.scrollTop = 0
+})
+
+// J/K move through the visible rows (collapsed groups are skipped).
+const listedIssues = computed(() =>
+  rows.value.flatMap((row) => (row.type === 'issue' ? [row.issue] : [])),
+)
+const { focusedId, selectedIds } = useIssueListKeyboard(listedIssues, async (issue) => {
+  const index = rows.value.findIndex((row) => row.type === 'issue' && row.issue.id === issue.id)
+  if (index === -1) return
+  virtualizer.value.scrollToIndex(index, { align: 'auto' })
+  // The row may only render after the scroll; then move focus to its link.
+  await nextTick()
+  requestAnimationFrame(() =>
+    scrollEl.value
+      ?.querySelector<HTMLElement>(`[data-issue-id="${issue.id}"] a`)
+      ?.focus({ preventScroll: true }),
+  )
 })
 
 watchEffect(() => {
@@ -111,6 +160,7 @@ watchEffect(() => {
       :team-id="teamId"
       :project-id="projectId"
       :cycle-id="cycleId"
+      :hide-filter-menu="!!view"
     />
     <div v-if="query.isPending.value" class="grid" aria-busy="true" aria-label="Loading issues">
       <div
@@ -139,6 +189,14 @@ watchEffect(() => {
       description="Try a different search or remove some filters."
     >
       <Button variant="secondary" size="sm" @click="clearFilters">Clear filters</Button>
+    </EmptyState>
+    <EmptyState
+      v-else-if="rows.length === 0 && viewEmpty"
+      :icon="Layers"
+      :title="viewEmpty.title"
+      :description="viewEmpty.description"
+    >
+      <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
     </EmptyState>
     <template v-else-if="rows.length === 0">
       <slot name="empty">
@@ -197,11 +255,15 @@ watchEffect(() => {
             v-else
             class="flex-1"
             :issue="row.issue"
+            :data-issue-id="row.issue.id"
+            :focused="row.issue.id === focusedId"
+            :selected="selectedIds.has(row.issue.id)"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
             :cycles="cyclesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
+            @open="openIssue(row.issue)"
           />
         </div>
       </div>

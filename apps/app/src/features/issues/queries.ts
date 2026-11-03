@@ -1,4 +1,11 @@
-import type { Issue, IssuePage, ListIssuesInput } from '@linear/contract'
+import type {
+  Comment,
+  Issue,
+  IssuePage,
+  ListIssuesInput,
+  ReactionEmoji,
+  User,
+} from '@linear/contract'
 import {
   keepPreviousData,
   useMutation,
@@ -11,11 +18,14 @@ import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
 import { cyclesKey } from '@/features/cycles/queries'
 import { projectsKey } from '@/features/projects/queries'
+import { todayIso } from '@/lib/due-dates'
 import { client, orpc } from '@/lib/orpc'
+import { patchCommentInPages, toggleReaction } from './comment-cache'
 import {
   applyIssuePatch,
   patchIssue,
   patchIssueInPages,
+  removeIssueFromPages,
   toUpdateIssueInput,
   type IssuePatch,
 } from './issue-cache'
@@ -25,24 +35,28 @@ const PAGE_SIZE = 50
 
 export type IssueListFilter = Pick<
   ListIssuesInput,
-  'teamId' | 'projectId' | 'cycleId' | 'assignee' | 'creator'
+  'teamId' | 'projectId' | 'cycleId' | 'assignee' | 'creator' | 'statusCategories'
 >
 
 /**
  * Issue pages for a workspace, narrowed by the page's scope (team, project,
- * assignee or creator), then by the user's filters and sort.
+ * assignee or creator) and view tab, then by the user's filters and sort.
  */
 export function issueListOptions(
   workspaceSlug: string,
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const { q, ...rest } = filters
+  const { q, due, ...rest } = filters
+  // Relative due filters are evaluated against the viewer's local day (domain.md).
+  const relative = due.some((bucket) => bucket !== 'noDueDate')
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
       workspaceSlug,
       ...filter,
       ...rest,
+      ...(due.length && { due }),
+      ...(relative && { today: todayIso() }),
       q: q || undefined,
       cursor,
       limit: PAGE_SIZE,
@@ -132,6 +146,47 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
   })
 }
 
+/**
+ * Deletes an issue, dropping it from every list page at once; restored with a
+ * toast if the server refuses.
+ */
+export function useDeleteIssue(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  const listKey = issueInfiniteListKey()
+
+  return useMutation({
+    mutationFn: ({ id }: { id: string; identifier: string }) =>
+      client.issues.delete({ workspaceSlug: toValue(workspaceSlug), id }),
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: listKey })
+      const previous = queryClient.getQueriesData<InfiniteData<IssuePage>>({ queryKey: listKey })
+      queryClient.setQueriesData<InfiniteData<IssuePage>>({ queryKey: listKey }, (data) =>
+        removeIssueFromPages(data, id),
+      )
+      return { previous }
+    },
+    onError: (error, { identifier }, context) => {
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
+      toast.error(`Couldn't delete ${identifier}`, { description: errorMessage(error) })
+    },
+    onSuccess: (_, { id, identifier }) => {
+      for (const queryKey of issueDetailKeys())
+        queryClient.removeQueries({
+          queryKey,
+          predicate: (query) => (query.state.data as Issue | undefined)?.id === id,
+        })
+      toast.success(`${identifier} deleted`)
+    },
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: listKey }),
+        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+      ])
+    },
+  })
+}
+
 /** One issue by its `TIP-200` identifier (case-insensitive on the server). */
 export const issueByIdentifierOptions = (workspaceSlug: string, identifier: string) =>
   orpc.issues.getByIdentifier.queryOptions({ input: { workspaceSlug, identifier } })
@@ -151,3 +206,155 @@ export const activityListOptions = (workspaceSlug: string, issueId: string) =>
     initialPageParam: null,
     getNextPageParam: (page) => page.nextCursor,
   })
+
+/** Members subscribed to one issue (a small, bounded list). */
+export const issueSubscribersOptions = (workspaceSlug: string, issueId: string) =>
+  orpc.issues.subscribers.queryOptions({ input: { workspaceSlug, issueId } })
+
+export type SubscriptionVariables = {
+  issue: Issue
+  /** The member to (un)subscribe; the signed-in user when it's them. */
+  user: User
+  subscribe: boolean
+  /** Whether `user` is the signed-in user, whose `isSubscribed` flips with it. */
+  isMe: boolean
+}
+
+/**
+ * Subscribes or unsubscribes a member, optimistically updating the subscriber list
+ * (and the bell, for yourself); rolled back with a toast if the server rejects it.
+ */
+export function useIssueSubscription(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  const listKey = issueInfiniteListKey()
+  const detailKeys = issueDetailKeys()
+  const subscribersKey = (issueId: string) =>
+    issueSubscribersOptions(toValue(workspaceSlug), issueId).queryKey
+
+  return useMutation({
+    mutationKey: orpc.issues.subscribe.mutationKey(),
+    mutationFn: ({ issue, user, subscribe, isMe }: SubscriptionVariables) => {
+      const input = {
+        workspaceSlug: toValue(workspaceSlug),
+        issueId: issue.id,
+        ...(isMe ? {} : { userId: user.id }),
+      }
+      return subscribe ? client.issues.subscribe(input) : client.issues.unsubscribe(input)
+    },
+    onMutate: async ({ issue, user, subscribe, isMe }) => {
+      const subscribers = subscribersKey(issue.id)
+      const keys = [subscribers, ...(isMe ? [listKey, ...detailKeys] : [])]
+      await Promise.all(keys.map((queryKey) => queryClient.cancelQueries({ queryKey })))
+      const previous = keys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }))
+      queryClient.setQueryData<User[]>(subscribers, (current) => {
+        if (!current) return current
+        const others = current.filter((u) => u.id !== user.id)
+        return subscribe ? [...others, user] : others
+      })
+      if (isMe)
+        writeIssueToCaches(queryClient, issue.id, (current) => ({
+          ...current,
+          isSubscribed: subscribe,
+        }))
+      return { previous }
+    },
+    onError: (error, { issue, subscribe }, context) => {
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
+      toast.error(
+        `Couldn't ${subscribe ? 'subscribe to' : 'unsubscribe from'} ${issue.identifier}`,
+        { description: errorMessage(error) },
+      )
+    },
+    onSettled: async (_data, _error, { issue, isMe }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: subscribersKey(issue.id) }),
+        ...(isMe ? detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })) : []),
+      ])
+    },
+  })
+}
+
+export type ToggleReactionVariables = { comment: Comment; emoji: ReactionEmoji; on: boolean }
+
+/**
+ * Adds or removes my reaction, shown at once and rolled back with a toast if the
+ * server rejects it.
+ */
+export function useToggleReaction(
+  workspaceSlug: MaybeRefOrGetter<string>,
+  issueId: MaybeRefOrGetter<string>,
+) {
+  const queryClient = useQueryClient()
+  const queryKey = () => commentListOptions(toValue(workspaceSlug), toValue(issueId)).queryKey
+  const mutationKey = orpc.comments.react.mutationKey()
+
+  return useMutation({
+    mutationKey,
+    mutationFn: ({ comment, emoji, on }: ToggleReactionVariables) => {
+      const input = { workspaceSlug: toValue(workspaceSlug), commentId: comment.id, emoji }
+      return on ? client.comments.react(input) : client.comments.unreact(input)
+    },
+    onMutate: async ({ comment, emoji, on }) => {
+      await queryClient.cancelQueries({ queryKey: queryKey() })
+      const previous = queryClient.getQueryData(queryKey())
+      queryClient.setQueryData(queryKey(), (data) =>
+        patchCommentInPages(data, comment.id, (c) => ({
+          ...c,
+          reactions: toggleReaction(c.reactions, emoji, on),
+        })),
+      )
+      return { previous }
+    },
+    onError: (error, _variables, context) => {
+      queryClient.setQueryData(queryKey(), context?.previous)
+      toast.error("Couldn't update the reaction", { description: errorMessage(error) })
+    },
+    onSettled: async () => {
+      // Quick successive toggles would flicker if the first settle refetched.
+      if (queryClient.isMutating({ mutationKey }) > 1) return
+      await queryClient.invalidateQueries({ queryKey: queryKey() })
+    },
+  })
+}
+
+/** Edit, delete and resolve: not optimistic, refetch the thread when they land. */
+export function useCommentActions(
+  workspaceSlug: MaybeRefOrGetter<string>,
+  issueId: MaybeRefOrGetter<string>,
+) {
+  const queryClient = useQueryClient()
+  const refetch = () =>
+    queryClient.invalidateQueries({
+      queryKey: commentListOptions(toValue(workspaceSlug), toValue(issueId)).queryKey,
+    })
+  const onError = (title: string) => (error: Error) =>
+    toast.error(title, { description: errorMessage(error) })
+
+  return {
+    update: useMutation(
+      orpc.comments.update.mutationOptions({
+        onSuccess: refetch,
+        onError: onError("Couldn't save the comment"),
+      }),
+    ),
+    remove: useMutation(
+      orpc.comments.delete.mutationOptions({
+        onSuccess: refetch,
+        onError: onError("Couldn't delete the comment"),
+      }),
+    ),
+    resolve: useMutation(
+      orpc.comments.resolveThread.mutationOptions({
+        onSuccess: refetch,
+        onError: onError("Couldn't resolve the thread"),
+      }),
+    ),
+    unresolve: useMutation(
+      orpc.comments.unresolveThread.mutationOptions({
+        onSuccess: refetch,
+        onError: onError("Couldn't reopen the thread"),
+      }),
+    ),
+  }
+}

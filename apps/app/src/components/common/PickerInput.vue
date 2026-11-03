@@ -19,8 +19,8 @@ const { filterState } = useCommand()
       class="h-full w-full bg-transparent text-[13px] text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
     />
     <kbd
-      v-if="hint"
-      class="inline-flex h-5 min-w-5 shrink-0 px-1 items-center justify-center rounded-xs border border-hairline-strong font-sans text-xs text-ink-subtle"
+      v-if="hotkey"
+      class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-xs px-1 border border-hairline-strong font-sans text-xs text-ink-subtle"
       aria-hidden="true"
     >
       {{ hint }}

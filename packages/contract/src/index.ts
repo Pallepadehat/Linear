@@ -14,6 +14,7 @@ import { issuesContract } from './routers/issues'
 import { labelsContract } from './routers/labels'
 import { meContract } from './routers/me'
 import { teamsContract } from './routers/teams'
+import { templatesContract } from './routers/templates'
 import { uploadsContract } from './routers/uploads'
 import { workspacesContract } from './routers/workspaces'
 
@@ -30,6 +31,7 @@ export const contract = {
   activity: activityContract,
   comments: commentsContract,
   realtime: realtimeContract,
+  templates: templatesContract,
   presence: presenceContract,
 }
 
@@ -51,3 +53,4 @@ export * from './schemas/activity'
 export * from './schemas/comments'
 export * from './schemas/cycles'
 export * from './schemas/realtime'
+export * from './schemas/templates'

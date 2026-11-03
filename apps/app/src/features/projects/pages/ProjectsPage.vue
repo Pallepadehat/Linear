@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { FolderKanban, Plus } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
-import { computed, defineAsyncComponent, ref } from 'vue'
+import { computed } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
@@ -9,13 +9,10 @@ import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useRouteTeam } from '@/features/teams/composables/useRouteTeam'
 import { orpc } from '@/lib/orpc'
+import { useUiStore } from '@/stores/ui'
 import ProjectProgress from '../components/ProjectProgress.vue'
 import { projectStatusMeta } from '../project-status'
 import { projectListOptions } from '../queries'
-
-const CreateProjectDialog = defineAsyncComponent(
-  () => import('../components/CreateProjectDialog.vue'),
-)
 
 const { slug } = useCurrentWorkspace()
 const query = useQuery(computed(() => projectListOptions(slug.value)))
@@ -33,13 +30,9 @@ const projects = computed(() => {
   return all.filter((p) => p.teamIds.includes(teamId))
 })
 
-const createOpen = ref(false)
-// Mount the dialog on first use, then keep it so it can animate closed.
-const createLoaded = ref(false)
-function openCreate() {
-  createLoaded.value = true
-  createOpen.value = true
-}
+// The dialog lives in the workspace layout so the command menu can open it too.
+const ui = useUiStore()
+const openCreate = () => (ui.createProjectOpen = true)
 </script>
 
 <template>
@@ -145,7 +138,5 @@ function openCreate() {
         </tbody>
       </table>
     </div>
-
-    <CreateProjectDialog v-if="createLoaded" v-model:open="createOpen" />
   </div>
 </template>

@@ -15,12 +15,14 @@ export type BoardColumn = { key: string; status: WorkflowStatus; issues: Issue[]
 /**
  * One column per status, in workflow order. Same-named statuses of different
  * teams share a column (the workspace-wide board), and every known status gets
- * a column even while empty so cards can be dropped into it. Issues keep their
- * list order within a column.
+ * a column even while empty so cards can be dropped into it (within the view's
+ * categories, if any). Issues keep their list order within a column.
  */
 export function toBoardColumns(
   issues: Issue[],
   statusesByTeam: ReadonlyMap<string, WorkflowStatus[]>,
+  /** A view tab's categories: empty columns outside them are left out. */
+  categories?: StatusCategory[],
 ): BoardColumn[] {
   const columns = new Map<string, BoardColumn>()
   const add = (status: WorkflowStatus) => {
@@ -29,7 +31,9 @@ export function toBoardColumns(
     if (!column) columns.set(key, (column = { key, status, issues: [] }))
     return column
   }
-  for (const statuses of statusesByTeam.values()) statuses.forEach(add)
+  for (const statuses of statusesByTeam.values())
+    for (const status of statuses)
+      if (!categories || categories.includes(status.category)) add(status)
   // A status the team list doesn't know yet (still loading) still gets its column.
   for (const issue of issues) add(issue.status).issues.push(issue)
   return [...columns.values()].sort(
@@ -56,3 +60,12 @@ export function resolveDropTarget(
   const status = teamStatuses?.find((s) => statusGroupKey(s) === columnKey)
   return status ? { type: 'move', status } : { type: 'unavailable' }
 }
+
+/** Issue identifiers in board order as rendered: column by column, top to bottom. */
+export const boardOrder = (
+  issues: Issue[],
+  statusesByTeam: ReadonlyMap<string, WorkflowStatus[]>,
+) =>
+  toBoardColumns(issues, statusesByTeam).flatMap((column) =>
+    column.issues.map((issue) => issue.identifier),
+  )

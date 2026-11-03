@@ -2,9 +2,8 @@
 import type { IssueSort, SortDirection } from '@linear/contract'
 import { Search, X } from '@lucide/vue'
 import { useDebounceFn } from '@vueuse/core'
-import { computed, ref, useTemplateRef, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
-import { useUiStore } from '@/stores/ui'
 import { useFilterDimensions } from '../composables/useFilterDimensions'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import IssueFilterMenu from './IssueFilterMenu.vue'
@@ -15,6 +14,8 @@ const props = defineProps<{
   teamId?: string
   projectId?: string
   cycleId?: string
+  /** The view toolbar above shows the Filter button instead. */
+  hideFilterMenu?: boolean
 }>()
 
 const SEARCH_DEBOUNCE_MS = 250
@@ -44,19 +45,6 @@ watch(
   },
 )
 
-// The sidebar's Search button asks the visible filter bar to focus its field.
-const ui = useUiStore()
-const searchInput = useTemplateRef<HTMLInputElement>('searchInput')
-watch(
-  [() => ui.searchFocusRequested, searchInput],
-  ([requested, input]) => {
-    if (!requested || !input) return
-    ui.searchFocusRequested = false
-    input.focus()
-  },
-  { flush: 'post' },
-)
-
 function clearSearch(event: KeyboardEvent) {
   if (search.value) search.value = ''
   else (event.target as HTMLInputElement).blur()
@@ -69,7 +57,7 @@ function clearSearch(event: KeyboardEvent) {
     role="toolbar"
     aria-label="Issue filters"
   >
-    <IssueFilterMenu :dimensions="dimensions" />
+    <IssueFilterMenu v-if="!hideFilterMenu" :dimensions="dimensions" />
     <div
       v-for="dimension in activeDimensions"
       :key="dimension.key"
@@ -101,7 +89,6 @@ function clearSearch(event: KeyboardEvent) {
       >
         <Search class="size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
         <input
-          ref="searchInput"
           v-model="search"
           type="search"
           aria-label="Search issues"

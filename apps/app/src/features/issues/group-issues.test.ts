@@ -1,6 +1,6 @@
 import type { Issue, WorkflowStatus } from '@linear/contract'
 import { describe, expect, it } from 'vitest'
-import { groupIssuesByStatus, toListRows } from './group-issues'
+import { groupIssuesByStatus, listOrder, toListRows } from './group-issues'
 
 const status = (
   name: string,
@@ -27,7 +27,9 @@ function issue(id: string, s: WorkflowStatus): Issue {
     creatorId: crypto.randomUUID(),
     projectId: null,
     cycleId: null,
+    dueDate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: now,
     updatedAt: now,
     completedAt: null,
@@ -64,5 +66,14 @@ describe('toListRows', () => {
     const groups = groupIssuesByStatus([issue('a', todo), issue('b', done)])
     const rows = toListRows(groups, new Set([groups[0]!.key]))
     expect(rows.map((r) => r.type)).toEqual(['group', 'group', 'issue'])
+  })
+})
+
+describe('listOrder', () => {
+  it('lists identifiers group by group, as rendered, skipping collapsed groups', () => {
+    const issues = [issue('a', done), issue('b', todo), issue('c', inProgress), issue('d', todo)]
+    expect(listOrder(issues)).toEqual(['TIP-c', 'TIP-b', 'TIP-d', 'TIP-a'])
+    const todoKey = groupIssuesByStatus(issues)[1]!.key
+    expect(listOrder(issues, new Set([todoKey]))).toEqual(['TIP-c', 'TIP-a'])
   })
 })

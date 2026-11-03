@@ -15,6 +15,7 @@ const FILTER_KEYS = [
   'project',
   'cycle',
   'label',
+  'due',
   'q',
   'sort',
   'dir',

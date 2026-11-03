@@ -1,4 +1,4 @@
-ALTER TYPE "public"."activity_kind" ADD VALUE 'cycle';--> statement-breakpoint
+ALTER TYPE "public"."activity_kind" ADD VALUE 'cycle' BEFORE 'due_date';--> statement-breakpoint
 CREATE TABLE "cycles" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,

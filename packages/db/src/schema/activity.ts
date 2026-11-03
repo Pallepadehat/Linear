@@ -20,6 +20,7 @@ export const activityKind = pgEnum('activity_kind', [
   'project',
   'labels',
   'cycle',
+  'due_date',
 ])
 
 /** One row per changed issue field (docs/domain.md → Activity). */
