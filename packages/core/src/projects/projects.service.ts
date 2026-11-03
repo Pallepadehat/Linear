@@ -19,6 +19,8 @@ import type { ActivityActor } from '../activity/activity.service'
 import { recordProjectActivity } from '../activity/project-activity.service'
 import { diffProject, type ProjectSnapshot } from '../activity/project-diff'
 import { currentMilestones, type MilestoneRecord } from './milestones/milestones.service'
+import { NO_HEALTH, type ProjectHealthSummary } from './updates/rules'
+import { loadProjectHealth } from './updates/updates.service'
 
 type Changes = {
   name?: string
@@ -108,6 +110,7 @@ function withDetails(
   links: Map<string, Links>,
   progress: Map<string, { completed: number; total: number }>,
   milestones: Map<string, MilestoneRecord | null>,
+  health: Map<string, ProjectHealthSummary>,
 ) {
   const counts = progress.get(row.id) ?? NO_PROGRESS
   return {
@@ -116,6 +119,7 @@ function withDetails(
     progress: counts,
     issueCount: counts.total,
     currentMilestone: milestones.get(row.id) ?? null,
+    ...(health.get(row.id) ?? NO_HEALTH),
   }
 }
 
@@ -128,7 +132,8 @@ export async function listProjects(db: DbOrTx, workspaceId: string) {
   const links = await loadLinks(db, workspaceId)
   const progress = await loadProgress(db, workspaceId)
   const milestones = await currentMilestones(db, workspaceId)
-  return rows.map((row) => withDetails(row, links, progress, milestones))
+  const health = await loadProjectHealth(db, workspaceId)
+  return rows.map((row) => withDetails(row, links, progress, milestones, health))
 }
 
 export async function getProject(db: DbOrTx, workspaceId: string, id: string) {
@@ -140,7 +145,8 @@ export async function getProject(db: DbOrTx, workspaceId: string, id: string) {
   const links = await loadLinks(db, workspaceId, id)
   const progress = await loadProgress(db, workspaceId, id)
   const milestones = await currentMilestones(db, workspaceId, [id])
-  return withDetails(row, links, progress, milestones)
+  const health = await loadProjectHealth(db, workspaceId, [id])
+  return withDetails(row, links, progress, milestones, health)
 }
 
 /** Users must be members of the workspace; anyone else is NOT_FOUND, like a missing id. */

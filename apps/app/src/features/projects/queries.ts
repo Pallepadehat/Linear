@@ -30,6 +30,18 @@ export const projectActivityListOptions = (workspaceSlug: string, projectId: str
     getNextPageParam: (page) => page.nextCursor,
   })
 
+/** The latest update (its health and body), for the Overview card. */
+export const projectLatestUpdateOptions = (workspaceSlug: string, projectId: string) =>
+  orpc.projectUpdates.list.queryOptions({ input: { workspaceSlug, projectId, limit: 1 } })
+
+/** Newest-first pages of a project's updates, for the Activity tab. */
+export const projectUpdateListOptions = (workspaceSlug: string, projectId: string) =>
+  orpc.projectUpdates.list.infiniteOptions({
+    input: (cursor: string | null) => ({ workspaceSlug, projectId, cursor, limit: 20 }),
+    initialPageParam: null,
+    getNextPageParam: (page) => page.nextCursor,
+  })
+
 /** Matches every project query (list, detail and activity); progress depends on issue changes. */
 export const projectsKey = () => orpc.projects.key()
 
@@ -38,13 +50,14 @@ export const milestonesKey = () => orpc.milestones.key()
 
 /**
  * Refetches project and milestone progress (both count issues by status and project) and,
- * since `project.updated` also covers them, the project's resource links.
+ * since `project.updated` also covers them, the project's resource links and updates.
  */
 export function invalidateProjects(queryClient: QueryClient) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: projectsKey() }),
     queryClient.invalidateQueries({ queryKey: milestonesKey() }),
     queryClient.invalidateQueries({ queryKey: orpc.projectLinks.key() }),
+    queryClient.invalidateQueries({ queryKey: orpc.projectUpdates.key() }),
   ])
 }
 
@@ -113,4 +126,35 @@ export function useUpdateProject(workspaceSlug: MaybeRefOrGetter<string>) {
       return invalidateProjects(queryClient)
     },
   })
+}
+
+/**
+ * Posting, editing and deleting project updates. Not optimistic: an update changes the
+ * project's health, which only the server derives, so each refetches the project queries.
+ */
+export function useProjectUpdateActions() {
+  const queryClient = useQueryClient()
+  const onError = (title: string) => (error: unknown) =>
+    toast.error(title, { description: errorMessage(error) })
+  const onSettled = () => invalidateProjects(queryClient)
+  return {
+    create: useMutation(
+      orpc.projectUpdates.create.mutationOptions({
+        onError: onError("Couldn't post the update"),
+        onSettled,
+      }),
+    ),
+    update: useMutation(
+      orpc.projectUpdates.update.mutationOptions({
+        onError: onError("Couldn't save the update"),
+        onSettled,
+      }),
+    ),
+    remove: useMutation(
+      orpc.projectUpdates.delete.mutationOptions({
+        onError: onError("Couldn't delete the update"),
+        onSettled,
+      }),
+    ),
+  }
 }

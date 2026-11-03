@@ -28,6 +28,8 @@ function project(name: string, overrides: Partial<Project> = {}): Project {
     progress: { completed: 0, total: 0 },
     issueCount: 0,
     currentMilestone: null,
+    health: null,
+    lastUpdateAt: null,
     createdAt: new Date(0),
     ...overrides,
   }
@@ -82,7 +84,23 @@ describe('sortProjects', () => {
     expect(sorted(all, { key: 'status', direction: 'asc' })).toEqual(['alpha', 'Beta', 'gamma'])
   })
 
-  it('falls back to the name for ties, including the health placeholder', () => {
+  it('sorts by health, On track first, projects without updates last', () => {
+    const list = [
+      project('none'),
+      project('off', { health: 'off_track' }),
+      project('on', { health: 'on_track' }),
+      project('risk', { health: 'at_risk' }),
+    ]
+    expect(sorted(list, { key: 'health', direction: 'asc' })).toEqual(['on', 'risk', 'off', 'none'])
+    expect(sorted(list, { key: 'health', direction: 'desc' })).toEqual([
+      'off',
+      'risk',
+      'on',
+      'none',
+    ])
+  })
+
+  it('falls back to the name for ties', () => {
     expect(sorted(all, { key: 'health', direction: 'desc' })).toEqual(['alpha', 'Beta', 'gamma'])
   })
 
