@@ -17,6 +17,8 @@ export type IssueFilters = {
   q: string
   sort: IssueSort
   direction: SortDirection
+  /** Display option: whether issues with a parent are listed (nested under it when loaded). */
+  showSubIssues: boolean
 }
 
 export const DEFAULT_SORT: IssueSort = 'createdAt'
@@ -31,6 +33,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   q: '',
   sort: DEFAULT_SORT,
   direction: DEFAULT_DIRECTION,
+  showSubIssues: true,
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -69,6 +72,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     q: first(query.q).trim(),
     sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
     direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_DIRECTION,
+    showSubIssues: first(query.subIssues) !== 'hide',
   }
 }
 
@@ -85,6 +89,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     q: filters.q.trim() || undefined,
     sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
     dir: filters.direction === DEFAULT_DIRECTION ? undefined : filters.direction,
+    subIssues: filters.showSubIssues ? undefined : 'hide',
   }
   return Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined))
 }

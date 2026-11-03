@@ -185,6 +185,7 @@ watchEffect(() => {
             v-else
             class="flex-1"
             :issue="row.issue"
+            :depth="row.depth"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"

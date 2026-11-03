@@ -29,6 +29,7 @@ import { DomainError } from '../errors'
 import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
+import { findIssueRef, resolveParent, type ParentRef } from './parent'
 import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
 import {
   decodeListCursor,
@@ -52,6 +53,8 @@ export type CreateIssueInput = {
   assigneeId?: string | null
   projectId?: string | null
   labelIds?: string[]
+  /** A sub-issue of this issue (same workspace, any team). */
+  parentId?: string | null
 }
 
 /** Omitted fields are left unchanged; `labelIds` replaces the whole set. */
@@ -66,6 +69,8 @@ export type UpdateIssueInput = {
   assigneeId?: string | null
   projectId?: string | null
   labelIds?: string[]
+  /** `null` removes the parent. */
+  parentId?: string | null
 }
 
 export type ListIssuesInput = {
@@ -83,6 +88,10 @@ export type ListIssuesInput = {
   /** Any of these labels. */
   labelIds?: string[]
   q?: string
+  /** `false` leaves out issues that have a parent. Defaults to true. */
+  showSubIssues?: boolean
+  /** Leaves out this issue and all of its descendants (the parent picker). */
+  excludeSubtreeOf?: string
   sort?: IssueSort
   direction?: SortDirection
   cursor?: string | null
@@ -90,6 +99,7 @@ export type ListIssuesInput = {
 }
 
 export type IssueRecord = Awaited<ReturnType<typeof withLabels>>[number]
+export type IssueDetailRecord = Awaited<ReturnType<typeof getIssue>>
 
 function normalizeTitle(title: string) {
   const trimmed = title.trim()
@@ -110,6 +120,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       statusId: teams.defaultStatusId,
       priority: teams.defaultPriority,
       assigneeId: teams.defaultAssigneeId,
+      key: teams.key,
     })
     .from(teams)
     .where(and(eq(teams.id, input.teamId), eq(teams.workspaceId, input.workspaceId)))
@@ -145,6 +156,9 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       .where(and(eq(teams.id, input.teamId), eq(teams.workspaceId, input.workspaceId)))
       .returning({ number: teams.issueCounter })
     if (!team) throw new DomainError('NOT_FOUND', 'Team not found')
+    const parent = input.parentId
+      ? await resolveParent(tx, input.workspaceId, null, input.parentId)
+      : null
 
     const [issue] = await tx
       .insert(issues)
@@ -159,6 +173,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         assigneeId,
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
+        parentId: parent?.id ?? null,
         completedAt: nextCompletedAt(status.category, null),
       })
       .returning()
@@ -171,14 +186,23 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       actor: { type: 'user', id: input.creatorId },
       changes: [{ kind: 'created', from: null, to: null }],
     })
+    if (parent) {
+      await recordActivity(tx, {
+        workspaceId: input.workspaceId,
+        issueId: parent.id,
+        actor: { type: 'user', id: input.creatorId },
+        changes: [{ kind: 'sub_issue', from: null, to: `${teamDefaults.key}-${issue.number}` }],
+      })
+    }
     return issue
   })
 }
 
+/** The issue with its parent and sub-issues (oldest first). */
 export async function getIssue(db: DbOrTx, workspaceId: string, id: string) {
   const [issue] = await loadIssues(db, workspaceId, eq(issues.id, id))
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
-  return issue
+  return withFamily(db, workspaceId, issue)
 }
 
 /** `teamKey` is expected uppercase (identifier lookups are case-insensitive upstream). */
@@ -194,7 +218,17 @@ export async function getIssueByIdentifier(
     and(eq(teams.key, teamKey.toUpperCase()), eq(issues.number, number)),
   )
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
-  return issue
+  return withFamily(db, workspaceId, issue)
+}
+
+async function withFamily(db: DbOrTx, workspaceId: string, issue: IssueRecord) {
+  const [parent] = issue.parentId
+    ? await loadIssues(db, workspaceId, eq(issues.id, issue.parentId))
+    : []
+  const children = await loadIssues(db, workspaceId, eq(issues.parentId, issue.id), [
+    asc(issues.id),
+  ])
+  return { ...issue, parent: parent ?? null, children }
 }
 
 /**
@@ -235,6 +269,10 @@ function listFilter(input: ListIssuesInput) {
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
+    input.showSubIssues === false ? isNull(issues.parentId) : undefined,
+    input.excludeSubtreeOf
+      ? sql`${issues.id} not in (with recursive subtree(id) as (select ${input.excludeSubtreeOf}::uuid union select child.id from issues child join subtree on child.parent_id = subtree.id) select id from subtree)`
+      : undefined,
     input.labelIds?.length
       ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
       : undefined,
@@ -295,7 +333,7 @@ function sortOrder(sort: IssueSort, direction: SortDirection) {
 }
 
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
-  await db.transaction(async (tx) => {
+  const parentChange = await db.transaction(async (tx) => {
     // Locking the row keeps `completedAt` consistent with concurrent status changes.
     const [current] = await tx
       .select()
@@ -331,6 +369,17 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
       changes.projectId = input.projectId
     }
+    let parentChange: { from: ParentRef | null; to: ParentRef | null } | null = null
+    if (input.parentId !== undefined && input.parentId !== current.parentId) {
+      const to = input.parentId
+        ? await resolveParent(tx, input.workspaceId, current.id, input.parentId)
+        : null
+      const from = current.parentId
+        ? ((await findIssueRef(tx, input.workspaceId, current.parentId)) ?? null)
+        : null
+      changes.parentId = to?.id ?? null
+      parentChange = { from, to }
+    }
 
     const labelIds =
       input.labelIds === undefined
@@ -365,8 +414,59 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       actor: input.actor,
       changes: activity,
     })
+    if (parentChange) {
+      await recordParentChange(tx, input.workspaceId, input.actor, current, parentChange)
+    }
+    return parentChange
   })
-  return getIssue(db, input.workspaceId, input.id)
+  const issue = await getIssue(db, input.workspaceId, input.id)
+  return {
+    ...issue,
+    /** Old and new parent ids when the parent changed, so callers can notify both. */
+    parentChange: parentChange
+      ? { from: parentChange.from?.id ?? null, to: parentChange.to?.id ?? null }
+      : null,
+  }
+}
+
+/**
+ * `parent` on the child (parent identifiers), `sub_issue` on the old and new
+ * parent (the child's identifier). Identifiers are stored because team keys never
+ * change, so the timeline can name issues without loading them.
+ */
+async function recordParentChange(
+  tx: DbOrTx,
+  workspaceId: string,
+  actor: ActivityActor,
+  child: { id: string },
+  change: { from: ParentRef | null; to: ParentRef | null },
+) {
+  const childRef = await findIssueRef(tx, workspaceId, child.id)
+  if (!childRef) return
+  await recordActivity(tx, {
+    workspaceId,
+    issueId: child.id,
+    actor,
+    changes: [
+      { kind: 'parent', from: change.from?.identifier ?? null, to: change.to?.identifier ?? null },
+    ],
+  })
+  if (change.from) {
+    await recordActivity(tx, {
+      workspaceId,
+      issueId: change.from.id,
+      actor,
+      changes: [{ kind: 'sub_issue', from: childRef.identifier, to: null }],
+    })
+  }
+  if (change.to) {
+    await recordActivity(tx, {
+      workspaceId,
+      issueId: change.to.id,
+      actor,
+      changes: [{ kind: 'sub_issue', from: null, to: childRef.identifier }],
+    })
+  }
 }
 
 /**
@@ -377,19 +477,34 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
 export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
   return db.transaction(async (tx) => {
     const attachmentIds = await listIssueAttachmentIds(tx, workspaceId, id)
+    // Sub-issues lose their parent (`ON DELETE SET NULL`); returned so callers can notify them.
+    const children = await tx
+      .select({ id: issues.id })
+      .from(issues)
+      .where(and(eq(issues.workspaceId, workspaceId), eq(issues.parentId, id)))
     const [issue] = await tx
       .delete(issues)
       .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
-      .returning({ id: issues.id })
+      .returning({ id: issues.id, parentId: issues.parentId })
     if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
     const deletedUploadIds = await releaseAttachments(tx, workspaceId, attachmentIds)
-    return { id: issue.id, deletedUploadIds }
+    return {
+      id: issue.id,
+      parentId: issue.parentId,
+      childIds: children.map((child) => child.id),
+      deletedUploadIds,
+    }
   })
 }
 
 /** Issues with their team key, status and labels, scoped to the workspace. */
-async function loadIssues(db: DbOrTx, workspaceId: string, where: SQL | undefined) {
-  return withLabels(db, workspaceId, await selectIssueRows(db, workspaceId, { where }))
+async function loadIssues(
+  db: DbOrTx,
+  workspaceId: string,
+  where: SQL | undefined,
+  orderBy?: SQL[],
+) {
+  return withLabels(db, workspaceId, await selectIssueRows(db, workspaceId, { where, orderBy }))
 }
 
 type IssueRowsQuery = {
@@ -434,13 +549,41 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
       ),
     )
     .orderBy(asc(labels.name))
+  const progress = await subIssueProgress(
+    db,
+    workspaceId,
+    rows.map((row) => row.issue.id),
+  )
 
   return rows.map(({ issue, teamKey, status }) => ({
     ...issue,
     identifier: `${teamKey}-${issue.number}`,
     status,
     labels: attached.filter((row) => row.issueId === issue.id).map((row) => row.label),
+    subIssueProgress: progress.get(issue.id) ?? null,
   }))
+}
+
+/**
+ * Per parent: `done` counts sub-issues in a `completed` status; `total` leaves
+ * canceled ones out. Issues without sub-issues are missing from the map.
+ */
+async function subIssueProgress(db: DbOrTx, workspaceId: string, parentIds: string[]) {
+  const rows = await db
+    .select({
+      parentId: issues.parentId,
+      done: sql<number>`(count(*) filter (where ${workflowStatuses.category} = 'completed'))::int`,
+      total: sql<number>`(count(*) filter (where ${workflowStatuses.category} <> 'canceled'))::int`,
+    })
+    .from(issues)
+    .innerJoin(workflowStatuses, eq(workflowStatuses.id, issues.statusId))
+    .where(and(eq(issues.workspaceId, workspaceId), inArray(issues.parentId, parentIds)))
+    .groupBy(issues.parentId)
+  return new Map(
+    rows.flatMap((row) =>
+      row.parentId ? [[row.parentId, { done: row.done, total: row.total }] as const] : [],
+    ),
+  )
 }
 
 async function resolveLabelIds(db: DbOrTx, workspaceId: string, labelIds: string[]) {

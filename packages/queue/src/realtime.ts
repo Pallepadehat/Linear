@@ -15,6 +15,9 @@ export const issueFieldSchema = z.enum([
   'project',
   'labels',
   'pullRequests',
+  // The issue's parent changed / one of its sub-issues was added, removed or changed status.
+  'parent',
+  'subIssues',
 ])
 
 const base = {

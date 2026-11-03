@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm'
-import { check, index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core'
 import { users } from './auth'
 import { id, timestamps } from './columns'
 import { projects } from './projects'
@@ -31,6 +41,8 @@ export const issues = pgTable(
       .notNull()
       .references(() => users.id),
     projectId: uuid().references(() => projects.id, { onDelete: 'set null' }),
+    // Sub-issues: same workspace, never a cycle (packages/core/src/issues/parent.ts).
+    parentId: uuid().references((): AnyPgColumn => issues.id, { onDelete: 'set null' }),
     completedAt: timestamp({ withTimezone: true }),
     ...timestamps,
   },
@@ -40,6 +52,7 @@ export const issues = pgTable(
     index().on(t.statusId),
     index().on(t.assigneeId),
     index().on(t.projectId),
+    index().on(t.parentId),
     // List filters and sorts (issues.list); the id is the keyset tie-breaker.
     index().on(t.workspaceId, t.priority),
     index().on(t.workspaceId, t.createdAt, t.id),

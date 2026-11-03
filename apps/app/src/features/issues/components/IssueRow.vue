@@ -8,6 +8,7 @@ import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
+import SubIssueProgressRing from './SubIssueProgressRing.vue'
 
 const props = defineProps<{
   issue: Issue
@@ -15,6 +16,8 @@ const props = defineProps<{
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
   labels: Label[]
+  /** Nesting level when shown under its parent (each level indents the row). */
+  depth?: number
 }>()
 const emit = defineEmits<{ update: [patch: IssuePatch] }>()
 
@@ -43,6 +46,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
 <template>
   <!-- The title link stretches over the whole row; the pickers sit above it. -->
   <div
+    :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
     class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
   >
     <PriorityPicker
@@ -72,6 +76,14 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
     >
       {{ issue.title }}
     </RouterLink>
+    <span
+      v-if="issue.subIssueProgress?.total"
+      class="flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-subtle tabular-nums"
+    >
+      <SubIssueProgressRing v-bind="issue.subIssueProgress" />
+      {{ issue.subIssueProgress.done }}/{{ issue.subIssueProgress.total }}
+      <span class="sr-only">sub-issues done</span>
+    </span>
     <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
       <LabelPicker
         compact

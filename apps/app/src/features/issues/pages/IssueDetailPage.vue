@@ -1,12 +1,22 @@
 <script setup lang="ts">
 import { issueTitleSchema } from '@linear/contract'
-import { SearchX } from '@lucide/vue'
+import type { Issue } from '@linear/contract'
+import { Ellipsis, SearchX } from '@lucide/vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
+import { onKeyStroke } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
+import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
@@ -15,6 +25,8 @@ import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
 import IssueProperties from '../components/IssueProperties.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
+import ParentIssueDialog from '../components/ParentIssueDialog.vue'
+import SubIssueSection from '../components/SubIssueSection.vue'
 import type { IssuePatch } from '../issue-cache'
 import { buildTimeline, type ActivityNames } from '../issue-timeline'
 import {
@@ -113,6 +125,31 @@ function save(patch: IssuePatch) {
   if (issue.value) updateIssue.mutate({ issue: issue.value, patch })
 }
 
+// "Set parent issue…" (⇧⌘P, Ctrl on other platforms) and "Remove parent".
+const parentDialogOpen = ref(false)
+onKeyStroke(
+  (event) => (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p',
+  (event) => {
+    if (!issue.value || ui.createIssueOpen) return
+    event.preventDefault()
+    parentDialogOpen.value = true
+  },
+)
+function setParent(parent: Issue) {
+  save({
+    parentId: parent.id,
+    parent: {
+      id: parent.id,
+      identifier: parent.identifier,
+      title: parent.title,
+      status: parent.status,
+    },
+  })
+}
+function removeParent() {
+  save({ parentId: null, parent: null })
+}
+
 // Title and description are drafts while focused, saved on blur (Enter for the title).
 const titleDraft = ref('')
 const titleError = ref<string | null>(null)
@@ -194,7 +231,50 @@ onBeforeUnmount(commitDescription)
   >
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
-        <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
+        <div class="flex h-7 items-center gap-2">
+          <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                class="ml-auto text-ink-subtle data-[state=open]:bg-surface-2"
+                aria-label="Issue actions"
+              >
+                <Ellipsis aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              class="w-56 rounded-lg border-hairline bg-floating p-1.5"
+            >
+              <DropdownMenuItem
+                class="h-8 rounded-md text-[13px]"
+                @select="parentDialogOpen = true"
+              >
+                Set parent issue…
+                <DropdownMenuShortcut class="text-ink-subtle">⇧⌘P</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                v-if="issue.parentId"
+                class="h-8 rounded-md text-[13px]"
+                @select="removeParent"
+              >
+                Remove parent
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <RouterLink
+          v-if="issue.parent"
+          :to="{ name: 'issue', params: { identifier: issue.parent.identifier } }"
+          class="-mx-1 flex h-6 max-w-full items-center gap-1.5 self-start rounded-md px-1 text-[13px] text-ink-subtle outline-hidden hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span class="sr-only">Parent issue:</span>
+          <StatusIcon :category="issue.parent.status.category" />
+          <span class="font-mono text-xs">{{ issue.parent.identifier }}</span>
+          <span class="truncate">{{ issue.parent.title }}</span>
+        </RouterLink>
         <label for="issue-title" class="sr-only">Issue title</label>
         <textarea
           id="issue-title"
@@ -222,6 +302,13 @@ onBeforeUnmount(commitDescription)
           />
         </div>
 
+        <SubIssueSection
+          :workspace-slug="slug"
+          :issue="issue"
+          :users="users"
+          :labels="labels ?? []"
+        />
+
         <section aria-labelledby="activity-heading" class="mt-8 grid gap-4">
           <h2 id="activity-heading" class="border-t border-hairline pt-6 font-medium text-ink">
             Activity
@@ -245,6 +332,13 @@ onBeforeUnmount(commitDescription)
       :labels="labels ?? []"
       :projects="projects ?? []"
       @change="save"
+    />
+    <ParentIssueDialog
+      v-model:open="parentDialogOpen"
+      :workspace-slug="slug"
+      :issue-id="issue.id"
+      :current-parent-id="issue.parentId"
+      @select="setParent"
     />
   </div>
 </template>

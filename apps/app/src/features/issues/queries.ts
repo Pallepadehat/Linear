@@ -1,4 +1,4 @@
-import type { Issue, IssuePage, ListIssuesInput } from '@linear/contract'
+import type { Issue, IssueDetail, IssuePage, ListIssuesInput } from '@linear/contract'
 import {
   keepPreviousData,
   useMutation,
@@ -72,7 +72,7 @@ export function writeIssueToCaches(
     (data) => patchIssueInPages(data, id, update),
   )
   for (const queryKey of issueDetailKeys())
-    queryClient.setQueriesData<Issue>({ queryKey }, (data) => patchIssue(data, id, update))
+    queryClient.setQueriesData<IssueDetail>({ queryKey }, (data) => patchIssue(data, id, update))
 }
 
 /**

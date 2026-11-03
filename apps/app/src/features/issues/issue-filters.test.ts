@@ -21,6 +21,7 @@ describe('issue filters in the URL', () => {
       q: 'login',
       sort: 'priority' as const,
       direction: 'asc' as const,
+      showSubIssues: false,
     }
     const query = serializeIssueFilters(filters)
     expect(query).toEqual({
@@ -32,6 +33,7 @@ describe('issue filters in the URL', () => {
       q: 'login',
       sort: 'priority',
       dir: 'asc',
+      subIssues: 'hide',
     })
     expect(parseIssueFilters(query as Record<string, string>)).toEqual(filters)
   })

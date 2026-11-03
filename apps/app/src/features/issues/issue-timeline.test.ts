@@ -95,6 +95,10 @@ describe('describeActivity', () => {
       'added labels Frontend and Docs and removed label Bug',
     ],
     [activity('labels', ['l1', 'l2', 'l3'], []), 'removed labels Bug, Frontend and Docs'],
+    [activity('parent', null, 'TIP-12'), 'set parent to TIP-12'],
+    [activity('parent', 'TIP-12', null), 'removed parent'],
+    [activity('sub_issue', null, 'TIP-15'), 'added sub-issue TIP-15'],
+    [activity('sub_issue', 'TIP-15', null), 'removed sub-issue TIP-15'],
   ])('%#: %s', (entry, expected) => {
     expect(describeActivity(entry, names)).toBe(expected)
   })

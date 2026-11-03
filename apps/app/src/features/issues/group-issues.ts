@@ -12,7 +12,8 @@ export const CATEGORY_ORDER: Record<StatusCategory, number> = {
 export type IssueGroup = { key: string; status: WorkflowStatus; issues: Issue[] }
 
 export type IssueListRow =
-  { type: 'group'; key: string; group: IssueGroup } | { type: 'issue'; key: string; issue: Issue }
+  | { type: 'group'; key: string; group: IssueGroup }
+  | { type: 'issue'; key: string; issue: Issue; depth: number }
 
 /** Groups the same-named status of different teams together (e.g. every team's "Todo"). */
 export const statusGroupKey = (status: Pick<WorkflowStatus, 'category' | 'name'>) =>
@@ -37,6 +38,36 @@ export function groupIssuesByStatus(issues: Issue[]): IssueGroup[] {
   )
 }
 
+/**
+ * Puts each sub-issue right after its parent (depth + 1) when the parent is in the
+ * same list, keeping the list's order among siblings. Sub-issues whose parent isn't
+ * there (another group, not loaded, filtered out) stay at the top level.
+ */
+export function nestSubIssues(issues: Issue[]): { issue: Issue; depth: number }[] {
+  const ids = new Set(issues.map((issue) => issue.id))
+  const children = new Map<string, Issue[]>()
+  for (const issue of issues) {
+    if (!issue.parentId || !ids.has(issue.parentId)) continue
+    const siblings = children.get(issue.parentId)
+    if (siblings) siblings.push(issue)
+    else children.set(issue.parentId, [issue])
+  }
+  const out: { issue: Issue; depth: number }[] = []
+  const placed = new Set<string>()
+  const visit = (issue: Issue, depth: number) => {
+    if (placed.has(issue.id)) return
+    placed.add(issue.id)
+    out.push({ issue, depth })
+    for (const child of children.get(issue.id) ?? []) visit(child, depth + 1)
+  }
+  for (const issue of issues) {
+    if (!issue.parentId || !ids.has(issue.parentId)) visit(issue, 0)
+  }
+  // Only reachable if the data had a cycle; never drop an issue.
+  for (const issue of issues) visit(issue, 0)
+  return out
+}
+
 /** Flattens groups into header + issue rows for the virtualizer; collapsed groups keep only their header. */
 export function toListRows(
   groups: IssueGroup[],
@@ -46,6 +77,11 @@ export function toListRows(
     { type: 'group', key: `group:${group.key}`, group },
     ...(collapsed.has(group.key)
       ? []
-      : group.issues.map((issue): IssueListRow => ({ type: 'issue', key: issue.id, issue }))),
+      : nestSubIssues(group.issues).map(({ issue, depth }): IssueListRow => ({
+          type: 'issue',
+          key: issue.id,
+          issue,
+          depth,
+        }))),
   ])
 }

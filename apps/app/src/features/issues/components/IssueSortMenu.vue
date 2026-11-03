@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -15,6 +16,8 @@ import {
 
 const sort = defineModel<IssueSort>('sort', { required: true })
 const direction = defineModel<SortDirection>('direction', { required: true })
+// Lives here until the display options popover (M7-03) exists.
+const showSubIssues = defineModel<boolean>('showSubIssues', { required: true })
 
 const SORTS: { value: IssueSort; label: string }[] = [
   { value: 'createdAt', label: 'Created' },
@@ -82,6 +85,15 @@ function setDirection(value: unknown) {
           {{ option.label }}
         </DropdownMenuRadioItem>
       </DropdownMenuRadioGroup>
+      <DropdownMenuSeparator class="bg-hairline" />
+      <DropdownMenuCheckboxItem
+        :model-value="showSubIssues"
+        class="h-8 rounded-md text-[13px]"
+        @update:model-value="showSubIssues = $event === true"
+        @select.prevent
+      >
+        Show sub-issues
+      </DropdownMenuCheckboxItem>
     </DropdownMenuContent>
   </DropdownMenu>
 </template>
