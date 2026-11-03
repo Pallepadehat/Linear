@@ -184,7 +184,7 @@ const onSubmit = handleSubmit(async ({ teamId: _, ...form }) => {
           <StatusPicker v-model="statusId" :statuses="statuses" no-hotkey allow-none />
           <PriorityPicker v-model="priority" no-hotkey />
           <AssigneePicker v-model="assigneeId" :users="assignees" no-hotkey />
-          <LabelPicker v-model="labelIds" :labels="labels ?? []" />
+          <LabelPicker v-model="labelIds" :labels="labels ?? []" :team-id="scopeTeamId" />
           <ProjectPicker v-model="projectId" :projects="projects ?? []" />
         </div>
         <DialogFooter class="flex-row items-center gap-3 px-5 pt-4 pb-4">
