@@ -13,6 +13,12 @@ describe('recipientsFor', () => {
     ])
   })
 
+  it('leaves people a comment mentions out of `commented`', () => {
+    expect(
+      recipientsFor({ type: 'commented', mentionedIds: [bob] }, [ada, bob, cy], ada, members),
+    ).toEqual([cy])
+  })
+
   it('de-duplicates recipients', () => {
     expect(recipientsFor({ type: 'status_changed' }, [bob, cy, bob], ada, members)).toEqual([
       bob,

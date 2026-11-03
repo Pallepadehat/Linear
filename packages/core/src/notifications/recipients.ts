@@ -10,7 +10,9 @@ export type NotificationEvent =
   | { type: 'assigned'; assigneeId: string }
   | { type: 'mentioned'; userIds: readonly string[] }
   | { type: 'issue_created_in_team'; teamMemberIds: readonly string[] }
-  | { type: 'commented' | 'status_changed' | 'pr_linked' }
+  /** `mentionedIds`: people the comment mentions; they hear about it through `mentioned`. */
+  | { type: 'commented'; mentionedIds?: readonly string[] }
+  | { type: 'status_changed' | 'pr_linked' }
 
 /** Who the event is aimed at, before the actor and non-members are dropped. */
 export function targetsOf(event: NotificationEvent, subscribers: readonly string[]) {
@@ -21,6 +23,10 @@ export function targetsOf(event: NotificationEvent, subscribers: readonly string
       return event.userIds
     case 'issue_created_in_team':
       return event.teamMemberIds
+    case 'commented': {
+      const mentioned = new Set(event.mentionedIds)
+      return subscribers.filter((id) => !mentioned.has(id))
+    }
     default:
       return subscribers
   }
