@@ -1,13 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+export type CreateIssueDefaults = { teamId?: string; statusId?: string; projectId?: string }
+
 /** Transient UI state shared across the layout (never server data). */
 export const useUiStore = defineStore('ui', () => {
   const createIssueOpen = ref(false)
-  /** Preselected in the create issue dialog, e.g. from a team page or a group's `+`. */
-  const createIssueDefaults = ref<{ teamId?: string; statusId?: string }>({})
+  /** Preselected in the create issue dialog, e.g. from a team or project page or a group's `+`. */
+  const createIssueDefaults = ref<CreateIssueDefaults>({})
 
-  function openCreateIssue(defaults: { teamId?: string; statusId?: string } = {}) {
+  function openCreateIssue(defaults: CreateIssueDefaults = {}) {
     createIssueDefaults.value = defaults
     createIssueOpen.value = true
   }

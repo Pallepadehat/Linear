@@ -7,7 +7,7 @@ import {
   workflowStatuses,
   type DbOrTx,
 } from '@linear/db'
-import { and, asc, eq, inArray, count, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { DomainError } from '../errors'
 
 type Changes = {
@@ -17,6 +17,41 @@ type Changes = {
   iconUploadId?: string | null
   teamIds?: string[]
 }
+
+/**
+ * Issue counts per project: all linked issues in the total, only the `completed` status
+ * category in the numerator (docs/domain.md → Projects).
+ */
+async function loadProgress(db: DbOrTx, workspaceId: string, projectId?: string) {
+  const rows = await db
+    .select({
+      projectId: issues.projectId,
+      total: count(),
+      completed:
+        sql<number>`count(*) filter (where ${workflowStatuses.category} = 'completed')`.mapWith(
+          Number,
+        ),
+    })
+    .from(issues)
+    .innerJoin(
+      workflowStatuses,
+      and(eq(workflowStatuses.id, issues.statusId), eq(workflowStatuses.workspaceId, workspaceId)),
+    )
+    .where(
+      and(
+        eq(issues.workspaceId, workspaceId),
+        projectId ? eq(issues.projectId, projectId) : isNotNull(issues.projectId),
+      ),
+    )
+    .groupBy(issues.projectId)
+  return new Map(
+    rows.flatMap((row) =>
+      row.projectId ? [[row.projectId, { completed: row.completed, total: row.total }]] : [],
+    ),
+  )
+}
+
+const NO_PROGRESS = { completed: 0, total: 0 }
 
 export async function listProjects(db: DbOrTx, workspaceId: string) {
   const rows = await db
@@ -28,9 +63,11 @@ export async function listProjects(db: DbOrTx, workspaceId: string) {
     .select()
     .from(projectTeams)
     .where(eq(projectTeams.workspaceId, workspaceId))
+  const progress = await loadProgress(db, workspaceId)
   return rows.map((row) => ({
     ...row,
     teamIds: links.filter((link) => link.projectId === row.id).map((link) => link.teamId),
+    progress: progress.get(row.id) ?? NO_PROGRESS,
   }))
 }
 
@@ -44,24 +81,11 @@ export async function getProject(db: DbOrTx, workspaceId: string, id: string) {
     .select()
     .from(projectTeams)
     .where(and(eq(projectTeams.workspaceId, workspaceId), eq(projectTeams.projectId, id)))
-  const [progress] = await db
-    .select({
-      total: count(),
-      completed:
-        sql<number>`count(*) filter (where ${workflowStatuses.category} = 'completed')`.mapWith(
-          Number,
-        ),
-    })
-    .from(issues)
-    .innerJoin(
-      workflowStatuses,
-      and(eq(workflowStatuses.id, issues.statusId), eq(workflowStatuses.workspaceId, workspaceId)),
-    )
-    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.projectId, id)))
+  const progress = await loadProgress(db, workspaceId, id)
   return {
     ...row,
     teamIds: links.map((link) => link.teamId),
-    progress: progress ?? { completed: 0, total: 0 },
+    progress: progress.get(id) ?? NO_PROGRESS,
   }
 }
 

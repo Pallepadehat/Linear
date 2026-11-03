@@ -71,6 +71,7 @@ export const getIssueByIdentifierInputSchema = workspaceScopedSchema.extend({
 
 export const listIssuesInputSchema = workspaceScopedSchema.extend({
   teamId: z.uuid().optional(),
+  projectId: z.uuid().optional(),
   /** `nextCursor` from the previous page. */
   cursor: z.string().min(1).nullish(),
   limit: z.number().int().min(1).max(100).default(50),

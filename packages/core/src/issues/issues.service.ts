@@ -52,6 +52,7 @@ export type UpdateIssueInput = {
 export type ListIssuesInput = {
   workspaceId: string
   teamId?: string
+  projectId?: string
   cursor?: string | null
   limit: number
 }
@@ -152,6 +153,7 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
     input.workspaceId,
     and(
       input.teamId ? eq(issues.teamId, input.teamId) : undefined,
+      input.projectId ? eq(issues.projectId, input.projectId) : undefined,
       input.cursor ? lt(issues.id, input.cursor) : undefined,
     ),
     input.limit + 1,

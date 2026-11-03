@@ -43,8 +43,10 @@ describe('projects', () => {
         name: 'Icon',
         iconUploadId: presigned.uploadId,
       }),
-    ).toMatchObject({ iconUploadId: presigned.uploadId })
-    expect(await owner.client.projects.list({ workspaceSlug: 'tip' })).toHaveLength(1)
+    ).toMatchObject({ iconUploadId: presigned.uploadId, iconUrl: expect.any(String) })
+    expect(await owner.client.projects.list({ workspaceSlug: 'tip' })).toMatchObject([
+      { iconUrl: expect.any(String) },
+    ])
   })
 
   it('serializes concurrent team-set replacements', async () => {
@@ -105,6 +107,17 @@ describe('projects', () => {
       completed: 1,
       total: 2,
     })
+    // The list carries the same progress, and unlinked issues don't count.
+    const other = await projects.create({ ...scope, name: 'Other' })
+    await issues.create({ ...scope, teamId: team.id, title: 'Unlinked' })
+    expect(await projects.list(scope)).toMatchObject([
+      { id: project.id, progress: { completed: 1, total: 2 } },
+      { id: other.id, progress: { completed: 0, total: 0 } },
+    ])
+    // The project page lists only that project's issues.
+    const page = await issues.list({ ...scope, projectId: project.id })
+    expect(page.items.map((i) => i.title).sort()).toEqual(['Canceled', 'Done'])
+    await projects.delete({ ...scope, id: other.id })
     expect(
       await projects.update({
         ...scope,

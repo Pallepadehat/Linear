@@ -12,7 +12,7 @@ import { groupIssuesByStatus, toListRows, type IssueListRow } from '../group-iss
 import { issueListOptions } from '../queries'
 import IssueRow from './IssueRow.vue'
 
-const props = defineProps<{ workspaceSlug: string; teamId?: string }>()
+const props = defineProps<{ workspaceSlug: string; teamId?: string; projectId?: string }>()
 
 const GROUP_HEIGHT = 40
 const ROW_HEIGHT = 36
@@ -20,7 +20,11 @@ const ROW_HEIGHT = 36
 const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
-const query = useInfiniteQuery(computed(() => issueListOptions(props.workspaceSlug, props.teamId)))
+const query = useInfiniteQuery(
+  computed(() =>
+    issueListOptions(props.workspaceSlug, { teamId: props.teamId, projectId: props.projectId }),
+  ),
+)
 const { data: members } = useQuery(
   computed(() =>
     orpc.workspaces.listMembers.queryOptions({ input: { workspaceSlug: props.workspaceSlug } }),
@@ -113,7 +117,7 @@ watchEffect(() => {
     title="No issues yet"
     description="Create an issue to start tracking work."
   >
-    <Button size="sm" @click="ui.openCreateIssue({ teamId })">New issue</Button>
+    <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
   </EmptyState>
   <div v-else ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto pt-2 pb-4" role="list">
     <div class="relative w-full" :style="{ height: `${virtualizer.getTotalSize()}px` }">
@@ -148,7 +152,7 @@ watchEffect(() => {
             variant="ghost"
             size="icon-xs"
             :aria-label="`New issue in ${row.group.status.name}`"
-            @click="ui.openCreateIssue({ teamId, statusId: row.group.status.id })"
+            @click="ui.openCreateIssue({ teamId, projectId, statusId: row.group.status.id })"
           >
             <Plus aria-hidden="true" />
           </Button>

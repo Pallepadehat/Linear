@@ -64,6 +64,12 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/features/projects/pages/ProjectsPage.vue'),
       },
       {
+        path: 'project/:projectId',
+        name: 'project',
+        meta: { title: 'Project' },
+        component: () => import('@/features/projects/pages/ProjectDetailPage.vue'),
+      },
+      {
         path: 'teams',
         name: 'teams',
         meta: { title: 'Teams' },
