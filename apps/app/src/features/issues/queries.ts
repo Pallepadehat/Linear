@@ -26,6 +26,7 @@ import {
   applyIssuePatch,
   patchIssue,
   patchIssueInPages,
+  removeIssueFromPages,
   removeRelation,
   toUpdateIssueInput,
   type IssuePatch,
@@ -206,6 +207,47 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
         ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
         // Project progress counts issues by status and project.
+        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+      ])
+    },
+  })
+}
+
+/**
+ * Deletes an issue, dropping it from every list page at once; restored with a
+ * toast if the server refuses.
+ */
+export function useDeleteIssue(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  const listKey = issueInfiniteListKey()
+
+  return useMutation({
+    mutationFn: ({ id }: { id: string; identifier: string }) =>
+      client.issues.delete({ workspaceSlug: toValue(workspaceSlug), id }),
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: listKey })
+      const previous = queryClient.getQueriesData<InfiniteData<IssuePage>>({ queryKey: listKey })
+      queryClient.setQueriesData<InfiniteData<IssuePage>>({ queryKey: listKey }, (data) =>
+        removeIssueFromPages(data, id),
+      )
+      return { previous }
+    },
+    onError: (error, { identifier }, context) => {
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
+      toast.error(`Couldn't delete ${identifier}`, { description: errorMessage(error) })
+    },
+    onSuccess: (_, { id, identifier }) => {
+      for (const queryKey of issueDetailKeys())
+        queryClient.removeQueries({
+          queryKey,
+          predicate: (query) => (query.state.data as Issue | undefined)?.id === id,
+        })
+      toast.success(`${identifier} deleted`)
+    },
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: listKey }),
         queryClient.invalidateQueries({ queryKey: projectsKey() }),
       ])
     },

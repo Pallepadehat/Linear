@@ -1,9 +1,8 @@
 import type { IssuePage } from '@linear/contract'
 import { hashKey, useQueryClient, type InfiniteData } from '@tanstack/vue-query'
-import { onKeyStroke } from '@vueuse/core'
 import { computed, onScopeDispose, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import { useRouter } from 'vue-router'
-import { isTypingTarget } from '@/lib/keyboard'
+import { useHotkeys } from '@/composables/useHotkeys'
 import { useIssueNavStore } from '@/stores/issue-nav'
 
 /**
@@ -42,12 +41,10 @@ export function useIssueNav(identifier: MaybeRefOrGetter<string>) {
     if (next) void router.replace({ name: 'issue', params: { identifier: next } })
   }
 
-  onKeyStroke(['j', 'k'], (event) => {
-    if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return
-    if (!nav.position) return
-    event.preventDefault()
-    go(event.key === 'j' ? 1 : -1)
-  })
+  useHotkeys([
+    { id: 'issue-next', run: () => (nav.position ? go(1) : false) },
+    { id: 'issue-prev', run: () => (nav.position ? go(-1) : false) },
+  ])
 
   return {
     position: computed(() => nav.position),

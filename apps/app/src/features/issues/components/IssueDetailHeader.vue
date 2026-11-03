@@ -2,7 +2,6 @@
 import type { Issue } from '@linear/contract'
 import { ChevronDown, ChevronUp, Copy, Ellipsis, GitCompareArrows, Trash2, X } from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onKeyStroke } from '@vueuse/core'
 import { computed, ref, watchEffect } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -28,7 +27,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
 import { errorMessage } from '@/lib/errors'
-import { isTypingTarget } from '@/lib/keyboard'
+import { useHotkeys } from '@/composables/useHotkeys'
+import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import { useIssueNav } from '../composables/useIssueNav'
@@ -79,8 +79,10 @@ watchEffect(
   { flush: 'post' },
 )
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-const deleteShortcut = isMac ? '⌘⌫' : 'Ctrl ⌫'
+// From the shortcut catalog, so the menu hint matches the binding.
+const deleteShortcut = shortcutKeys('issue-delete')
+  .flat()
+  .join(isMacPlatform() ? '' : ' ')
 
 // Only properties that are set can be removed; the submenu hides when none are.
 type Removable = { label: string; patch: IssuePatch }
@@ -116,11 +118,7 @@ async function confirmDelete() {
 }
 
 // ⌘⌫ (Ctrl+Backspace elsewhere) asks to delete, like Linear; not while typing.
-onKeyStroke('Backspace', (event) => {
-  if (!(isMac ? event.metaKey : event.ctrlKey) || isTypingTarget(event.target)) return
-  event.preventDefault()
-  confirmingDelete.value = true
-})
+useHotkeys([{ id: 'issue-delete', run: () => void (confirmingDelete.value = true) }])
 
 const itemClass = 'h-8 rounded-md text-[13px]'
 </script>

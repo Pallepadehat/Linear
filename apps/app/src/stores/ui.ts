@@ -10,6 +10,9 @@ export type CreateIssueDefaults = {
   assigneeId?: string
 }
 
+/** Enough to name an issue and fetch it; the issue itself stays in the query cache. */
+export type IssueRef = { id: string; identifier: string }
+
 /**
  * One breadcrumb segment: plain text, or a link, optionally with the team badge
  * (`teamInitial`) or a mono identifier before the label.
@@ -37,11 +40,20 @@ export const useUiStore = defineStore('ui', () => {
   /** Breadcrumb a page puts in the panel header; null falls back to the route title. */
   const breadcrumb = ref<Crumb[] | null>(null)
 
+  const createProjectOpen = ref(false)
+
+  /** ⌘K command menu and the `?` keyboard shortcuts sheet. */
+  const commandMenuOpen = ref(false)
+  const shortcutsOpen = ref(false)
+
   /**
-   * Set by the sidebar search button; the issue filter bar focuses its search field and clears it.
-   * Stand-in until the command menu (M7-11) takes over search.
+   * The issue keyboard actions apply to: the open issue on its page, or the
+   * focused row in a list. The command menu's issue actions and ⌘⌫ use it.
    */
-  const searchFocusRequested = ref(false)
+  const activeIssue = ref<IssueRef | null>(null)
+
+  /** Issue awaiting the delete confirmation dialog. */
+  const issueToDelete = ref<IssueRef | null>(null)
 
   /** The issue list's Details panel (⌘I); the toolbar toggles it, the panel itself lands in M7-05. */
   const issueDetailsOpen = ref(false)
@@ -52,7 +64,11 @@ export const useUiStore = defineStore('ui', () => {
     createIssuePrefill,
     openCreateIssue,
     breadcrumb,
-    searchFocusRequested,
+    createProjectOpen,
+    commandMenuOpen,
+    shortcutsOpen,
+    activeIssue,
+    issueToDelete,
     issueDetailsOpen,
   }
 })
