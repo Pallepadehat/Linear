@@ -48,7 +48,9 @@ describe('assertValidEstimate', () => {
 
   it('accepts zero only when allowZero is on', () => {
     expect(codeOf(() => assertValidEstimate(fibonacci, 0))).toBe('BAD_REQUEST')
-    expect(codeOf(() => assertValidEstimate({ ...fibonacci, estimateAllowZero: true }, 0))).toBeNull()
+    expect(
+      codeOf(() => assertValidEstimate({ ...fibonacci, estimateAllowZero: true }, 0)),
+    ).toBeNull()
   })
 
   it('rejects every value when the scale is off, but still allows clearing', () => {

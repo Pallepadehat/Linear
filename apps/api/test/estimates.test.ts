@@ -56,10 +56,11 @@ describe('estimates', () => {
     const cleared = await issues.update({ workspaceSlug: 'tip', id: created.id, estimate: null })
     expect(cleared.estimate).toBeNull()
 
-    const { items } = await owner.client.activity.list({ workspaceSlug: 'tip', issueId: created.id })
-    expect(
-      items.filter((a) => a.kind === 'estimate').map((a) => [a.from, a.to]),
-    ).toEqual([
+    const { items } = await owner.client.activity.list({
+      workspaceSlug: 'tip',
+      issueId: created.id,
+    })
+    expect(items.filter((a) => a.kind === 'estimate').map((a) => [a.from, a.to])).toEqual([
       [3, 8],
       [8, null],
     ])
@@ -69,8 +70,12 @@ describe('estimates', () => {
     const { owner, team, issues } = await arrange()
     const { id } = await issues.create({ workspaceSlug: 'tip', teamId: team.id, title: 'X' })
     const bad = { code: 'BAD_REQUEST' }
-    await expect(issues.update({ workspaceSlug: 'tip', id, estimate: 4 })).rejects.toMatchObject(bad)
-    await expect(issues.update({ workspaceSlug: 'tip', id, estimate: 0 })).rejects.toMatchObject(bad)
+    await expect(issues.update({ workspaceSlug: 'tip', id, estimate: 4 })).rejects.toMatchObject(
+      bad,
+    )
+    await expect(issues.update({ workspaceSlug: 'tip', id, estimate: 0 })).rejects.toMatchObject(
+      bad,
+    )
     await expect(
       issues.create({ workspaceSlug: 'tip', teamId: team.id, title: 'Y', estimate: 4 }),
     ).rejects.toMatchObject(bad)
@@ -82,7 +87,9 @@ describe('estimates', () => {
     await owner.client.teams.update({ workspaceSlug: 'tip', key: 'TIP', estimateScale: 'off' })
     const kept = await issues.update({ workspaceSlug: 'tip', id, title: 'Renamed' })
     expect(kept.estimate).toBe(0)
-    await expect(issues.update({ workspaceSlug: 'tip', id, estimate: 1 })).rejects.toMatchObject(bad)
+    await expect(issues.update({ workspaceSlug: 'tip', id, estimate: 1 })).rejects.toMatchObject(
+      bad,
+    )
     expect((await issues.update({ workspaceSlug: 'tip', id, estimate: null })).estimate).toBeNull()
   })
 
@@ -101,10 +108,7 @@ describe('estimates', () => {
 
     expect(await titles({ workspaceSlug: 'tip', estimates: [null] })).toEqual(['none'])
     expect((await titles({ workspaceSlug: 'tip', estimates: ['any'] })).length).toBe(4)
-    expect(await titles({ workspaceSlug: 'tip', estimates: [3, null] })).toEqual([
-      'three',
-      'none',
-    ])
+    expect(await titles({ workspaceSlug: 'tip', estimates: [3, null] })).toEqual(['three', 'none'])
 
     // Largest first, newest first within a value, no estimate last; paged one by one.
     for (const [direction, expected] of [

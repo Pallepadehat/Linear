@@ -3,10 +3,12 @@ import type { Issue, Label, WorkflowStatus } from '@linear/contract'
 import { GitPullRequest } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import type { EstimateSettings } from '@/lib/estimates'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { fullDate, timeAgo } from '@/lib/relative-time'
 import type { IssuePatch } from '../issue-cache'
@@ -17,6 +19,8 @@ const props = defineProps<{
   users: AssigneeOption[]
   labels: Label[]
   projects: ProjectOption[]
+  /** The issue team's estimate scale; the picker is hidden while unknown or off. */
+  estimates?: EstimateSettings | null
 }>()
 const emit = defineEmits<{ change: [patch: IssuePatch] }>()
 
@@ -47,6 +51,12 @@ const labelIds = computed({
     emit('change', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
   },
 })
+const estimate = computed({
+  get: () => props.issue.estimate,
+  set: (value: number | null) => {
+    if (value !== props.issue.estimate) emit('change', { estimate: value })
+  },
+})
 const projectId = computed({
   get: () => props.issue.projectId,
   set: (id: string | null) => {
@@ -65,6 +75,12 @@ const projectId = computed({
       <StatusPicker v-model="statusId" :statuses="statuses" />
       <PriorityPicker v-model="priority" />
       <AssigneePicker v-model="assigneeId" :users="users" />
+      <EstimatePicker
+        v-if="estimates && estimates.scale !== 'off'"
+        v-model="estimate"
+        :scale="estimates.scale"
+        :allow-zero="estimates.allowZero"
+      />
     </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Labels</h2>

@@ -7,6 +7,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
@@ -25,6 +26,7 @@ import { Switch } from '@/components/ui/switch'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { projectListOptions, projectsKey } from '@/features/projects/queries'
 import { errorMessage } from '@/lib/errors'
+import { estimateValues } from '@/lib/estimates'
 import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
@@ -62,6 +64,7 @@ const {
     priority: 0,
     assigneeId: null,
     projectId: null,
+    estimate: null,
     labelIds: [],
   },
 })
@@ -137,6 +140,16 @@ const projectId = computed({
   get: () => values.projectId ?? null,
   set: (id: string | null) => setFieldValue('projectId', id, false),
 })
+const estimate = computed({
+  get: () => values.estimate ?? null,
+  set: (value: number | null) => setFieldValue('estimate', value, false),
+})
+// Hidden while the team's scale is unknown or off.
+const estimates = computed(() =>
+  loadedTeam.value && loadedTeam.value.estimateScale !== 'off'
+    ? { scale: loadedTeam.value.estimateScale, allowZero: loadedTeam.value.estimateAllowZero }
+    : null,
+)
 const labelIds = computed({
   get: () => values.labelIds ?? [],
   set: (ids: string[]) => setFieldValue('labelIds', ids, false),
@@ -183,6 +196,15 @@ function applyTeamDefaults() {
   if (!team.statuses.some((s) => s.id === values.statusId))
     setFieldValue('statusId', team.defaultStatusId ?? undefined, false)
   if (!touched.priority) setFieldValue('priority', team.defaultPriority, false)
+  // An estimate picked for another team may not be on this team's scale.
+  const picked = values.estimate ?? null
+  if (
+    picked !== null &&
+    !estimateValues({ scale: team.estimateScale, allowZero: team.estimateAllowZero }).includes(
+      picked,
+    )
+  )
+    setFieldValue('estimate', null, false)
   // Skip a default assignee who is no longer a member; the server would reject them.
   const assignee = team.defaultAssigneeId
   if (!touched.assignee)
@@ -316,6 +338,12 @@ function onKeydown(event: KeyboardEvent) {
           <StatusPicker v-model="statusId" :statuses="statuses" />
           <PriorityPicker v-model="priority" />
           <AssigneePicker v-model="assigneeId" :users="assignees" />
+          <EstimatePicker
+            v-if="estimates"
+            v-model="estimate"
+            :scale="estimates.scale"
+            :allow-zero="estimates.allowZero"
+          />
           <LabelPicker v-model="labelIds" :labels="labels ?? []" />
           <ProjectPicker v-model="projectId" :projects="projects ?? []" />
         </div>

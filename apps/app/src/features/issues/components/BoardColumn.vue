@@ -4,8 +4,10 @@ import { Plus } from '@lucide/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref, useId, type ComponentPublicInstance } from 'vue'
 import type { AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import EstimateIcon from '@/components/common/EstimateIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
+import { pointsText, sumEstimates, type EstimateSettings } from '@/lib/estimates'
 import type { BoardColumn } from '../board-columns'
 import type { IssuePatch } from '../issue-cache'
 import BoardCard from './BoardCard.vue'
@@ -13,6 +15,7 @@ import BoardCard from './BoardCard.vue'
 const props = defineProps<{
   column: BoardColumn
   statusesByTeam: ReadonlyMap<string, WorkflowStatus[]>
+  estimatesByTeam: ReadonlyMap<string, EstimateSettings>
   users: AssigneeOption[]
   labels: Label[]
   /** The card being dragged, if any. */
@@ -34,6 +37,10 @@ const emit = defineEmits<{
 const ESTIMATED_CARD_HEIGHT = 104
 
 const headingId = useId()
+// From the cached issues, so optimistic estimate changes show at once.
+const estimateTotal = computed(() =>
+  sumEstimates(props.column.issues, (teamId) => props.estimatesByTeam.get(teamId)?.scale),
+)
 const scrollEl = ref<HTMLElement | null>(null)
 const virtualizer = useVirtualizer(
   computed(() => ({
@@ -89,6 +96,15 @@ function onDrop(event: DragEvent) {
       <StatusIcon :category="column.status.category" />
       <h2 :id="headingId" class="truncate font-medium text-ink">{{ column.status.name }}</h2>
       <span class="text-ink-subtle tabular-nums">{{ column.issues.length }}</span>
+      <span
+        v-if="estimateTotal > 0"
+        class="flex items-center gap-1 text-xs text-ink-subtle tabular-nums"
+        :title="`Estimate: ${pointsText(estimateTotal)}`"
+      >
+        <EstimateIcon class="size-3.5" />
+        {{ estimateTotal }}
+        <span class="sr-only">{{ estimateTotal === 1 ? 'point' : 'points' }}</span>
+      </span>
       <Button
         v-if="creatable"
         variant="ghost"
@@ -121,6 +137,7 @@ function onDrop(event: DragEvent) {
             :statuses="statusesByTeam.get(issue.teamId) ?? []"
             :users="users"
             :labels="labels"
+            :estimates="estimatesByTeam.get(issue.teamId)"
             :dragging="draggingId === issue.id"
             @update="(patch) => emit('update', issue, patch)"
             @dragstart="(event) => emit('dragstart', issue, event)"

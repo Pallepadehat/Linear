@@ -1,15 +1,17 @@
 import { CircleDashed, CircleUser, Signal, Tag, Box } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, h, type Component, type MaybeRefOrGetter, toValue } from 'vue'
+import EstimateIcon from '@/components/common/EstimateIcon.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import UnassignedIcon from '@/components/common/UnassignedIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { orpc } from '@/lib/orpc'
+import { estimateLabel, estimateValues } from '@/lib/estimates'
 import { PRIORITIES } from '@/lib/priorities'
 import { CATEGORY_ORDER } from '../group-issues'
-import { toggleValues, type IssueFilters } from '../issue-filters'
+import { ANY, toggleValues, type EstimateFilterValue, type IssueFilters } from '../issue-filters'
 
 export type FilterOption = {
   /** Unique within the dimension; also the menu item's text value. */
@@ -21,7 +23,7 @@ export type FilterOption = {
 }
 
 export type FilterDimension = {
-  key: 'status' | 'priority' | 'assignee' | 'project' | 'label'
+  key: 'status' | 'priority' | 'assignee' | 'project' | 'label' | 'estimate'
   label: string
   icon: Component
   options: FilterOption[]
@@ -157,6 +159,31 @@ export function useFilterDimensions(
       values: [l.id],
     }))
 
+    // Only teams that use estimates; values are the union of their scales.
+    const estimateTeams = (teams.value ?? []).filter(
+      (team) => (!teamId || team.id === teamId) && team.estimateScale !== 'off',
+    )
+    const scales = new Set(estimateTeams.map((team) => team.estimateScale))
+    const [onlyScale] = scales.size === 1 ? [...scales] : []
+    const points = [
+      ...new Set(
+        estimateTeams.flatMap((team) =>
+          estimateValues({ scale: team.estimateScale, allowZero: team.estimateAllowZero }),
+        ),
+      ),
+    ].sort((a, b) => a - b)
+    const estimateIcon = () => h(EstimateIcon)
+    const estimateOptions = [
+      { key: ANY, label: 'Has estimate', icon: estimateIcon, values: [ANY as EstimateFilterValue] },
+      { key: 'none', label: 'No estimate', icon: estimateIcon, values: [null] },
+      ...points.map((value) => ({
+        key: String(value),
+        label: estimateLabel(value, onlyScale ?? 'linear'),
+        icon: estimateIcon,
+        values: [value as EstimateFilterValue],
+      })),
+    ]
+
     return [
       dimension(
         'status',
@@ -196,6 +223,18 @@ export function useFilterDimensions(
             ),
           ]),
       dimension('label', 'Labels', Tag, f.labelIds, (v) => update({ labelIds: v }), labelOptions),
+      ...(estimateTeams.length || f.estimates.length
+        ? [
+            dimension(
+              'estimate',
+              'Estimate',
+              EstimateIcon,
+              f.estimates,
+              (v) => update({ estimates: v }),
+              estimateOptions,
+            ),
+          ]
+        : []),
     ]
   })
 }

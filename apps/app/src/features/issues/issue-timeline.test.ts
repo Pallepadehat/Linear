@@ -95,7 +95,16 @@ describe('describeActivity', () => {
       'added labels Frontend and Docs and removed label Bug',
     ],
     [activity('labels', ['l1', 'l2', 'l3'], []), 'removed labels Bug, Frontend and Docs'],
+    [activity('estimate', null, 3), 'set estimate to 3 points'],
+    [activity('estimate', 3, 1), 'set estimate to 1 point'],
+    [activity('estimate', 3, null), 'removed estimate'],
   ])('%#: %s', (entry, expected) => {
     expect(describeActivity(entry, names)).toBe(expected)
+  })
+
+  it('names estimates the way the team does', () => {
+    expect(describeActivity(activity('estimate', null, 3), { ...names, estimate: () => 'M' })).toBe(
+      'set estimate to M',
+    )
   })
 })

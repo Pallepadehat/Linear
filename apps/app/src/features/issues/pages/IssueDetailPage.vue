@@ -9,6 +9,7 @@ import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { projectListOptions } from '@/features/projects/queries'
+import { estimateLabel } from '@/lib/estimates'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
@@ -73,8 +74,13 @@ const names = computed<ActivityNames>(() => {
     user: byId(users.value),
     project: byId(projects.value),
     label: byId(labels.value),
+    estimate:
+      team.value?.estimateScale === 'tshirt' ? (v) => estimateLabel(v, 'tshirt') : undefined,
   }
 })
+const estimates = computed(() =>
+  team.value ? { scale: team.value.estimateScale, allowZero: team.value.estimateAllowZero } : null,
+)
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
 
 watchEffect(() => {
@@ -244,6 +250,7 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :estimates="estimates"
       @change="save"
     />
   </div>

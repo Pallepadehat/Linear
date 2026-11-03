@@ -18,6 +18,7 @@ describe('issue filters in the URL', () => {
       assigneeIds: [A, null],
       projectIds: [null],
       labelIds: [B],
+      estimates: [3, null, 'any' as const],
       q: 'login',
       sort: 'priority' as const,
       direction: 'asc' as const,
@@ -29,6 +30,7 @@ describe('issue filters in the URL', () => {
       assignee: `${A},none`,
       project: 'none',
       label: B,
+      estimate: '3,none,any',
       q: 'login',
       sort: 'priority',
       dir: 'asc',
@@ -49,9 +51,10 @@ describe('issue filters in the URL', () => {
         assignee: 'me',
         sort: 'title',
         dir: 'sideways',
+        estimate: 'x,1000,5,-1',
         q: '  spaced  ',
       }),
-    ).toEqual({ ...EMPTY_FILTERS, statusIds: [A], priorities: [2], q: 'spaced' })
+    ).toEqual({ ...EMPTY_FILTERS, statusIds: [A], priorities: [2], estimates: [5], q: 'spaced' })
   })
 
   it('knows when a filter is active', () => {
@@ -59,6 +62,7 @@ describe('issue filters in the URL', () => {
     expect(hasActiveFilters({ ...EMPTY_FILTERS, sort: 'priority' })).toBe(false)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, q: 'x' })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, assigneeIds: [null] })).toBe(true)
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, estimates: [null] })).toBe(true)
   })
 
   it('toggles a group of values together', () => {

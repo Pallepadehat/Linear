@@ -13,8 +13,10 @@ import PickerInput from './PickerInput.vue'
 // that option while the filter is empty, Escape closes and returns focus.
 // `current` is the selected option's value, highlighted when the list opens.
 // `hotkey` opens the picker from anywhere outside a text field. `compact` pickers
-// (one per list row) get an icon-sized trigger and only show the hotkey hint:
-// a global key can't tell which of many rows it is meant for.
+// (one per list row) get an icon-sized trigger; their hotkey only fires while focus
+// is inside the trigger's `[data-hotkey-scope]` (the focused row), since a global
+// key can't tell which of many rows it is meant for. `hiddenTrigger` keeps an
+// unset property's picker reachable by hotkey without showing an empty chip.
 const props = defineProps<{
   label: string
   placeholder: string
@@ -23,13 +25,14 @@ const props = defineProps<{
   compact?: boolean
   triggerClass?: string
   align?: 'start' | 'end'
+  hiddenTrigger?: boolean
 }>()
 
 const open = defineModel<boolean>('open', { default: false })
 const trigger = useTemplateRef<{ $el: HTMLElement }>('trigger')
 
 useEventListener(document, 'keydown', (event: KeyboardEvent) => {
-  if (!props.hotkey || props.compact || open.value || event.defaultPrevented) return
+  if (!props.hotkey || open.value || event.defaultPrevented) return
   if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
   if (event.key.toUpperCase() !== props.hotkey) return
   const target = event.target
@@ -40,6 +43,10 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
     return
   const el = trigger.value?.$el
   if (!(el instanceof HTMLElement) || !el.isConnected) return
+  if (props.compact) {
+    const scope = el.closest('[data-hotkey-scope]')
+    if (!scope || !(target instanceof Node) || !scope.contains(target)) return
+  }
   // While a dialog is open, only its own pickers respond.
   const dialogs = document.querySelectorAll('[role="dialog"][data-state="open"]')
   const top = dialogs[dialogs.length - 1]
@@ -69,6 +76,7 @@ function onKeydown(event: KeyboardEvent) {
         ref="trigger"
         variant="ghost"
         :aria-keyshortcuts="hotkey"
+        :tabindex="hiddenTrigger ? -1 : undefined"
         size="sm"
         :class="
           cn(
@@ -77,6 +85,7 @@ function onKeydown(event: KeyboardEvent) {
               ? 'size-7 justify-center px-0 has-[>svg]:px-0'
               : 'justify-start px-2 has-[>svg]:px-2',
             triggerClass,
+            hiddenTrigger && 'w-0 min-w-0 overflow-hidden p-0 opacity-0 has-[>svg]:px-0',
           )
         "
       >

@@ -22,6 +22,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('status') && !!input.statusIds?.length) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
     (fields.has('labels') && !!input.labelIds?.length) ||
+    (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
     (fields.has('title') && !!input.q)
   )
 }

@@ -3,8 +3,13 @@ import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 
 type QueryValue = LocationQuery[string] | undefined
 
-/** In the URL, `none` stands for "no assignee" / "no project". */
+/** In the URL, `none` stands for "no assignee" / "no project" / "no estimate". */
 export const NONE = 'none'
+/** In the URL, `any` stands for "has an estimate". */
+export const ANY = 'any'
+
+/** Estimate filter values: points, `null` = no estimate, `'any'` = has one. */
+export type EstimateFilterValue = number | typeof ANY | null
 
 export type IssueFilters = {
   statusIds: string[]
@@ -14,6 +19,7 @@ export type IssueFilters = {
   /** `null` = no project. */
   projectIds: (string | null)[]
   labelIds: string[]
+  estimates: EstimateFilterValue[]
   q: string
   sort: IssueSort
   direction: SortDirection
@@ -28,13 +34,14 @@ export const EMPTY_FILTERS: IssueFilters = {
   assigneeIds: [],
   projectIds: [],
   labelIds: [],
+  estimates: [],
   q: '',
   sort: DEFAULT_SORT,
   direction: DEFAULT_DIRECTION,
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const SORTS: readonly IssueSort[] = ['createdAt', 'updatedAt', 'priority']
+const SORTS: readonly IssueSort[] = ['createdAt', 'updatedAt', 'priority', 'estimate']
 
 function first(value: QueryValue) {
   return (Array.isArray(value) ? value[0] : value) ?? ''
@@ -66,6 +73,9 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     assigneeIds: idsOrNone(query.assignee),
     projectIds: idsOrNone(query.project),
     labelIds: ids(query.label),
+    estimates: list(query.estimate).flatMap((v): EstimateFilterValue[] =>
+      v === NONE ? [null] : v === ANY ? [ANY] : /^\d{1,3}$/.test(v) ? [Number(v)] : [],
+    ),
     q: first(query.q).trim(),
     sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
     direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_DIRECTION,
@@ -74,7 +84,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
 
 /** The inverse of `parseIssueFilters`; defaults and empty filters are left out of the URL. */
 export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
-  const join = (values: (string | number | null)[]) =>
+  const join = (values: readonly (string | number | null)[]) =>
     values.length ? values.map((v) => (v === null ? NONE : String(v))).join(',') : undefined
   const query: LocationQueryRaw = {
     status: join(filters.statusIds),
@@ -82,6 +92,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     assignee: join(filters.assigneeIds),
     project: join(filters.projectIds),
     label: join(filters.labelIds),
+    estimate: join(filters.estimates),
     q: filters.q.trim() || undefined,
     sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
     dir: filters.direction === DEFAULT_DIRECTION ? undefined : filters.direction,
@@ -96,6 +107,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.assigneeIds.length > 0 ||
     filters.projectIds.length > 0 ||
     filters.labelIds.length > 0 ||
+    filters.estimates.length > 0 ||
     filters.q !== ''
   )
 }

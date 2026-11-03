@@ -32,6 +32,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    estimate: null,
     labels: [],
     createdAt: created,
     updatedAt: created,
@@ -121,6 +122,15 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byPriority), stale(byTitle)]).toEqual([false, true, true])
+
+    const byEstimate = keyFor({ estimates: [null] })
+    queryClient.setQueryData<InfiniteData<IssuePage>>(byEstimate, {
+      pages: [{ items: [issue('a')], nextCursor: null }],
+      pageParams: [null],
+    })
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['estimate'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), stale(byEstimate)]).toEqual([false, true])
   })
 
   it("leaves caches alone while this tab's own edit is in flight", async () => {

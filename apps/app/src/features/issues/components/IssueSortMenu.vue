@@ -20,20 +20,26 @@ const SORTS: { value: IssueSort; label: string }[] = [
   { value: 'createdAt', label: 'Created' },
   { value: 'updatedAt', label: 'Updated' },
   { value: 'priority', label: 'Priority' },
+  { value: 'estimate', label: 'Estimate' },
 ]
 
 const sortLabel = computed(() => SORTS.find((s) => s.value === sort.value)?.label ?? 'Created')
-// Direction labels in the sort's own terms; No priority stays last either way.
+// Direction labels in the sort's own terms; No priority / No estimate stay last either way.
 const directions = computed(() =>
   sort.value === 'priority'
     ? [
         { value: 'desc', label: 'Urgent first' },
         { value: 'asc', label: 'Low first' },
       ]
-    : [
-        { value: 'desc', label: 'Newest first' },
-        { value: 'asc', label: 'Oldest first' },
-      ],
+    : sort.value === 'estimate'
+      ? [
+          { value: 'desc', label: 'Largest first' },
+          { value: 'asc', label: 'Smallest first' },
+        ]
+      : [
+          { value: 'desc', label: 'Newest first' },
+          { value: 'asc', label: 'Oldest first' },
+        ],
 )
 
 function setSort(value: unknown) {
