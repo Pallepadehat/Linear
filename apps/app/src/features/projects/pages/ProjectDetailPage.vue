@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nameSchema } from '@linear/contract'
 import { useQuery } from '@tanstack/vue-query'
-import { computed, ref, watch, watchEffect } from 'vue'
+import { computed, defineAsyncComponent, ref, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ImageUploadButton from '@/components/common/ImageUploadButton.vue'
@@ -27,6 +27,12 @@ import {
   useUpdateProject,
   type ProjectChanges,
 } from '../queries'
+
+// Lazy: the chart is below the fold on small screens and not needed to edit the project.
+// M9-03 (LIN-65) moves it into the right panel / Overview Progress slot.
+const ProjectProgressCard = defineAsyncComponent(
+  () => import('../components/ProjectProgressCard.vue'),
+)
 
 const route = useRoute()
 const ui = useUiStore()
@@ -141,60 +147,64 @@ const labelIds = computed({
     description="Check your connection and try again."
   />
   <div v-else-if="project" class="flex min-h-0 flex-1 flex-col">
-    <section
-      aria-label="Project details"
-      class="grid shrink-0 gap-3 border-b border-hairline px-8 pt-8 pb-5"
+    <div
+      class="grid shrink-0 items-start gap-6 border-b border-hairline px-8 pt-8 pb-5 xl:grid-cols-[minmax(0,1fr)_22rem]"
     >
-      <div class="flex items-center gap-3">
-        <ProjectIcon :src="project.iconUrl" size="lg" />
-        <ImageUploadButton
-          kind="project_icon"
-          :workspace-slug="slug"
-          :label="project.iconUploadId ? 'Change icon' : 'Upload icon'"
-          :has-image="Boolean(project.iconUploadId)"
-          @uploaded="(id) => save({ iconUploadId: id })"
-          @remove="save({ iconUploadId: null })"
+      <section aria-label="Project details" class="grid min-w-0 gap-3">
+        <div class="flex items-center gap-3">
+          <ProjectIcon :src="project.iconUrl" size="lg" />
+          <ImageUploadButton
+            kind="project_icon"
+            :workspace-slug="slug"
+            :label="project.iconUploadId ? 'Change icon' : 'Upload icon'"
+            :has-image="Boolean(project.iconUploadId)"
+            @uploaded="(id) => save({ iconUploadId: id })"
+            @remove="save({ iconUploadId: null })"
+          />
+        </div>
+        <div class="grid gap-1">
+          <label for="project-name" class="sr-only">Project name</label>
+          <input
+            id="project-name"
+            v-model="nameDraft"
+            autocomplete="off"
+            :aria-invalid="Boolean(nameError)"
+            :aria-describedby="nameError ? 'project-name-error' : undefined"
+            class="-mx-1 rounded-md bg-transparent px-1 text-2xl font-semibold tracking-tight text-ink caret-primary outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+            @blur="commitName"
+            @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+            @keydown.esc.prevent="revertName"
+          />
+          <p v-if="nameError" id="project-name-error" class="text-xs text-danger" role="alert">
+            {{ nameError }}
+          </p>
+        </div>
+        <label for="project-description" class="sr-only">Description</label>
+        <textarea
+          id="project-description"
+          v-model="descriptionDraft"
+          rows="2"
+          placeholder="Add a short summary..."
+          class="-mx-1 field-sizing-content min-h-12 resize-none rounded-md bg-transparent px-1 text-sm text-ink-muted caret-primary outline-hidden placeholder:text-ink-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+          @blur="commitDescription"
         />
-      </div>
-      <div class="grid gap-1">
-        <label for="project-name" class="sr-only">Project name</label>
-        <input
-          id="project-name"
-          v-model="nameDraft"
-          autocomplete="off"
-          :aria-invalid="Boolean(nameError)"
-          :aria-describedby="nameError ? 'project-name-error' : undefined"
-          class="-mx-1 rounded-md bg-transparent px-1 text-2xl font-semibold tracking-tight text-ink caret-primary outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-          @blur="commitName"
-          @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
-          @keydown.esc.prevent="revertName"
-        />
-        <p v-if="nameError" id="project-name-error" class="text-xs text-danger" role="alert">
-          {{ nameError }}
-        </p>
-      </div>
-      <label for="project-description" class="sr-only">Description</label>
-      <textarea
-        id="project-description"
-        v-model="descriptionDraft"
-        rows="2"
-        placeholder="Add a short summary..."
-        class="-mx-1 field-sizing-content min-h-12 resize-none rounded-md bg-transparent px-1 text-sm text-ink-muted caret-primary outline-hidden placeholder:text-ink-tertiary focus-visible:ring-2 focus-visible:ring-ring"
-        @blur="commitDescription"
-      />
-      <div class="flex flex-wrap items-center gap-1.5 [&_button]:border [&_button]:border-hairline">
-        <ProjectStatusPicker v-model="status" />
-        <PriorityPicker v-model="priority" no-hotkey />
-        <ProjectLeadPicker v-model="leadId" :members="members ?? []" />
-        <ProjectMembersPicker v-model="memberIds" :members="members ?? []" />
-        <ProjectDatePicker v-model="startDate" label="Start date" />
-        <ProjectDatePicker v-model="targetDate" label="Target date" />
-        <ProjectTeamsPicker v-model="teamIds" :teams="teams ?? []" />
-        <ProjectLabelsPicker v-model="labelIds" :labels="labels ?? []" :workspace-slug="slug" />
-        <ProjectProgress class="ml-2" :progress="project.progress" />
-      </div>
-      <ProjectMilestones :workspace-slug="slug" :project-id="project.id" />
-    </section>
+        <div
+          class="flex flex-wrap items-center gap-1.5 [&_button]:border [&_button]:border-hairline"
+        >
+          <ProjectStatusPicker v-model="status" />
+          <PriorityPicker v-model="priority" no-hotkey />
+          <ProjectLeadPicker v-model="leadId" :members="members ?? []" />
+          <ProjectMembersPicker v-model="memberIds" :members="members ?? []" />
+          <ProjectDatePicker v-model="startDate" label="Start date" />
+          <ProjectDatePicker v-model="targetDate" label="Target date" />
+          <ProjectTeamsPicker v-model="teamIds" :teams="teams ?? []" />
+          <ProjectLabelsPicker v-model="labelIds" :labels="labels ?? []" :workspace-slug="slug" />
+          <ProjectProgress class="ml-2" :progress="project.progress" />
+        </div>
+        <ProjectMilestones :workspace-slug="slug" :project-id="project.id" />
+      </section>
+      <ProjectProgressCard :workspace-slug="slug" :project-id="project.id" />
+    </div>
     <h2 class="sr-only">Issues</h2>
     <IssueList :key="project.id" :workspace-slug="slug" :project-id="project.id" />
   </div>
