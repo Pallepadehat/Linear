@@ -1,7 +1,12 @@
 import { Queue, type JobsOptions } from 'bullmq'
 import type { Redis } from 'ioredis'
 import { QUEUE_NAMES, type QueueKey } from './names'
-import { parseJobPayload, type JobName, type JobPayload } from './payloads'
+import {
+  notificationSourceKey,
+  parseJobPayload,
+  type JobName,
+  type JobPayload,
+} from './payloads'
 
 export const defaultJobOptions: JobsOptions = {
   attempts: 5,
@@ -21,6 +26,7 @@ export function createQueues(connection: Redis, options: { prefix?: string } = {
     githubWebhooks: make(QUEUE_NAMES.githubWebhooks),
     media: make(QUEUE_NAMES.media),
     maintenance: make(QUEUE_NAMES.maintenance),
+    notifications: make(QUEUE_NAMES.notifications),
   }
 }
 
@@ -38,4 +44,17 @@ export function enqueue<Q extends QueueKey, N extends JobName<Q>>(
 ) {
   const data = parseJobPayload(queue, name, payload)
   return queues[queue].add(name, data, options)
+}
+
+/**
+ * Enqueues a `notify` job under a job id derived from its source, so an event that is
+ * enqueued twice (a retried request or delivery) runs once.
+ */
+export function enqueueNotification(
+  queues: Queues,
+  payload: JobPayload<'notifications', 'notify'>,
+) {
+  return enqueue(queues, 'notifications', 'notify', payload, {
+    jobId: notificationSourceKey(payload),
+  })
 }
