@@ -93,17 +93,17 @@ describe('views', () => {
     })
   })
 
-  it('lists team views only for that team and workspace views without a team', async () => {
+  it('lists team views only for that team, and every view without a team', async () => {
     const { owner, team, ops } = await arrange()
     const create = (name: string, teamId?: string) =>
       owner.client.views.create({ ...scope, name, teamId, filters: {}, display })
     const all = await create('All')
     const tip = await create('Tip only', team.id)
-    await create('Ops only', ops.id)
+    const opsView = await create('Ops only', ops.id)
 
     const ids = async (teamId?: string) =>
       (await owner.client.views.list({ ...scope, teamId })).map((v) => v.id)
-    expect(await ids()).toEqual([all.id])
+    expect(await ids()).toEqual([all.id, opsView.id, tip.id])
     expect(await ids(team.id)).toEqual([tip.id])
     expect(tip.scope).toBe('team')
   })

@@ -124,7 +124,7 @@ export const viewSchema = z.object({
 })
 
 export const listViewsInputSchema = workspaceScopedSchema.extend({
-  /** That team's views; omitted = workspace views. */
+  /** Only that team's views; omitted = every view (workspace and team views). */
   teamId: z.uuid().optional(),
 })
 

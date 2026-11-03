@@ -9,7 +9,7 @@ import {
   workspaceMembers,
   type DbOrTx,
 } from '@linear/db'
-import { and, asc, eq, inArray, isNull, or, type SQL } from 'drizzle-orm'
+import { and, asc, eq, inArray, or, type SQL } from 'drizzle-orm'
 import { DomainError } from '../errors'
 import { deleteFavoritesOf } from '../favorites/favorites.service'
 import type { WorkspaceRole } from '../workspaces/workspaces.service'
@@ -64,9 +64,9 @@ async function loadViews(db: DbOrTx, actor: ViewActor, where: SQL | undefined) {
 
 export type ViewRecord = Awaited<ReturnType<typeof loadViews>>[number]
 
-/** The team's views, or the workspace views (team null) when `teamId` is omitted. */
+/** Only that team's views with `teamId`; otherwise every view (workspace and team views). */
 export function listViews(db: DbOrTx, actor: ViewActor, teamId?: string) {
-  return loadViews(db, actor, teamId ? eq(views.teamId, teamId) : isNull(views.teamId))
+  return loadViews(db, actor, teamId ? eq(views.teamId, teamId) : undefined)
 }
 
 /** NOT_FOUND for another workspace's view and for someone else's private view. */
