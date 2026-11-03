@@ -6,6 +6,7 @@ import { DomainError, isUniqueViolation } from '../../errors'
 import { assertProjectDates } from '../project-rules'
 import {
   assertMilestoneInProject,
+  completesMilestone,
   currentMilestoneOf,
   isMilestoneComplete,
   mergeMilestoneOrder,
@@ -270,4 +271,38 @@ export async function assertIssueMilestone(
     .from(projectMilestones)
     .where(and(inWorkspace(workspaceId), eq(projectMilestones.id, milestoneId)))
   assertMilestoneInProject(milestone, projectId)
+}
+
+/**
+ * Writes `milestone.completed` when this issue change moved the milestone's last open issue
+ * to done (`completesMilestone`). Call inside the issue's transaction, after the update. The
+ * milestone row is locked before counting, so when two last issues finish at once the second
+ * transaction waits, sees the first one's change and writes the single entry. Returns the
+ * project whose feed got the entry, or null.
+ */
+export async function recordMilestoneCompletion(
+  tx: DbOrTx,
+  workspaceId: string,
+  milestoneId: string,
+  actor: ActivityActor,
+  issue: { wasDone: boolean; isDone: boolean },
+) {
+  if (!issue.isDone || issue.wasDone) return null
+  const [locked] = await tx
+    .select({ id: projectMilestones.id })
+    .from(projectMilestones)
+    .where(and(inWorkspace(workspaceId), eq(projectMilestones.id, milestoneId)))
+    .for('update')
+  if (!locked) return null
+  const milestone = await getMilestone(tx, workspaceId, locked.id)
+  if (!completesMilestone(milestone, issue)) return null
+  await recordProjectActivity(tx, {
+    workspaceId,
+    projectId: milestone.projectId,
+    actor,
+    events: [
+      { kind: 'milestone.completed', payload: { milestoneId: milestone.id, name: milestone.name } },
+    ],
+  })
+  return milestone.projectId
 }
