@@ -5,6 +5,8 @@ type QueryValue = LocationQuery[string] | undefined
 
 /** In the URL, `none` stands for "no assignee" / "no project". */
 export const NONE = 'none'
+/** In the URL and the API, `me` stands for the signed-in user. */
+export const ME = 'me'
 
 export type IssueFilters = {
   statusIds: string[]
@@ -14,6 +16,8 @@ export type IssueFilters = {
   /** `null` = no project. */
   projectIds: (string | null)[]
   labelIds: string[]
+  /** User ids, or `me`. */
+  subscriberIds: string[]
   q: string
   sort: IssueSort
   direction: SortDirection
@@ -30,6 +34,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   assigneeIds: [],
   projectIds: [],
   labelIds: [],
+  subscriberIds: [],
   q: '',
   sort: DEFAULT_SORT,
   direction: DEFAULT_DIRECTION,
@@ -69,6 +74,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     assigneeIds: idsOrNone(query.assignee),
     projectIds: idsOrNone(query.project),
     labelIds: ids(query.label),
+    subscriberIds: list(query.subscriber).filter((v) => v === ME || UUID.test(v)),
     q: first(query.q).trim(),
     sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
     direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_DIRECTION,
@@ -86,6 +92,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     assignee: join(filters.assigneeIds),
     project: join(filters.projectIds),
     label: join(filters.labelIds),
+    subscriber: join(filters.subscriberIds),
     q: filters.q.trim() || undefined,
     sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
     dir: filters.direction === DEFAULT_DIRECTION ? undefined : filters.direction,
@@ -101,6 +108,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.assigneeIds.length > 0 ||
     filters.projectIds.length > 0 ||
     filters.labelIds.length > 0 ||
+    filters.subscriberIds.length > 0 ||
     filters.q !== ''
   )
 }

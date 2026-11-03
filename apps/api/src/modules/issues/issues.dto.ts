@@ -16,6 +16,7 @@ export function toIssueDto(record: IssueRecord): Issue {
     creatorId: record.creatorId,
     projectId: record.projectId,
     labels: record.labels.map(toLabelDto),
+    isSubscribed: record.isSubscribed,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     completedAt: record.completedAt,

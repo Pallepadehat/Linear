@@ -23,6 +23,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('status') && (!!input.statusIds?.length || !!input.statusCategories?.length)) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
     (fields.has('labels') && !!input.labelIds?.length) ||
+    (fields.has('subscribers') && !!input.subscriberIds?.length) ||
     (fields.has('title') && !!input.q) ||
     // Gaining or losing a parent moves the issue in or out of lists that hide sub-issues.
     (fields.has('parent') && (input.showSubIssues === false || !!input.excludeSubtreeOf))
@@ -84,6 +85,7 @@ export function createRealtimeEventHandler({
 
   async function onIssueUpdated(issueId: string, fields: RealtimeIssueField[]) {
     void queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) })
+    if (fields.includes('subscribers')) invalidateSubscribers(issueId)
     if (fields.includes('pullRequests')) {
       void queryClient.invalidateQueries({
         queryKey: orpc.github.pullRequests.listForIssue.key({ input: { issueId } }),
@@ -103,6 +105,12 @@ export function createRealtimeEventHandler({
       // Deleted or briefly unreachable: let the queries sort it out.
       invalidateIssue(issueId)
     }
+  }
+
+  function invalidateSubscribers(issueId: string) {
+    void queryClient.invalidateQueries({
+      queryKey: orpc.issues.subscribers.key({ input: { issueId } }),
+    })
   }
 
   function invalidateIssue(issueId: string) {
@@ -128,6 +136,12 @@ export function createRealtimeEventHandler({
         invalidateIssue(event.issueId)
         return invalidateSoon('projects')
       case 'comment.created':
+        // Commenting subscribes the author (and flips their `isSubscribed`).
+        invalidateSubscribers(event.issueId)
+        invalidateIssue(event.issueId)
+        return void queryClient.invalidateQueries({
+          queryKey: orpc.comments.list.key({ input: { issueId: event.issueId } }),
+        })
       case 'comment.updated':
       case 'comment.deleted':
         return void queryClient.invalidateQueries({

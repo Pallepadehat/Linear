@@ -35,11 +35,18 @@ const ISSUE_INPUT_FIELDS = {
   parentId: 'parent',
 } as const satisfies Record<string, IssueField>
 
-/** The fields an `issues.update` input touches (omitted means unchanged). */
+/**
+ * The fields an `issues.update` input touches (omitted means unchanged).
+ * Assigning someone may subscribe them, so it touches the subscribers too.
+ */
 export function changedIssueFields(
   input: Partial<Record<keyof typeof ISSUE_INPUT_FIELDS, unknown>>,
 ) {
-  return (Object.keys(ISSUE_INPUT_FIELDS) as (keyof typeof ISSUE_INPUT_FIELDS)[])
+  const fields: IssueField[] = (
+    Object.keys(ISSUE_INPUT_FIELDS) as (keyof typeof ISSUE_INPUT_FIELDS)[]
+  )
     .filter((key) => input[key] !== undefined)
     .map((key) => ISSUE_INPUT_FIELDS[key])
+  if (input.assigneeId) fields.push('subscribers')
+  return fields
 }
