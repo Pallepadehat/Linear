@@ -155,6 +155,7 @@ watch(
     setFieldValue('teamId', initialTeamId(), false)
     setFieldValue('statusId', ui.createIssueDefaults.statusId, false)
     setFieldValue('projectId', initialProjectId(), false)
+    setFieldValue('assigneeId', ui.createIssueDefaults.assigneeId ?? null, false)
     ensureStatus()
   },
   { immediate: true },
