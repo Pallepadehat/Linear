@@ -53,6 +53,31 @@ export const updateProjectInputSchema = projectIdInputSchema.extend(
   z.object(fields).partial().shape,
 )
 
+/** Issue counts on one UTC day (docs/domain.md → Project progress). */
+export const projectProgressCountsSchema = z.object({
+  /** Every issue in the project, canceled ones included. */
+  scope: z.number().int(),
+  /** Issues in a `started` status. */
+  started: z.number().int(),
+  /** Issues in a `completed` status. */
+  completed: z.number().int(),
+})
+const breakdownCounts = { done: z.number().int(), total: z.number().int() }
+export const projectProgressReportSchema = z.object({
+  /** One point per day with a snapshot, oldest first; the last point is today, live. */
+  series: z.array(projectProgressCountsSchema.extend({ date: projectDateSchema })),
+  totals: projectProgressCountsSchema,
+  /** Most issues first; `userId` null is "No assignee". */
+  byAssignee: z.array(
+    z.object({ userId: z.uuid().nullable(), name: z.string(), ...breakdownCounts }),
+  ),
+  /** Issue labels, most issues first; an issue with several labels counts under each. */
+  byLabel: z.array(
+    z.object({ labelId: z.uuid(), name: z.string(), color: z.string(), ...breakdownCounts }),
+  ),
+})
+export const projectProgressInputSchema = workspaceScopedSchema.extend({ projectId: z.uuid() })
+
 // Project labels are their own workspace-wide set, separate from issue labels.
 export const projectLabelSchema = z.object({
   id: z.uuid(),
@@ -69,3 +94,4 @@ export type Project = z.infer<typeof projectSchema>
 export type UpdateProjectInput = z.input<typeof updateProjectInputSchema>
 export type ProjectProgress = z.infer<typeof projectProgressSchema>
 export type ProjectLabel = z.infer<typeof projectLabelSchema>
+export type ProjectProgressReport = z.infer<typeof projectProgressReportSchema>

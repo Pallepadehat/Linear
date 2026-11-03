@@ -9,6 +9,8 @@ import {
   createProjectInputSchema,
   updateProjectInputSchema,
   projectIdInputSchema,
+  projectProgressInputSchema,
+  projectProgressReportSchema,
   projectSchema,
 } from '../schemas/projects'
 
@@ -20,4 +22,6 @@ export const projectsContract = {
   delete: oc.input(projectIdInputSchema).output(z.object({ id: z.uuid() })),
   // Unbounded, so cursor-paginated, newest first (see AGENTS.md → API).
   activity: oc.input(listProjectActivityInputSchema).output(projectActivityPageSchema),
+  /** The Progress card: daily scope / started / completed and per-assignee / label counts. */
+  progress: oc.input(projectProgressInputSchema).output(projectProgressReportSchema),
 }

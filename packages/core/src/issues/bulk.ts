@@ -98,6 +98,7 @@ export async function bulkDeleteIssues(db: DbOrTx, workspaceId: string, ids: str
       ids: unique,
       parentIds: outside(deleted.map((issue) => issue.parentId)),
       childIds: outside(deleted.flatMap((issue) => issue.childIds)),
+      projectIds: [...new Set(deleted.flatMap((issue) => issue.projectId ?? []))],
       deletedUploadIds: deleted.flatMap((issue) => issue.deletedUploadIds),
     }
   })

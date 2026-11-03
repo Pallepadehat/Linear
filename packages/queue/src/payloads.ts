@@ -56,6 +56,9 @@ export const jobSchemas = {
     'cleanup-pending': z.object({}),
     'cleanup-attachments': z.object({}),
     'cycles-maintain': z.object({}),
+    'project-progress-snapshot': z.object({ projectId: z.uuid() }),
+    // Daily: snapshots every active project (docs/domain.md → Project progress).
+    'project-progress-daily': z.object({}),
   },
   githubWebhooks: {
     pull_request: z.object({ deliveryId: z.uuid() }),
@@ -79,4 +82,17 @@ export function parseJobPayload<Q extends QueueKey, N extends JobName<Q>>(
 ): JobPayload<Q, N> {
   const schema = jobSchemas[queue][name] as z.ZodType
   return schema.parse(data) as JobPayload<Q, N>
+}
+
+/** A UTC calendar day, `YYYY-MM-DD`: the day a progress snapshot is filed under. */
+export function utcDay(now: Date) {
+  return now.toISOString().slice(0, 10)
+}
+
+/**
+ * Debounce key for a project's on-demand snapshot: one pending job per project and day.
+ * No `:` (BullMQ job and deduplication ids can't contain one).
+ */
+export function projectProgressSnapshotKey(projectId: string, now: Date) {
+  return `project-progress-${projectId}-${utcDay(now)}`
 }
