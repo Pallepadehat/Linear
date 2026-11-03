@@ -82,6 +82,12 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/features/teams/pages/TeamPage.vue'),
       },
       {
+        path: 'team/:teamKey/settings',
+        name: 'team-settings',
+        meta: { title: 'Team settings' },
+        component: () => import('@/features/teams/pages/TeamSettingsPage.vue'),
+      },
+      {
         path: 'settings',
         name: 'settings',
         meta: { title: 'Settings' },

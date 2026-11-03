@@ -29,7 +29,6 @@ import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { useUiStore } from '@/stores/ui'
-import { defaultStatus } from '../default-status'
 import { createIssueMutationOptions, issueListKey } from '../queries'
 import TeamPicker from './TeamPicker.vue'
 
@@ -87,9 +86,11 @@ const { data: teamWithStatuses } = useQuery(
     enabled: Boolean(team.value),
   })),
 )
-const statuses = computed(() =>
-  teamWithStatuses.value?.id === values.teamId ? teamWithStatuses.value.statuses : [],
+// The loaded team, once it matches the picked one (the query lags a team change).
+const loadedTeam = computed(() =>
+  teamWithStatuses.value?.id === values.teamId ? teamWithStatuses.value : undefined,
 )
+const statuses = computed(() => loadedTeam.value?.statuses ?? [])
 const { data: members } = useQuery(
   computed(() =>
     orpc.workspaces.listMembers.queryOptions({ input: { workspaceSlug: slug.value } }),
@@ -112,13 +113,21 @@ const statusId = computed({
   get: () => values.statusId ?? '',
   set: (id: string) => setFieldValue('statusId', id, false),
 })
+// Priority and assignee follow the team's defaults until picked by hand.
+const touched = { priority: false, assignee: false }
 const priority = computed({
   get: () => toPriority(values.priority),
-  set: (value: Priority) => setFieldValue('priority', value, false),
+  set: (value: Priority) => {
+    touched.priority = true
+    setFieldValue('priority', value, false)
+  },
 })
 const assigneeId = computed({
   get: () => values.assigneeId ?? null,
-  set: (id: string | null) => setFieldValue('assigneeId', id, false),
+  set: (id: string | null) => {
+    touched.assignee = true
+    setFieldValue('assigneeId', id, false)
+  },
 })
 const description = computed({
   get: () => values.description ?? '',
@@ -155,22 +164,35 @@ watch(
     setFieldValue('teamId', initialTeamId(), false)
     setFieldValue('statusId', ui.createIssueDefaults.statusId, false)
     setFieldValue('projectId', initialProjectId(), false)
+    touched.priority = false
+    touched.assignee = ui.createIssueDefaults.assigneeId !== undefined
     setFieldValue('assigneeId', ui.createIssueDefaults.assigneeId ?? null, false)
-    ensureStatus()
+    applyTeamDefaults()
   },
   { immediate: true },
 )
 watch(teams, () => {
   if (ui.createIssueOpen && !values.teamId) setFieldValue('teamId', initialTeamId(), false)
 })
-// Statuses belong to a team, so a team change (or a reset) falls back to that team's default.
-// Runs on open too: reopening for the same team doesn't change `statuses`.
-function ensureStatus() {
-  const list = statuses.value
-  if (!list.some((s) => s.id === values.statusId))
-    setFieldValue('statusId', defaultStatus(list)?.id, false)
+// Fills in the team's issue defaults (team settings). Statuses belong to a team, so a
+// team change (or a reset) falls back to that team's default status. Runs on open too:
+// reopening for the same team doesn't change `loadedTeam`.
+function applyTeamDefaults() {
+  const team = loadedTeam.value
+  if (!team) return
+  if (!team.statuses.some((s) => s.id === values.statusId))
+    setFieldValue('statusId', team.defaultStatusId ?? undefined, false)
+  if (!touched.priority) setFieldValue('priority', team.defaultPriority, false)
+  // Skip a default assignee who is no longer a member; the server would reject them.
+  const assignee = team.defaultAssigneeId
+  if (!touched.assignee)
+    setFieldValue(
+      'assigneeId',
+      assignee && assignees.value.some((a) => a.id === assignee) ? assignee : null,
+      false,
+    )
 }
-watch(statuses, ensureStatus)
+watch([loadedTeam, assignees], applyTeamDefaults)
 
 const create = useMutation(createIssueMutationOptions())
 

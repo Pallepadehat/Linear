@@ -1,3 +1,4 @@
 export * from './issues.service'
 export * from './completed-at'
+export * from './priorities'
 export * from './attachments'
