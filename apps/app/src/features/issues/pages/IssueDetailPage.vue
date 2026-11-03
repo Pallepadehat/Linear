@@ -19,12 +19,15 @@ import CommentComposer from '../components/CommentComposer.vue'
 import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
+import SubscribeButton from '../components/SubscribeButton.vue'
 import type { IssuePatch } from '../issue-cache'
 import { buildTimeline, type ActivityNames } from '../issue-timeline'
 import {
   activityListOptions,
   commentListOptions,
   issueByIdentifierOptions,
+  issueSubscribersOptions,
+  useIssueSubscription,
   useUpdateIssue,
 } from '../queries'
 
@@ -131,6 +134,31 @@ function save(patch: IssuePatch) {
   if (issue.value) updateIssue.mutate({ issue: issue.value, patch })
 }
 
+const { data: me } = useCurrentUser()
+const { data: subscribers } = useQuery(
+  computed(() => ({
+    ...issueSubscribersOptions(slug.value, issueId.value),
+    enabled: Boolean(issue.value),
+  })),
+)
+const subscription = useIssueSubscription(slug)
+function setSubscribed(
+  user: { id: string; name: string; avatarUrl: string | null },
+  subscribe: boolean,
+) {
+  if (!issue.value) return
+  const member = members.value?.find((m) => m.userId === user.id)
+  subscription.mutate({
+    issue: issue.value,
+    user: { id: user.id, name: user.name, email: member?.email ?? '', avatarUrl: user.avatarUrl },
+    subscribe,
+    isMe: user.id === me.value?.id,
+  })
+}
+function toggleMySubscription() {
+  if (issue.value && me.value) setSubscribed(me.value, !issue.value.isSubscribed)
+}
+
 // Title and description are drafts while focused, saved on blur (Enter for the title).
 const titleDraft = ref('')
 const titleError = ref<string | null>(null)
@@ -216,7 +244,9 @@ onBeforeUnmount(commitDescription)
       :team-name="team?.name"
       :team-key="team?.key"
       @change="save"
-    />
+    >
+      <SubscribeButton :subscribed="issue.isSubscribed" @toggle="toggleMySubscription" />
+    </IssueDetailHeader>
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
         <div class="flex items-center justify-between gap-2">
@@ -282,7 +312,9 @@ onBeforeUnmount(commitDescription)
       :labels="labels ?? []"
       :projects="projects ?? []"
       :pull-requests="pullRequests"
+      :subscribers="subscribers ?? []"
       @change="save"
+      @subscription="setSubscribed"
     />
   </div>
 </template>

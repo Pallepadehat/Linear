@@ -105,7 +105,7 @@ describe('realtime', () => {
         {
           type: 'issue.updated',
           issueId: issue.id,
-          fields: ['status', 'assignee'],
+          fields: ['status', 'assignee', 'subscribers'],
           actorId: owner.userId,
         },
         {

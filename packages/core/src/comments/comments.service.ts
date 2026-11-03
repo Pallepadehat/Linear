@@ -3,6 +3,7 @@ import { and, asc, count, eq, gt, inArray, isNull, lte, min, sql, type SQL } fro
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
 import { assertReplyParent } from './threads'
+import { subscribeUsers } from '../subscriptions/subscriptions.service'
 
 export type ListCommentsInput = {
   workspaceId: string
@@ -263,30 +264,34 @@ export async function listComments(db: DbOrTx, input: ListCommentsInput) {
 export async function createComment(db: DbOrTx, input: CreateCommentInput) {
   const body = normalizeBody(input.body)
   await assertIssue(db, input.workspaceId, input.issueId)
-  if (input.parentId) {
-    const [parent] = await db
-      .select({ issueId: comments.issueId, parentId: comments.parentId })
-      .from(comments)
-      .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.parentId)))
-    assertReplyParent(parent, input.issueId)
-    // A reply reopens a resolved thread (docs/domain.md → Comments).
-    await db
-      .update(comments)
-      .set({ resolvedAt: null, resolvedById: null, updatedAt: keepUpdatedAt })
-      .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.parentId)))
-  }
-  const [comment] = await db
-    .insert(comments)
-    .values({
-      workspaceId: input.workspaceId,
-      issueId: input.issueId,
-      authorId: input.authorId,
-      parentId: input.parentId ?? null,
-      body,
-    })
-    .returning({ id: comments.id })
-  if (!comment) throw new Error('comment insert returned no row')
-  return getComment(db, input.workspaceId, comment.id, input.authorId)
+  const id = await db.transaction(async (tx) => {
+    if (input.parentId) {
+      const [parent] = await tx
+        .select({ issueId: comments.issueId, parentId: comments.parentId })
+        .from(comments)
+        .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.parentId)))
+      assertReplyParent(parent, input.issueId)
+      // A reply reopens a resolved thread (docs/domain.md → Comments).
+      await tx
+        .update(comments)
+        .set({ resolvedAt: null, resolvedById: null, updatedAt: keepUpdatedAt })
+        .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.parentId)))
+    }
+    const [comment] = await tx
+      .insert(comments)
+      .values({
+        workspaceId: input.workspaceId,
+        issueId: input.issueId,
+        authorId: input.authorId,
+        parentId: input.parentId ?? null,
+        body,
+      })
+      .returning({ id: comments.id })
+    if (!comment) throw new Error('comment insert returned no row')
+    await subscribeUsers(tx, input.issueId, [input.authorId])
+    return comment.id
+  })
+  return getComment(db, input.workspaceId, id, input.authorId)
 }
 
 export async function updateComment(db: DbOrTx, input: UpdateCommentInput) {
