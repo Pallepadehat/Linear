@@ -29,6 +29,7 @@ export function toIssueDto(record: IssueRecord): Issue {
           iconUploadId: record.project.iconUploadId,
         }
       : null,
+    milestoneId: record.milestoneId,
     cycleId: record.cycleId,
     estimate: record.estimate,
     dueDate: record.dueDate,

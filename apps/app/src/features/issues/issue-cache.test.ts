@@ -38,6 +38,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    milestoneId: null,
     cycleId: null,
     estimate: null,
     dueDate: null,
@@ -96,6 +97,16 @@ describe('applyIssuePatch', () => {
   it('leaves completedAt alone when the status is unchanged', () => {
     const completed = issue('a', { status: done, completedAt: now })
     expect(applyIssuePatch(completed, { assigneeId: null }, now).completedAt).toEqual(now)
+  })
+
+  it('clears the milestone when the project changes without a new one', () => {
+    const inMilestone = issue('a', { projectId: 'p1', milestoneId: 'm1' })
+    expect(applyIssuePatch(inMilestone, { projectId: 'p2' }, now).milestoneId).toBeNull()
+    expect(applyIssuePatch(inMilestone, { projectId: null }, now).milestoneId).toBeNull()
+    expect(applyIssuePatch(inMilestone, { projectId: 'p1' }, now).milestoneId).toBe('m1')
+    expect(
+      applyIssuePatch(inMilestone, { projectId: 'p2', milestoneId: 'm2' }, now).milestoneId,
+    ).toBe('m2')
   })
 })
 
