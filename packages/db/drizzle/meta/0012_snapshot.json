@@ -1,5 +1,5 @@
 {
-  "id": "16310721-774d-4452-b8c6-0ab60d600b19",
+  "id": "23408043-2460-49eb-86cf-9765bc02492b",
   "prevId": "1a174180-1831-4bf7-9f0c-9208f686d208",
   "version": "7",
   "dialect": "postgresql",
@@ -565,21 +565,6 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
-        },
-        "estimate_scale": {
-          "name": "estimate_scale",
-          "type": "estimate_scale",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'off'"
-        },
-        "estimate_allow_zero": {
-          "name": "estimate_allow_zero",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1418,12 +1403,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "estimate": {
-          "name": "estimate",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "completed_at": {
           "name": "completed_at",
           "type": "timestamp with time zone",
@@ -1517,27 +1496,6 @@
             },
             {
               "expression": "priority",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "issues_workspace_id_estimate_index": {
-          "name": "issues_workspace_id_estimate_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "estimate",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1703,10 +1661,6 @@
         "issues_priority_range": {
           "name": "issues_priority_range",
           "value": "\"issues\".\"priority\" between 0 and 4"
-        },
-        "issues_estimate_range": {
-          "name": "issues_estimate_range",
-          "value": "\"issues\".\"estimate\" between 0 and 100"
         }
       },
       "isRLSEnabled": false
@@ -2441,6 +2395,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -2468,7 +2428,30 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "labels_workspace_id_name_unique": {
+          "name": "labels_workspace_id_name_unique",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"labels\".\"team_id\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "labels_workspace_id_workspaces_id_fk": {
           "name": "labels_workspace_id_workspaces_id_fk",
@@ -2482,15 +2465,28 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "labels_team_id_teams_id_fk": {
+          "name": "labels_team_id_teams_id_fk",
+          "tableFrom": "labels",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "labels_workspace_id_name_unique": {
-          "name": "labels_workspace_id_name_unique",
+        "labels_team_id_name_unique": {
+          "name": "labels_team_id_name_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "workspace_id",
+            "team_id",
             "name"
           ]
         }
@@ -3273,17 +3269,6 @@
     }
   },
   "enums": {
-    "public.estimate_scale": {
-      "name": "estimate_scale",
-      "schema": "public",
-      "values": [
-        "off",
-        "linear",
-        "fibonacci",
-        "exponential",
-        "tshirt"
-      ]
-    },
     "public.status_category": {
       "name": "status_category",
       "schema": "public",
@@ -3379,8 +3364,7 @@
         "priority",
         "assignee",
         "project",
-        "labels",
-        "estimate"
+        "labels"
       ]
     }
   },
