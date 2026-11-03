@@ -1,4 +1,6 @@
 import {
+  bulkDeleteIssues,
+  bulkUpdateIssues,
   createIssue,
   deleteIssue,
   getIssue,
@@ -119,6 +121,63 @@ export const issuesRouter = {
         })
       }
       return { id }
+    }),
+
+  bulkUpdate: authed.issues.bulkUpdate
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const { addLabelIds, removeLabelIds, ...fields } = input.patch
+      const updated = await bulkUpdateIssues(context.db, {
+        workspaceId: context.workspace.id,
+        actor: { type: 'user', id: context.user.id },
+        ids: input.ids,
+        patch: input.patch,
+      })
+      const changed = changedIssueFields({
+        ...fields,
+        labelIds: addLabelIds?.length || removeLabelIds?.length ? true : undefined,
+      })
+      // One ID-only event per issue after the commit, like `update`.
+      for (const issue of updated) {
+        const issueFields = [...changed]
+        // A status change may have auto-added the issue to the current cycle.
+        if (changed.includes('status') && !changed.includes('cycle') && issue.cycleId)
+          issueFields.push('cycle')
+        await publishChange(context, {
+          type: 'issue.updated',
+          issueId: issue.id,
+          fields: issueFields,
+        })
+      }
+      if (fields.statusId !== undefined)
+        await publishSubIssuesChanged(
+          context,
+          updated.map((issue) => issue.parentId),
+        )
+      return { items: updated.map(toIssueDto) }
+    }),
+
+  bulkDelete: authed.issues.bulkDelete
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const { ids, parentIds, childIds, deletedUploadIds } = await bulkDeleteIssues(
+        context.db,
+        context.workspace.id,
+        input.ids,
+      )
+      for (const uploadId of deletedUploadIds) {
+        await enqueue(context.queues, 'maintenance', 'delete-objects', { uploadId })
+      }
+      for (const issueId of ids) await publishChange(context, { type: 'issue.deleted', issueId })
+      await publishSubIssuesChanged(context, parentIds)
+      for (const childId of childIds) {
+        await publishChange(context, {
+          type: 'issue.updated',
+          issueId: childId,
+          fields: ['parent'],
+        })
+      }
+      return { ids }
     }),
 
   list: authed.issues.list
