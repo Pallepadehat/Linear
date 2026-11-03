@@ -51,6 +51,7 @@ export const SHORTCUTS = {
   // Handled by key code in WorkspaceLayout (⌥F types "ƒ" on macOS); listed here for the sheet.
   'toggle-favorite': { keys: 'alt+f', label: 'Favorite / unfavorite', scope: 'global' },
   'list-filter': { keys: 'f', label: 'Filter issues', scope: 'list' },
+  'list-details': { keys: 'mod+i', label: 'Toggle details panel', scope: 'list' },
   'list-next': { keys: ['j', 'arrowdown'], label: 'Move down', scope: 'list' },
   'list-prev': { keys: ['k', 'arrowup'], label: 'Move up', scope: 'list' },
   'list-open': { keys: 'enter', label: 'Open focused issue', scope: 'list' },

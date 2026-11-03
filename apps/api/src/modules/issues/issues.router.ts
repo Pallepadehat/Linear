@@ -1,9 +1,11 @@
+import type { IssueFiltersInput } from '@linear/contract'
 import {
   bulkDeleteIssues,
   bulkUpdateIssues,
   createIssue,
   deleteIssue,
   getIssue,
+  getIssueFacets,
   getIssueByIdentifier,
   getIssueRelations,
   listIssues,
@@ -28,6 +30,24 @@ async function publishSubIssuesChanged(
   for (const issueId of new Set(parentIds)) {
     if (issueId)
       await publishChange(context, { type: 'issue.updated', issueId, fields: ['subIssues'] })
+  }
+}
+
+/**
+ * The shared list filters (`issueFiltersSchema`) for core: workspace from the session,
+ * `'me'` resolved to the signed-in user so nobody can query another user's issues this way.
+ */
+function toIssueFilter(
+  context: { workspace: { id: string }; user: { id: string } },
+  input: IssueFiltersInput,
+) {
+  const { workspaceSlug: _, assignee, creator, subscriberIds, ...filters } = input
+  return {
+    ...filters,
+    workspaceId: context.workspace.id,
+    subscriberIds: subscriberIds?.map((id) => (id === 'me' ? context.user.id : id)),
+    assigneeId: assignee === 'me' ? context.user.id : undefined,
+    creatorId: creator === 'me' ? context.user.id : undefined,
   }
 }
 
@@ -183,16 +203,22 @@ export const issuesRouter = {
   list: authed.issues.list
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { workspaceSlug: _, assignee, creator, subscriberIds, ...query } = input
+      const { sort, direction, cursor, limit, ...filters } = input
       const page = await listIssues(context.db, {
-        ...query,
-        workspaceId: context.workspace.id,
+        ...toIssueFilter(context, filters),
         viewerId: context.user.id,
-        subscriberIds: subscriberIds?.map((id) => (id === 'me' ? context.user.id : id)),
-        assigneeId: assignee === 'me' ? context.user.id : undefined,
-        creatorId: creator === 'me' ? context.user.id : undefined,
+        sort,
+        direction,
+        cursor,
+        limit,
       })
       return { items: page.items.map(toIssueDto), nextCursor: page.nextCursor }
+    }),
+
+  facets: authed.issues.facets
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      return getIssueFacets(context.db, toIssueFilter(context, input))
     }),
 
   subscribe: authed.issues.subscribe
