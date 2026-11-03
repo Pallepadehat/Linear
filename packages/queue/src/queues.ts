@@ -1,12 +1,7 @@
 import { Queue, type JobsOptions } from 'bullmq'
 import type { Redis } from 'ioredis'
 import { QUEUE_NAMES, type QueueKey } from './names'
-import {
-  notificationSourceKey,
-  parseJobPayload,
-  type JobName,
-  type JobPayload,
-} from './payloads'
+import { notificationSourceKey, parseJobPayload, type JobName, type JobPayload } from './payloads'
 
 export const defaultJobOptions: JobsOptions = {
   attempts: 5,
