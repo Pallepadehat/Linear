@@ -53,6 +53,8 @@ export type ListIssuesInput = {
   workspaceId: string
   teamId?: string
   projectId?: string
+  assigneeId?: string
+  creatorId?: string
   cursor?: string | null
   limit: number
 }
@@ -154,6 +156,8 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
     and(
       input.teamId ? eq(issues.teamId, input.teamId) : undefined,
       input.projectId ? eq(issues.projectId, input.projectId) : undefined,
+      input.assigneeId ? eq(issues.assigneeId, input.assigneeId) : undefined,
+      input.creatorId ? eq(issues.creatorId, input.creatorId) : undefined,
       input.cursor ? lt(issues.id, input.cursor) : undefined,
     ),
     input.limit + 1,
