@@ -7,6 +7,7 @@ import {
   workflowStatuses,
   workspaceMembers,
   type DbOrTx,
+  type StatusCategory,
 } from '@linear/db'
 import {
   and,
@@ -83,6 +84,8 @@ export type ListIssuesInput = {
   assigneeId?: string
   creatorId?: string
   statusIds?: string[]
+  /** The issue's status category is one of these. */
+  statusCategories?: StatusCategory[]
   priorities?: number[]
   /** `null` matches unassigned issues. */
   assigneeIds?: (string | null)[]
@@ -268,6 +271,10 @@ function listFilter(input: ListIssuesInput) {
     input.assigneeId ? eq(issues.assigneeId, input.assigneeId) : undefined,
     input.creatorId ? eq(issues.creatorId, input.creatorId) : undefined,
     input.statusIds?.length ? inArray(issues.statusId, input.statusIds) : undefined,
+    // `workflowStatuses` is joined in `selectIssueRows`.
+    input.statusCategories?.length
+      ? inArray(workflowStatuses.category, input.statusCategories)
+      : undefined,
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
