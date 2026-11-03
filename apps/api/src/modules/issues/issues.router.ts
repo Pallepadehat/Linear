@@ -6,6 +6,7 @@ import {
   listIssues,
   updateIssue,
 } from '@linear/core'
+import { enqueue } from '@linear/queue'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
 import { toIssueDto } from './issues.dto'
@@ -55,7 +56,13 @@ export const issuesRouter = {
 
   delete: authed.issues.delete
     .use(inWorkspace, (input) => input.workspaceSlug)
-    .handler(async ({ context, input }) => deleteIssue(context.db, context.workspace.id, input.id)),
+    .handler(async ({ context, input }) => {
+      const { id, deletedUploadIds } = await deleteIssue(context.db, context.workspace.id, input.id)
+      for (const uploadId of deletedUploadIds) {
+        await enqueue(context.queues, 'maintenance', 'delete-objects', { uploadId })
+      }
+      return { id }
+    }),
 
   list: authed.issues.list
     .use(inWorkspace, (input) => input.workspaceSlug)

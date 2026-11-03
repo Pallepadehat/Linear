@@ -5,6 +5,7 @@ import PickerItem from './PickerItem.vue'
 import PickerPopover from './PickerPopover.vue'
 import PriorityIcon from './PriorityIcon.vue'
 
+defineProps<{ compact?: boolean }>()
 const model = defineModel<Priority>({ required: true })
 const open = ref(false)
 
@@ -21,10 +22,11 @@ function choose(priority: Priority) {
     placeholder="Set priority..."
     hotkey="P"
     :current="String(model)"
+    :compact="compact"
   >
     <template #trigger>
       <PriorityIcon :priority="model" />
-      <span>{{ priorityLabel(model) }}</span>
+      <span :class="{ 'sr-only': compact }">{{ priorityLabel(model) }}</span>
     </template>
     <PickerItem
       v-for="priority in PRIORITIES"

@@ -1,0 +1,70 @@
+{
+  "action": "closed",
+  "number": 42,
+  "pull_request": {
+    "url": "https://api.github.com/repos/tip/app/pulls/42",
+    "id": 2100000042,
+    "node_id": "PR_kwDOAAAAAA42",
+    "html_url": "https://github.com/tip/app/pull/42",
+    "number": 42,
+    "state": "closed",
+    "locked": false,
+    "title": "Fix login validation",
+    "user": {
+      "login": "octocat",
+      "id": 583231,
+      "type": "User"
+    },
+    "body": null,
+    "created_at": "2026-10-30T10:00:00Z",
+    "updated_at": "2026-10-30T12:00:00Z",
+    "closed_at": "2026-10-30T12:00:00Z",
+    "merged_at": "2026-10-30T12:00:00Z",
+    "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
+    "draft": false,
+    "head": {
+      "label": "tip:tip-200-fix-login",
+      "ref": "tip-200-fix-login",
+      "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e"
+    },
+    "base": {
+      "label": "tip:main",
+      "ref": "main",
+      "sha": "9049f1265b7d61be4a8904a9a27120d2064dab3b"
+    },
+    "merged": true,
+    "mergeable": null,
+    "comments": 0,
+    "commits": 1,
+    "additions": 12,
+    "deletions": 3,
+    "changed_files": 2
+  },
+  "repository": {
+    "id": 700001,
+    "node_id": "R_kgDOAAAAAQ",
+    "name": "app",
+    "full_name": "tip/app",
+    "private": true,
+    "owner": {
+      "login": "tip",
+      "id": 90001,
+      "type": "Organization"
+    },
+    "html_url": "https://github.com/tip/app",
+    "default_branch": "main"
+  },
+  "organization": {
+    "login": "tip",
+    "id": 90001
+  },
+  "sender": {
+    "login": "octocat",
+    "id": 583231,
+    "type": "User"
+  },
+  "installation": {
+    "id": 5000001,
+    "node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNTAwMDAwMQ=="
+  }
+}

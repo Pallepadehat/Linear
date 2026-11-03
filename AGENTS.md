@@ -51,7 +51,7 @@ Allowed imports:
 
 ```
 app    → contract   (vite.config.ts may also use @linear/env/app)
-api    → contract, core, db, queue, storage, env
+api    → contract, core, db, queue, storage, env   (tests may also use @linear/worker/testing)
 worker → core, db, queue, storage, env
 core   → db
 ```
