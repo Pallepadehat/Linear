@@ -1,4 +1,4 @@
-import type { Issue, IssuePage, ListIssuesInput } from '@linear/contract'
+import type { Issue, IssuePage, ListIssuesInput, User } from '@linear/contract'
 import {
   keepPreviousData,
   useMutation,
@@ -146,3 +146,71 @@ export const activityListOptions = (workspaceSlug: string, issueId: string) =>
     initialPageParam: null,
     getNextPageParam: (page) => page.nextCursor,
   })
+
+/** Members subscribed to one issue (a small, bounded list). */
+export const issueSubscribersOptions = (workspaceSlug: string, issueId: string) =>
+  orpc.issues.subscribers.queryOptions({ input: { workspaceSlug, issueId } })
+
+export type SubscriptionVariables = {
+  issue: Issue
+  /** The member to (un)subscribe; the signed-in user when it's them. */
+  user: User
+  subscribe: boolean
+  /** Whether `user` is the signed-in user, whose `isSubscribed` flips with it. */
+  isMe: boolean
+}
+
+/**
+ * Subscribes or unsubscribes a member, optimistically updating the subscriber list
+ * (and the bell, for yourself); rolled back with a toast if the server rejects it.
+ */
+export function useIssueSubscription(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  const listKey = issueInfiniteListKey()
+  const detailKeys = issueDetailKeys()
+  const subscribersKey = (issueId: string) =>
+    issueSubscribersOptions(toValue(workspaceSlug), issueId).queryKey
+
+  return useMutation({
+    mutationKey: orpc.issues.subscribe.mutationKey(),
+    mutationFn: ({ issue, user, subscribe, isMe }: SubscriptionVariables) => {
+      const input = {
+        workspaceSlug: toValue(workspaceSlug),
+        issueId: issue.id,
+        ...(isMe ? {} : { userId: user.id }),
+      }
+      return subscribe ? client.issues.subscribe(input) : client.issues.unsubscribe(input)
+    },
+    onMutate: async ({ issue, user, subscribe, isMe }) => {
+      const subscribers = subscribersKey(issue.id)
+      const keys = [subscribers, ...(isMe ? [listKey, ...detailKeys] : [])]
+      await Promise.all(keys.map((queryKey) => queryClient.cancelQueries({ queryKey })))
+      const previous = keys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }))
+      queryClient.setQueryData<User[]>(subscribers, (current) => {
+        if (!current) return current
+        const others = current.filter((u) => u.id !== user.id)
+        return subscribe ? [...others, user] : others
+      })
+      if (isMe)
+        writeIssueToCaches(queryClient, issue.id, (current) => ({
+          ...current,
+          isSubscribed: subscribe,
+        }))
+      return { previous }
+    },
+    onError: (error, { issue, subscribe }, context) => {
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
+      toast.error(
+        `Couldn't ${subscribe ? 'subscribe to' : 'unsubscribe from'} ${issue.identifier}`,
+        { description: errorMessage(error) },
+      )
+    },
+    onSettled: async (_data, _error, { issue, isMe }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: subscribersKey(issue.id) }),
+        ...(isMe ? detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })) : []),
+      ])
+    },
+  })
+}

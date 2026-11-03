@@ -8,19 +8,24 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
+import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
 import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
 import IssueProperties from '../components/IssueProperties.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
+import SubscribeButton from '../components/SubscribeButton.vue'
 import type { IssuePatch } from '../issue-cache'
 import { buildTimeline, type ActivityNames } from '../issue-timeline'
 import {
   activityListOptions,
   commentListOptions,
   issueByIdentifierOptions,
+  issueSubscribersOptions,
+  useIssueSubscription,
   useUpdateIssue,
 } from '../queries'
 
@@ -113,6 +118,31 @@ function save(patch: IssuePatch) {
   if (issue.value) updateIssue.mutate({ issue: issue.value, patch })
 }
 
+const { data: me } = useCurrentUser()
+const { data: subscribers } = useQuery(
+  computed(() => ({
+    ...issueSubscribersOptions(slug.value, issueId.value),
+    enabled: Boolean(issue.value),
+  })),
+)
+const subscription = useIssueSubscription(slug)
+function setSubscribed(
+  user: { id: string; name: string; avatarUrl: string | null },
+  subscribe: boolean,
+) {
+  if (!issue.value) return
+  const member = members.value?.find((m) => m.userId === user.id)
+  subscription.mutate({
+    issue: issue.value,
+    user: { id: user.id, name: user.name, email: member?.email ?? '', avatarUrl: user.avatarUrl },
+    subscribe,
+    isMe: user.id === me.value?.id,
+  })
+}
+function toggleMySubscription() {
+  if (issue.value && me.value) setSubscribed(me.value, !issue.value.isSubscribed)
+}
+
 // Title and description are drafts while focused, saved on blur (Enter for the title).
 const titleDraft = ref('')
 const titleError = ref<string | null>(null)
@@ -192,6 +222,9 @@ onBeforeUnmount(commitDescription)
     v-else-if="issue"
     class="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:overflow-hidden"
   >
+    <Teleport defer :to="PANEL_HEADER_ACTIONS">
+      <SubscribeButton :subscribed="issue.isSubscribed" @toggle="toggleMySubscription" />
+    </Teleport>
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
         <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
@@ -244,7 +277,9 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :subscribers="subscribers ?? []"
       @change="save"
+      @subscription="setSubscribed"
     />
   </div>
 </template>

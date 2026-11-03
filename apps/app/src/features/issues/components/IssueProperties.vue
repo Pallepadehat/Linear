@@ -10,6 +10,7 @@ import StatusPicker from '@/components/common/StatusPicker.vue'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { fullDate, timeAgo } from '@/lib/relative-time'
 import type { IssuePatch } from '../issue-cache'
+import SubscribersPicker from './SubscribersPicker.vue'
 
 const props = defineProps<{
   issue: Issue
@@ -17,8 +18,12 @@ const props = defineProps<{
   users: AssigneeOption[]
   labels: Label[]
   projects: ProjectOption[]
+  subscribers: AssigneeOption[]
 }>()
-const emit = defineEmits<{ change: [patch: IssuePatch] }>()
+const emit = defineEmits<{
+  change: [patch: IssuePatch]
+  subscription: [user: AssigneeOption, subscribe: boolean]
+}>()
 
 const statusId = computed({
   get: () => props.issue.status.id,
@@ -88,6 +93,14 @@ const projectId = computed({
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>
       <ProjectPicker v-model="projectId" :projects="projects" />
+    </section>
+    <section class="grid gap-1">
+      <h2 class="px-2 text-xs font-medium text-ink-subtle">Subscribers</h2>
+      <SubscribersPicker
+        :subscribers="subscribers"
+        :members="users"
+        @toggle="(user, subscribe) => emit('subscription', user, subscribe)"
+      />
     </section>
     <!-- Filled in by M4-07 (linked PRs). -->
     <section class="grid gap-1">

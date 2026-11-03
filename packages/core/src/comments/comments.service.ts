@@ -2,6 +2,7 @@ import { comments, issues, users, type DbOrTx } from '@linear/db'
 import { and, asc, eq, gt, type SQL } from 'drizzle-orm'
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
+import { subscribeUsers } from '../subscriptions/subscriptions.service'
 
 export type ListCommentsInput = {
   workspaceId: string
@@ -110,17 +111,21 @@ export async function listComments(db: DbOrTx, input: ListCommentsInput) {
 export async function createComment(db: DbOrTx, input: CreateCommentInput) {
   const body = normalizeBody(input.body)
   await assertIssue(db, input.workspaceId, input.issueId)
-  const [comment] = await db
-    .insert(comments)
-    .values({
-      workspaceId: input.workspaceId,
-      issueId: input.issueId,
-      authorId: input.authorId,
-      body,
-    })
-    .returning({ id: comments.id })
-  if (!comment) throw new Error('comment insert returned no row')
-  return getComment(db, input.workspaceId, comment.id)
+  const id = await db.transaction(async (tx) => {
+    const [comment] = await tx
+      .insert(comments)
+      .values({
+        workspaceId: input.workspaceId,
+        issueId: input.issueId,
+        authorId: input.authorId,
+        body,
+      })
+      .returning({ id: comments.id })
+    if (!comment) throw new Error('comment insert returned no row')
+    await subscribeUsers(tx, input.issueId, [input.authorId])
+    return comment.id
+  })
+  return getComment(db, input.workspaceId, id)
 }
 
 export async function updateComment(db: DbOrTx, input: UpdateCommentInput) {
