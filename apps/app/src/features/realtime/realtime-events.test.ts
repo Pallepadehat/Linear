@@ -161,6 +161,13 @@ describe('realtime event handler', () => {
       queryKey: orpc.comments.list.key({ input: { issueId: 'a' } }),
     })
   })
+
+  it('refetches template lists on a template event', () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'template.updated', templateId: crypto.randomUUID(), ...actor })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: orpc.templates.key() })
+  })
 })
 
 describe('backoffDelay', () => {
