@@ -39,7 +39,7 @@ import { orpc } from '@/lib/orpc'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { useUiStore } from '@/stores/ui'
 import { prefillFrom, type IssuePrefill, type PrefillField, type PrefillValues } from '../prefill'
-import { createIssueMutationOptions, issueListKey } from '../queries'
+import { createIssueMutationOptions, issueFacetsKey, issueListKey } from '../queries'
 import TeamPicker from './TeamPicker.vue'
 
 const ui = useUiStore()
@@ -367,6 +367,7 @@ const onSubmit = handleSubmit(async (form) => {
       description: form.description?.trim() ? form.description : undefined,
     })
     await queryClient.invalidateQueries({ queryKey: issueListKey() })
+    void queryClient.invalidateQueries({ queryKey: issueFacetsKey() })
     // Project progress counts the new issue.
     if (issue.projectId) void invalidateProjects(queryClient)
     if (issue.cycleId) void queryClient.invalidateQueries({ queryKey: cyclesKey() })
