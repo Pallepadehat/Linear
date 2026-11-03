@@ -317,8 +317,20 @@ Subscribers are the audience for Inbox notifications (M10-02). Stored in `issue_
 
 - Sidebar sections (Workspace, Your teams, Favorites) start expanded; each team row starts collapsed and expands when one of its pages is opened. The state is per browser (`sidebar-sections` in localStorage), never server data.
 - `team/:teamKey` redirects to `team/:teamKey/issues`. The team Projects page lists the workspace projects whose `teamIds` include the team (client-side filter of `projects.list`).
-- Until the command menu (M7-11) lands, the sidebar Search button focuses the issue search field, opening All issues first when the current page has none. Until M10-02, Inbox and the notifications bell open an empty inbox page and the unread badge is hidden (count 0). Views pages are placeholders until M10-05; Favorites stays hidden until M8-07.
+- The sidebar Search button opens the command menu (⌘K) and the help button opens the keyboard shortcuts sheet (`?`). Until M10-02, Inbox and the notifications bell open an empty inbox page and the unread badge is hidden (count 0). Views pages are placeholders until M10-05; Favorites stays hidden until M8-07.
 - The content panel keeps the `panel` surface and light-mode panel shadow from design.md → App shell (design.md wins over the issue's `bg-surface-1` / no-shadow wording).
+
+## Keyboard shortcuts and command menu
+
+- Every shortcut is declared once in the catalog `SHORTCUTS` (`apps/app/src/lib/hotkeys.ts`): keys, label, scope. Components bind handlers by catalog id with `useHotkeys` while mounted; the `?` sheet and the command menu's hints render from the catalog, so they can't drift. New shortcuts add a catalog entry, then bind it; the issue page's J/K prev/next (M7-07, `useIssueNav`), its header's ⌘⌫ delete and the list `F` filter key are bound this way. No component listens to keydown for app shortcuts directly.
+- `mod` is ⌘ on macOS and Ctrl elsewhere. Chords (`G I`) must complete within 1s; otherwise the second key is matched on its own.
+- Scope precedence when several bindings share a key: picker > issue > list > global; within a scope the most recently mounted wins. A handler can decline (return `false`) and the next match runs.
+- While focus is in an input, textarea, select or editor (contenteditable, incl. the description editor), only bindings that opt in with `allowInInputs` and use ⌘/Ctrl/Alt fire. Only ⌘K opts in: ⌘⌫ in a field still deletes text, never the issue.
+- While a dialog, sheet or popover is open, only `inDialog` bindings fire: ⌘K (toggles the menu; ignored over another dialog) and the S/P/A/L picker keys (only the topmost dialog's pickers respond).
+- The "active issue" for the command menu's issue actions and ⌘⌫ is the open issue on its page, or the J/K-focused row in a list. `G T` goes to the current page's team, else the active issue's team (identifier prefix), else the first team.
+- Deleting always asks for confirmation (focus starts on Cancel). It is optimistic: the issue leaves every list at once and comes back with a toast if the server refuses; deleting the open issue first navigates back.
+- Copy git branch name gives `tip-200-<title slug, ≤40 chars>` so PR linking matches it (see GitHub PR linking). M7-08 may refine the copy actions.
+- List keyboard navigation (J/K, Enter, X, Esc) covers the list layout; X selection is local to the list until bulk actions (M7-12) use it. Board keyboard navigation is left to M7-12.
 
 ## Isolation invariants
 

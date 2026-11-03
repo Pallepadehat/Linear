@@ -3,11 +3,12 @@ import { issueTitleSchema } from '@linear/contract'
 import { SearchX } from '@lucide/vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { useHotkeys } from '@/composables/useHotkeys'
 import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
@@ -15,6 +16,7 @@ import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
+import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
 import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
@@ -32,6 +34,8 @@ import {
 } from '../queries'
 
 const route = useRoute()
+const router = useRouter()
+const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const identifier = computed(() => String(route.params.identifier))
 
@@ -88,6 +92,30 @@ const names = computed<ActivityNames>(() => {
   }
 })
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
+
+// The open issue is the command menu's context; Esc goes back (⌘⌫ is in the header).
+watch(
+  issue,
+  (current) => {
+    ui.activeIssue = current ? { id: current.id, identifier: current.identifier } : null
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => {
+  if (ui.activeIssue?.id === issue.value?.id) ui.activeIssue = null
+})
+useHotkeys([
+  {
+    id: 'issue-back',
+    run: () => {
+      // Back to where the issue was opened from; a direct link falls back to its team.
+      if (window.history.state?.back) router.back()
+      else if (team.value)
+        void router.push({ name: 'team-issues', params: { teamKey: team.value.key } })
+      else void router.push({ name: 'issues' })
+    },
+  },
+])
 
 const currentUser = useCurrentUser()
 
