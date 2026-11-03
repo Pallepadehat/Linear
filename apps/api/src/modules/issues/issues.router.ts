@@ -129,9 +129,9 @@ export const issuesRouter = {
           : []
       await publishSubIssuesChanged(context, parents)
       await notify(context, issueUpdateEvents(issue.id, issue.activity, issue.assigneeId))
-      // Both projects' feeds got an entry (removed / added).
-      for (const projectId of [issue.projectChange?.from, issue.projectChange?.to]) {
-        if (projectId) await publishChange(context, { type: 'project.updated', projectId })
+      // Each project whose feed got an entry (issue removed / added, milestone completed).
+      for (const projectId of issue.feedProjectIds) {
+        await publishChange(context, { type: 'project.updated', projectId })
       }
       return toIssueDto(issue)
     }),
@@ -191,12 +191,9 @@ export const issuesRouter = {
           context,
           updated.map((issue) => issue.parentId),
         )
-      // Each project whose feed got an entry (removed / added) hears about it once.
-      const projectIds = new Set(
-        updated.flatMap((issue) => [issue.projectChange?.from, issue.projectChange?.to]),
-      )
-      for (const projectId of projectIds) {
-        if (projectId) await publishChange(context, { type: 'project.updated', projectId })
+      // Each project whose feed got an entry hears about it once.
+      for (const projectId of new Set(updated.flatMap((issue) => issue.feedProjectIds))) {
+        await publishChange(context, { type: 'project.updated', projectId })
       }
       return { items: updated.map(toIssueDto) }
     }),
