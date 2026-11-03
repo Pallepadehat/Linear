@@ -10,7 +10,7 @@ const percent = computed(() => progressPercent(props.progress))
 <template>
   <div class="flex items-center gap-2">
     <div
-      class="h-1 w-16 overflow-hidden rounded-full bg-surface-3"
+      class="h-1 w-16 overflow-hidden rounded-full bg-surface-4"
       role="progressbar"
       aria-label="Progress"
       :aria-valuenow="percent"

@@ -140,6 +140,12 @@ function initialTeamId() {
   return ui.createIssueDefaults.teamId ?? fromRoute?.id ?? list[0]?.id ?? ''
 }
 
+// The requested project, else the project page being viewed.
+function initialProjectId() {
+  const fromRoute = route.name === 'project' ? String(route.params.projectId) : null
+  return ui.createIssueDefaults.projectId ?? fromRoute
+}
+
 watch(
   () => ui.createIssueOpen,
   (open) => {
@@ -148,7 +154,7 @@ watch(
     resetForm()
     setFieldValue('teamId', initialTeamId(), false)
     setFieldValue('statusId', ui.createIssueDefaults.statusId, false)
-    setFieldValue('projectId', ui.createIssueDefaults.projectId ?? null, false)
+    setFieldValue('projectId', initialProjectId(), false)
     ensureStatus()
   },
   { immediate: true },
