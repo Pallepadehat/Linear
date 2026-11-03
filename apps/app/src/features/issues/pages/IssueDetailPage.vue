@@ -9,6 +9,7 @@ import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useHotkeys } from '@/composables/useHotkeys'
+import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
 import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
@@ -144,6 +145,14 @@ watchEffect(() => {
     if (query.hasNextPage.value && !query.isFetchingNextPage.value) void query.fetchNextPage()
   }
 })
+const { data: pullRequests } = useQuery(
+  computed(() => ({
+    ...issuePullRequestsOptions(slug.value, issueId.value),
+    enabled: Boolean(issue.value),
+  })),
+)
+// GitHub activity links to its PR while that PR is still linked.
+const pullRequestOf = (id: string) => pullRequests.value?.find((pr) => pr.id === id)
 const timeline = computed(() =>
   buildTimeline(
     comments.data.value?.pages.flatMap((p) => p.items) ?? [],
@@ -279,7 +288,13 @@ onBeforeUnmount(commitDescription)
             aria-busy="true"
             aria-label="Loading activity"
           />
-          <IssueTimeline v-else :entries="timeline" :names="names" :avatar-of="avatarOf" />
+          <IssueTimeline
+            v-else
+            :entries="timeline"
+            :names="names"
+            :avatar-of="avatarOf"
+            :pull-request-of="pullRequestOf"
+          />
           <CommentComposer :workspace-slug="slug" :issue-id="issue.id" />
         </section>
       </div>
@@ -291,6 +306,7 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :pull-requests="pullRequests"
       @change="save"
     />
   </div>

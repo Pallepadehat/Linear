@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { IssuePrefill } from '@/features/issues/prefill'
 
 export type CreateIssueDefaults = {
   teamId?: string
@@ -16,9 +17,15 @@ export const useUiStore = defineStore('ui', () => {
   const createIssueOpen = ref(false)
   /** Preselected in the create issue dialog, e.g. from a team or project page or a group's `+`. */
   const createIssueDefaults = ref<CreateIssueDefaults>({})
+  /** Fills the dialog like a template does, e.g. "Make a copy…" with `issuePrefill(issue)`. */
+  const createIssuePrefill = ref<IssuePrefill | null>(null)
 
-  function openCreateIssue(defaults: CreateIssueDefaults = {}) {
+  function openCreateIssue(
+    defaults: CreateIssueDefaults = {},
+    prefill: IssuePrefill | null = null,
+  ) {
     createIssueDefaults.value = defaults
+    createIssuePrefill.value = prefill
     createIssueOpen.value = true
   }
 
@@ -46,6 +53,7 @@ export const useUiStore = defineStore('ui', () => {
   return {
     createIssueOpen,
     createIssueDefaults,
+    createIssuePrefill,
     openCreateIssue,
     breadcrumb,
     createProjectOpen,

@@ -313,6 +313,10 @@ Lavender stays scarce on chrome, but the product uses a small semantic palette, 
 | High / Medium / Low     | `ink-muted`              | 3 bars, 3 / 2 / 1 filled              |
 | No priority             | `ink-tertiary`           | Three dashes                          |
 | Labels                  | the label's own color    | 8px dot before the name               |
+| PR open                 | `status-started`         | Pull request icon                     |
+| PR draft                | `status-neutral`         | Draft pull request icon               |
+| PR merged               | `status-completed`       | Merge icon                            |
+| PR closed (not merged)  | `priority-urgent`        | Closed pull request icon              |
 
 Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon and selected/active states. Never as a section or card fill.
 
@@ -327,6 +331,8 @@ Lavender in the app is allowed for: primary actions, focus rings, the brand mark
 - Rows: 32px, `px-2.5`, `{rounded.md}`, 13px `ink`, 16px icon or avatar, 10px gap. Highlighted row on `floating-hover`. On the right: a check on the current value, then the row's number shortcut in `ink-subtle`.
 - Keyboard: arrows move, Enter picks, Escape closes and returns focus to the chip. A number key picks that row while the filter is empty (`0` = "No priority" / "No assignee", then `1…9`). The current value is highlighted when the menu opens. Multi-select pickers (labels) stay open while toggling.
 - Optional group headings (e.g. "Team members") in 13px `ink-subtle`, no divider.
+
+**Linked pull request row** (issue sidebar). Whole row is a link (`rounded.md`, `surface-2` on hover and focus, focus ring) that opens GitHub in a new tab. State icon (14px, colored per the table above), title in `ink` (truncated); second line 12px `ink-subtle`: `repo#number` in mono, "· Closes / References", and the state as a `status-badge` pill (`surface-2`, `ink-muted`) on the right; an `ink-tertiary` external-link arrow. Draft differs from Open by icon, color and label. GitHub activity entries use the GitHub mark in `ink-muted`.
 
 **Avatar.** Always a circle (`{rounded.full}`), 16px in rows and chips, 20px in lists, 32px in member rows. Image when available, otherwise initials.
 
