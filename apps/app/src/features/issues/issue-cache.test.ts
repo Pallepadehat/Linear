@@ -41,6 +41,8 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     createdAt: created,
     updatedAt: created,
     completedAt: null,
+    parentId: null,
+    subIssueProgress: null,
     ...overrides,
   }
 }
@@ -103,6 +105,29 @@ describe('patchIssue', () => {
     const a = issue('a')
     expect(patchIssue(a, 'a', (i) => ({ ...i, priority: 2 }))?.priority).toBe(2)
     expect(patchIssue(a, 'b', (i) => ({ ...i, priority: 2 }))).toBe(a)
+  })
+
+  it('patches a sub-issue inside its parent and recounts the progress', () => {
+    const parent = {
+      ...issue('p', { subIssueProgress: { done: 0, total: 2 } }),
+      parent: null,
+      children: [issue('a'), issue('b')],
+    }
+    const next = patchIssue(parent, 'a', (i) => ({ ...i, status: done }))
+    expect(next?.children.find((c) => c.id === 'a')?.status).toBe(done)
+    expect(next?.subIssueProgress).toEqual({ done: 1, total: 2 })
+    expect(patchIssue(parent, 'b', (i) => ({ ...i, status: canceled }))?.subIssueProgress).toEqual({
+      done: 0,
+      total: 1,
+    })
+  })
+
+  it('keeps the parent and sub-issues when patching the issue itself', () => {
+    const parent = { ...issue('p'), parent: null, children: [issue('a')] }
+    expect(patchIssue(parent, 'p', (i) => ({ ...issue(i.id), priority: 3 }))).toMatchObject({
+      priority: 3,
+      children: [{ id: 'a' }],
+    })
   })
 })
 

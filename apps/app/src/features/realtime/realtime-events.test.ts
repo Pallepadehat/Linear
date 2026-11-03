@@ -38,6 +38,8 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     createdAt: created,
     updatedAt: created,
     completedAt: null,
+    parentId: null,
+    subIssueProgress: null,
     ...overrides,
   }
 }
@@ -56,7 +58,7 @@ beforeEach(() => {
     pages: [{ items: [issue('a'), issue('b')], nextCursor: null }],
     pageParams: [null],
   })
-  queryClient.setQueryData(detailKey, issue('a'))
+  queryClient.setQueryData(detailKey, { ...issue('a'), parent: null, children: [] })
 })
 afterEach(() => vi.useRealTimers())
 

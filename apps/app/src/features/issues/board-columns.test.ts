@@ -36,6 +36,8 @@ function issue(id: string, s: WorkflowStatus, teamId = teamA): Issue {
     createdAt: now,
     updatedAt: now,
     completedAt: null,
+    parentId: null,
+    subIssueProgress: null,
   }
 }
 
