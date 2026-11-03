@@ -29,6 +29,17 @@ export const projectActivityListOptions = (workspaceSlug: string, projectId: str
 /** Matches every project query (list, detail and activity); progress depends on issue changes. */
 export const projectsKey = () => orpc.projects.key()
 
+/** Matches every milestone list; milestone progress depends on issue changes too. */
+export const milestonesKey = () => orpc.milestones.key()
+
+/** Refetches project and milestone progress (both count issues by status and project). */
+export function invalidateProjects(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: projectsKey() }),
+    queryClient.invalidateQueries({ queryKey: milestonesKey() }),
+  ])
+}
+
 /** Writes a saved project into the detail and list caches. */
 export function storeProject(queryClient: QueryClient, workspaceSlug: string, project: Project) {
   queryClient.setQueryData(projectOptions(workspaceSlug, project.id).queryKey, project)
@@ -91,7 +102,7 @@ export function useUpdateProject(workspaceSlug: MaybeRefOrGetter<string>) {
       // With several changes in flight, refetching after the first would briefly
       // show the server state without the later ones; wait for the last.
       if (queryClient.isMutating({ mutationKey }) > 1) return
-      return queryClient.invalidateQueries({ queryKey: projectsKey() })
+      return invalidateProjects(queryClient)
     },
   })
 }

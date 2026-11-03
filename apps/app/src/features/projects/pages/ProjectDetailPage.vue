@@ -19,6 +19,7 @@ import ProjectDatePicker from '../components/ProjectDatePicker.vue'
 import ProjectLabelsPicker from '../components/ProjectLabelsPicker.vue'
 import ProjectLeadPicker from '../components/ProjectLeadPicker.vue'
 import ProjectMembersPicker from '../components/ProjectMembersPicker.vue'
+import ProjectMilestones from '../components/ProjectMilestones.vue'
 import ProjectProgress from '../components/ProjectProgress.vue'
 import ProjectStatusPicker from '../components/ProjectStatusPicker.vue'
 import ProjectTeamsPicker from '../components/ProjectTeamsPicker.vue'
@@ -201,6 +202,7 @@ const labelIds = computed({
         <ProjectLabelsPicker v-model="labelIds" :labels="labels ?? []" :workspace-slug="slug" />
         <ProjectProgress class="ml-2" :progress="project.progress" />
       </div>
+      <ProjectMilestones :workspace-slug="slug" :project-id="project.id" />
     </section>
     <div class="flex min-h-0 flex-1">
       <div v-if="showActivity" class="min-w-0 flex-1 overflow-y-auto px-8 py-5">

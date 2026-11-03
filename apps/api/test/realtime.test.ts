@@ -1,5 +1,7 @@
 import type { ContractClient, RealtimeEvent } from '@linear/contract'
 import { addMember } from '@linear/db/testing'
+import { createRedisConnection, createUserEventPublisher } from '@linear/queue'
+import { randomUUID } from 'node:crypto'
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/websocket'
 import type { AddressInfo } from 'node:net'
@@ -213,6 +215,50 @@ describe('realtime', () => {
     )
   })
 
+  it('publishes project.updated for milestone changes and issue.updated for issues losing one', async () => {
+    const { owner, member, team } = await workspaceWithIssue()
+    const scope = { workspaceSlug: 'tip' }
+    const project = await owner.client.projects.create({ ...scope, name: 'Launch' })
+    const milestone = await owner.client.milestones.create({
+      ...scope,
+      projectId: project.id,
+      name: 'Alpha',
+    })
+    const issue = await owner.client.issues.create({
+      ...scope,
+      teamId: team.id,
+      title: 'In milestone',
+      projectId: project.id,
+      milestoneId: milestone.id,
+    })
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    await owner.client.milestones.reorder({
+      ...scope,
+      projectId: project.id,
+      orderedIds: [milestone.id],
+    })
+    await owner.client.milestones.delete({ ...scope, id: milestone.id })
+    await owner.client.issues.update({ ...scope, id: issue.id, projectId: null })
+
+    const projectEvent = { type: 'project.updated', projectId: project.id, actorId: owner.userId }
+    await eventually(() =>
+      expect(events).toEqual([
+        projectEvent,
+        projectEvent,
+        { type: 'issue.updated', issueId: issue.id, fields: ['milestone'], actorId: owner.userId },
+        {
+          type: 'issue.updated',
+          issueId: issue.id,
+          fields: ['project', 'milestone'],
+          actorId: owner.userId,
+        },
+        // Leaving the project writes `project.issue_removed` to its feed.
+        projectEvent,
+      ]),
+    )
+  })
+
   it('tells both the sub-issue and its parent when the parent changes', async () => {
     const { owner, member, team, issue } = await workspaceWithIssue()
     const parent = await owner.client.issues.create({
@@ -284,6 +330,28 @@ describe('realtime', () => {
     )
   })
 
+  it('signals link changes on the issue', async () => {
+    const { owner, member, issue } = await workspaceWithIssue()
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    const link = await owner.client.issueLinks.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      url: 'https://example.com/spec',
+    })
+    await owner.client.issueLinks.update({ workspaceSlug: 'tip', id: link.id, title: 'Spec' })
+    await owner.client.issueLinks.delete({ workspaceSlug: 'tip', id: link.id })
+
+    const update = { type: 'issue.updated', actorId: owner.userId, issueId: issue.id }
+    await eventually(() =>
+      expect(events).toEqual([
+        { ...update, fields: ['links'] },
+        { ...update, fields: ['links'] },
+        { ...update, fields: ['links'] },
+      ]),
+    )
+  })
+
   it('never sends events to users outside the workspace (PRD Test 9)', async () => {
     const { owner, issue } = await workspaceWithIssue()
     const outsider = await signUp(app, 'Outsider')
@@ -311,6 +379,33 @@ describe('realtime', () => {
         { type: 'issue.created', issueId: own.id, actorId: outsider.userId },
       ]),
     )
+  })
+
+  it("sends notification.created only to the recipient's sockets in that workspace", async () => {
+    const { owner, member, workspace } = await workspaceWithIssue()
+    const ownerStream = await subscribe(owner.cookie, 'tip')
+    const memberStream = await subscribe(member.cookie, 'tip')
+    const redis = createRedisConnection(process.env.REDIS_URL ?? 'redis://localhost:6379')
+    const publishToUser = createUserEventPublisher(redis)
+    const notificationId = randomUUID()
+
+    await publishToUser(member.userId, {
+      type: 'notification.created',
+      workspaceId: workspace.id,
+      notificationId,
+    })
+    // The same user's notification in another workspace stays out of this stream.
+    await publishToUser(member.userId, {
+      type: 'notification.created',
+      workspaceId: randomUUID(),
+      notificationId: randomUUID(),
+    })
+    redis.disconnect()
+
+    await eventually(() =>
+      expect(memberStream.events).toEqual([{ type: 'notification.created', notificationId }]),
+    )
+    expect(ownerStream.events).toEqual([])
   })
 
   it('announces template changes by id only', async () => {

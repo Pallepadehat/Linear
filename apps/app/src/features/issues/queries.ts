@@ -2,9 +2,11 @@ import type {
   Comment,
   Issue,
   IssueDetail,
+  IssueLink,
   IssueFiltersInput,
   IssuePage,
   IssueRelationType,
+  LinkFields,
   ListIssuesInput,
   ReactionEmoji,
   User,
@@ -14,13 +16,14 @@ import {
   useMutation,
   useQueryClient,
   type InfiniteData,
+  type Query,
   type QueryClient,
 } from '@tanstack/vue-query'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
 import { cyclesKey } from '@/features/cycles/queries'
-import { projectsKey } from '@/features/projects/queries'
+import { invalidateProjects } from '@/features/projects/queries'
 import { todayIso } from '@/lib/due-dates'
 import { client, orpc } from '@/lib/orpc'
 import { patchCommentInPages, toggleReaction } from './comment-cache'
@@ -30,9 +33,11 @@ import {
   patchIssue,
   patchIssueInPages,
   removeIssueFromPages,
+  removeLink,
   removeRelation,
   toBulkUpdateInput,
   toUpdateIssueInput,
+  upsertLink,
   type BulkIssueChange,
   type IssuePatch,
 } from './issue-cache'
@@ -42,7 +47,17 @@ const PAGE_SIZE = 50
 
 export type IssueListFilter = Pick<
   ListIssuesInput,
-  'teamId' | 'projectId' | 'cycleId' | 'assignee' | 'creator' | 'statusCategories'
+  | 'teamId'
+  | 'projectId'
+  | 'cycleId'
+  | 'assignee'
+  | 'creator'
+  | 'statusCategories'
+  // From the view's display options.
+  | 'completedAfter'
+  | 'sort'
+  | 'direction'
+  | 'showSubIssues'
 >
 
 /**
@@ -54,15 +69,19 @@ function issueFiltersInput(
   filter: IssueListFilter,
   filters: IssueFilters,
 ): IssueFiltersInput {
-  const { q, due, sort: _sort, direction: _direction, ...rest } = filters
+  const { q, due, hasLinks, ...rest } = filters
+  // The sort only orders the list; it isn't a filter.
+  const { sort: _sort, direction: _direction, ...scope } = filter
   // Relative due filters are evaluated against the viewer's local day (domain.md).
   const relative = due.some((bucket) => bucket !== 'noDueDate')
   return {
     workspaceSlug,
-    ...filter,
+    ...scope,
     ...rest,
     ...(due.length && { due }),
     ...(relative && { today: todayIso() }),
+    // Only "Has links" is offered; `false` would mean "has no links".
+    ...(hasLinks && { hasLinks }),
     q: q || undefined,
   }
 }
@@ -79,8 +98,8 @@ export function issueListOptions(
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
       ...issueFiltersInput(workspaceSlug, filter, filters),
-      sort: filters.sort,
-      direction: filters.direction,
+      sort: filter.sort,
+      direction: filter.direction,
       cursor,
       limit: PAGE_SIZE,
     }),
@@ -143,7 +162,7 @@ function invalidateRelationViews(queryClient: QueryClient) {
     ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
     queryClient.invalidateQueries({ queryKey: issueListKey() }),
     queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
-    queryClient.invalidateQueries({ queryKey: projectsKey() }),
+    invalidateProjects(queryClient),
   ])
 }
 
@@ -245,7 +264,7 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
         ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
         // Project and cycle progress count issues by status, project and cycle.
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
         queryClient.invalidateQueries({ queryKey: cyclesKey() }),
       ])
     },
@@ -287,7 +306,7 @@ export function useDeleteIssue(workspaceSlug: MaybeRefOrGetter<string>) {
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: listKey }),
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
       ])
     },
   })
@@ -368,7 +387,7 @@ export function useBulkUpdateIssues(workspaceSlug: MaybeRefOrGetter<string>) {
         queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
         ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
         queryClient.invalidateQueries({ queryKey: cyclesKey() }),
       ])
     },
@@ -400,7 +419,7 @@ export function useBulkDeleteIssues(workspaceSlug: MaybeRefOrGetter<string>) {
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
       ])
     },
   })
@@ -576,4 +595,104 @@ export function useCommentActions(
       }),
     ),
   }
+}
+
+/** Writes `update` into every cached detail of the issue (by id and by identifier). */
+function patchIssueDetails(
+  queryClient: QueryClient,
+  issueId: string,
+  update: (detail: IssueDetail) => IssueDetail,
+) {
+  for (const queryKey of issueDetailKeys())
+    queryClient.setQueriesData<IssueDetail>({ queryKey }, (data) =>
+      data?.id === issueId ? update(data) : data,
+    )
+}
+
+/** Snapshots the issue's detail caches for a rollback. */
+async function snapshotIssueDetails(queryClient: QueryClient) {
+  const detailKeys = issueDetailKeys()
+  await Promise.all(detailKeys.map((queryKey) => queryClient.cancelQueries({ queryKey })))
+  return detailKeys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }))
+}
+
+/** Lists and Details panel counts that filter by `hasLinks` (they change with an issue's links). */
+export const filtersByLinks = (query: Query) =>
+  (query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input?.hasLinks !==
+  undefined
+
+/** Activity shows "added link"; views filtered by "Has links" may gain or lose the issue. */
+function invalidateLinkViews(queryClient: QueryClient, issueId: string) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) }),
+    queryClient.invalidateQueries({ queryKey: issueListKey(), predicate: filtersByLinks }),
+    queryClient.invalidateQueries({ queryKey: issueFacetsKey(), predicate: filtersByLinks }),
+  ])
+}
+
+export type LinkVariables = { issueId: string } & LinkFields
+
+/** Adds a link; it appears in the detail once the server returns it (with its hostname). */
+export function useCreateIssueLink(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (variables: LinkVariables) =>
+      client.issueLinks.create({ workspaceSlug: toValue(workspaceSlug), ...variables }),
+    onSuccess: (link, { issueId }) => {
+      patchIssueDetails(queryClient, issueId, (detail) => upsertLink(detail, link))
+    },
+    onSettled: (_link, _error, { issueId }) => invalidateLinkViews(queryClient, issueId),
+  })
+}
+
+/** Edits a link optimistically (URL and title at once), rolled back with a toast. */
+export function useUpdateIssueLink(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ link, fields }: { issueId: string; link: IssueLink; fields: LinkFields }) =>
+      client.issueLinks.update({
+        workspaceSlug: toValue(workspaceSlug),
+        id: link.id,
+        url: fields.url,
+        title: fields.title ?? '',
+      }),
+    onMutate: async ({ issueId, link, fields }) => {
+      const previous = await snapshotIssueDetails(queryClient)
+      // The server resolves an empty title to the hostname; show the old one until then.
+      const title = fields.title?.trim() || link.hostname
+      patchIssueDetails(queryClient, issueId, (detail) =>
+        upsertLink(detail, { ...link, url: fields.url, title }),
+      )
+      return { previous }
+    },
+    onError: (error, _variables, context) => {
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
+      toast.error("Couldn't update the link", { description: errorMessage(error) })
+    },
+    onSuccess: (link, { issueId }) => {
+      patchIssueDetails(queryClient, issueId, (detail) => upsertLink(detail, link))
+    },
+    onSettled: (_link, _error, { issueId }) => invalidateLinkViews(queryClient, issueId),
+  })
+}
+
+/** Removes a link optimistically, rolled back with a toast. */
+export function useDeleteIssueLink(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ linkId }: { issueId: string; linkId: string }) =>
+      client.issueLinks.delete({ workspaceSlug: toValue(workspaceSlug), id: linkId }),
+    onMutate: async ({ issueId, linkId }) => {
+      const previous = await snapshotIssueDetails(queryClient)
+      patchIssueDetails(queryClient, issueId, (detail) => removeLink(detail, linkId))
+      return { previous }
+    },
+    onError: (error, _variables, context) => {
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
+      toast.error("Couldn't remove the link", { description: errorMessage(error) })
+    },
+    onSettled: (_data, _error, { issueId }) => invalidateLinkViews(queryClient, issueId),
+  })
 }

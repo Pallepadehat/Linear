@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { issueTitleSchema } from '@linear/contract'
-import type { Issue } from '@linear/contract'
+import type { Issue, IssueLink } from '@linear/contract'
 import { SearchX } from '@lucide/vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
@@ -13,10 +13,12 @@ import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { cycleListOptions } from '@/features/cycles/queries'
 import { cycleName } from '@/features/cycles/cycles'
 import { useHotkeys } from '@/composables/useHotkeys'
+import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
 import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
 import { useViewingIssue } from '@/features/presence/usePresence'
+import { milestoneListOptions } from '@/features/projects/milestones'
 import { projectListOptions } from '@/features/projects/queries'
 import { estimateLabel } from '@/lib/estimates'
 import { errorCode } from '@/lib/errors'
@@ -25,7 +27,9 @@ import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
 import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
+import IssueLinkDialog from '../components/IssueLinkDialog.vue'
 import IssueRelations from '../components/IssueRelations.vue'
+import IssueResources from '../components/IssueResources.vue'
 import IssueSearchDialog from '../components/IssueSearchDialog.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
 import ParentIssueDialog from '../components/ParentIssueDialog.vue'
@@ -44,11 +48,15 @@ import {
 } from '../queries'
 import { RELATION_KINDS, relationFor, type RelationKind } from '../relation-kinds'
 
+// The Inbox embeds this page for the selected notification's issue; standalone, the
+// identifier comes from the route.
+const props = defineProps<{ identifier?: string; embedded?: boolean }>()
+
 const route = useRoute()
 const router = useRouter()
 const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
-const identifier = computed(() => String(route.params.identifier))
+const identifier = computed(() => props.identifier ?? String(route.params.identifier))
 
 const issueQuery = useQuery(computed(() => issueByIdentifierOptions(slug.value, identifier.value)))
 const issue = issueQuery.data
@@ -89,6 +97,12 @@ const { data: labels } = useQuery(
   computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
 const { data: projects } = useQuery(computed(() => projectListOptions(slug.value)))
+const { data: milestones } = useQuery(
+  computed(() => ({
+    ...milestoneListOptions(slug.value, issue.value?.projectId ?? ''),
+    enabled: Boolean(issue.value?.projectId),
+  })),
+)
 const { data: cycles } = useQuery(
   computed(() => ({
     ...cycleListOptions(slug.value, issue.value?.teamId ?? ''),
@@ -131,6 +145,7 @@ useHotkeys([
   {
     id: 'issue-back',
     run: () => {
+      if (props.embedded) return false
       // Back to where the issue was opened from; a direct link falls back to its team.
       if (window.history.state?.back) router.back()
       else if (team.value)
@@ -206,6 +221,25 @@ function setParent(parent: Issue) {
     },
   })
 }
+
+// Ctrl L (and "…" → Add link…) adds a link; the resources list edits one.
+const linkDialogOpen = ref(false)
+const editingLink = ref<IssueLink | null>(null)
+function openLinkDialog(link: IssueLink | null = null) {
+  editingLink.value = link
+  linkDialogOpen.value = true
+}
+useHotkeys([
+  {
+    id: 'issue-add-link',
+    run: () => {
+      if (issue.value) openLinkDialog()
+    },
+  },
+])
+const addLinkShortcut = shortcutKeys('issue-add-link')
+  .flat()
+  .join(isMacPlatform() ? '' : ' ')
 
 // "…" → Mark as ▸ opens the issue search; picking an issue creates the relation.
 const relationKind = ref<RelationKind | null>(null)
@@ -336,6 +370,7 @@ onBeforeUnmount(commitDescription)
       @change="save"
       @set-parent="parentDialogOpen = true"
       @mark-as="relationKind = $event"
+      @add-link="openLinkDialog()"
     >
       <SubscribeButton :subscribed="issue.isSubscribed" @toggle="toggleMySubscription" />
     </IssueDetailHeader>
@@ -382,6 +417,15 @@ onBeforeUnmount(commitDescription)
             class="min-h-16 py-1"
           />
         </div>
+        <IssueResources
+          :workspace-slug="slug"
+          :issue-id="issue.id"
+          :links="issue.links"
+          :pull-requests="pullRequests"
+          :add-shortcut="addLinkShortcut"
+          @add="openLinkDialog()"
+          @edit="openLinkDialog"
+        />
         <IssueRelations :issue="issue" :workspace-slug="slug" />
 
         <SubIssueSection
@@ -422,6 +466,7 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :milestones="milestones ?? []"
       :cycles="cycles ?? []"
       :cycles-enabled="teamWithStatuses?.cyclesEnabled"
       :estimates="estimates"
@@ -436,6 +481,12 @@ onBeforeUnmount(commitDescription)
       :title="relationTitle"
       :exclude-ids="[issue.id]"
       @select="relate"
+    />
+    <IssueLinkDialog
+      v-model:open="linkDialogOpen"
+      :workspace-slug="slug"
+      :issue-id="issue.id"
+      :link="editingLink"
     />
     <ParentIssueDialog
       v-model:open="parentDialogOpen"

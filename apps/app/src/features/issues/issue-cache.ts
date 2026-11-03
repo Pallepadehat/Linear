@@ -2,6 +2,7 @@ import type {
   BulkUpdateIssuesInput,
   Issue,
   IssueDetail,
+  IssueLink,
   IssuePage,
   Label,
   UpdateIssueInput,
@@ -23,6 +24,7 @@ export type IssuePatch = Partial<
       | 'priority'
       | 'assigneeId'
       | 'projectId'
+      | 'milestoneId'
       | 'cycleId'
       | 'labels'
       | 'parentId'
@@ -34,6 +36,13 @@ export type IssuePatch = Partial<
 /** The issue as it will look after the patch; `completedAt` follows the category (domain.md). */
 export function applyIssuePatch(issue: Issue, patch: IssuePatch, now = new Date()): Issue {
   const next: Issue = { ...issue, ...patch, updatedAt: now }
+  // A project change without a milestone clears it, as the server does (domain.md).
+  if (
+    patch.projectId !== undefined &&
+    patch.projectId !== issue.projectId &&
+    patch.milestoneId === undefined
+  )
+    next.milestoneId = null
   if (patch.status) {
     const wasCompleted = issue.status.category === 'completed'
     const isCompleted = patch.status.category === 'completed'
@@ -122,6 +131,7 @@ export function toUpdateIssueInput(
     ...(patch.priority !== undefined && { priority: patch.priority }),
     ...(patch.assigneeId !== undefined && { assigneeId: patch.assigneeId }),
     ...(patch.projectId !== undefined && { projectId: patch.projectId }),
+    ...(patch.milestoneId !== undefined && { milestoneId: patch.milestoneId }),
     ...(patch.cycleId !== undefined && { cycleId: patch.cycleId }),
     ...(patch.estimate !== undefined && { estimate: patch.estimate }),
     ...(patch.labels && { labelIds: patch.labels.map((label) => label.id) }),
@@ -175,6 +185,21 @@ export function toBulkUpdateInput(
 }
 
 /** The detail without the relation `relationId`, on whichever side it was listed. */
+/** The detail with `link` added, or replacing the link with its id. */
+export function upsertLink(detail: IssueDetail, link: IssueLink): IssueDetail {
+  const exists = detail.links.some((l) => l.id === link.id)
+  return {
+    ...detail,
+    links: exists
+      ? detail.links.map((l) => (l.id === link.id ? link : l))
+      : [...detail.links, link],
+  }
+}
+
+export function removeLink(detail: IssueDetail, linkId: string): IssueDetail {
+  return { ...detail, links: detail.links.filter((l) => l.id !== linkId) }
+}
+
 export function removeRelation(detail: IssueDetail, relationId: string): IssueDetail {
   const without = (list: IssueDetail['relations']['blocks']) =>
     list.filter((related) => related.relationId !== relationId)

@@ -4,6 +4,7 @@ import { QueryClient, type InfiniteData } from '@tanstack/vue-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toValue } from 'vue'
 import { EMPTY_FILTERS, type IssueFilters } from '@/features/issues/issue-filters'
+import { unreadCountOptions } from '@/features/inbox/queries'
 import { issueFacetsOptions, issueListOptions } from '@/features/issues/queries'
 import {
   projectActivityListOptions,
@@ -36,6 +37,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    milestoneId: null,
     cycleId: null,
     estimate: null,
     dueDate: null,
@@ -72,6 +74,7 @@ beforeEach(() => {
     parent: null,
     children: [],
     relations: noRelations,
+    links: [],
   })
 })
 afterEach(() => vi.useRealTimers())
@@ -104,12 +107,25 @@ describe('realtime event handler', () => {
       parent: null,
       children: [],
       relations: { ...noRelations, blockedBy: [blocker] },
+      links: [],
     }))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['relations'], ...actor })
     await vi.waitFor(() => expect(listed()[0]!.blockedByCount).toBe(1))
     expect(queryClient.getQueryData<IssueDetail>(detailKey)!.relations.blockedBy).toEqual([blocker])
+  })
+
+  it('refreshes the Inbox and unread badge on notification.created', () => {
+    const fetchIssue = vi.fn(async (id: string) => issue(id))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+    const countKey = unreadCountOptions('tip').queryKey
+    queryClient.setQueryData(countKey, { count: 1 })
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['priority'], ...actor })
+    expect(queryClient.getQueryState(countKey)!.isInvalidated).toBe(false)
+    handle({ type: 'notification.created', notificationId: crypto.randomUUID() })
+    expect(queryClient.getQueryState(countKey)!.isInvalidated).toBe(true)
   })
 
   it("refetches the issue's linked pull requests when GitHub changes them", () => {
@@ -166,13 +182,15 @@ describe('realtime event handler', () => {
     const keyFor = (filters: Partial<IssueFilters>) =>
       issueListOptions('tip', {}, { ...EMPTY_FILTERS, ...filters }).queryKey
     const byStatus = keyFor({ statusIds: [todo.id] })
-    const byPriority = keyFor({ sort: 'priority' })
+    const byPriority = issueListOptions('tip', { sort: 'priority' }).queryKey
     const byTitle = keyFor({ q: 'login' })
     // An Active / Backlog tab: a status change can move the issue between tabs.
     const activeTab = issueListOptions('tip', {
       statusCategories: ['started', 'unstarted'],
     }).queryKey
-    for (const key of [byStatus, byPriority, byTitle, activeTab]) {
+    // "Completed issues: Past week": finishing an issue changes whether it's listed.
+    const recentDone = issueListOptions('tip', { completedAfter: new Date(0) }).queryKey
+    for (const key of [byStatus, byPriority, byTitle, activeTab, recentDone]) {
       queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
         pages: [{ items: [issue('a')], nextCursor: null }],
         pageParams: [null],
@@ -188,7 +206,8 @@ describe('realtime event handler', () => {
       stale(byPriority),
       stale(byTitle),
       stale(activeTab),
-    ]).toEqual([false, true, false, false, true])
+      stale(recentDone),
+    ]).toEqual([false, true, false, false, true, true])
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
@@ -203,7 +222,7 @@ describe('realtime event handler', () => {
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byEstimate)]).toEqual([false, true])
     const overdue = keyFor({ due: ['overdue'] })
-    const byDueDate = keyFor({ sort: 'dueDate' })
+    const byDueDate = issueListOptions('tip', { sort: 'dueDate' }).queryKey
     for (const key of [overdue, byDueDate]) {
       queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
         pages: [{ items: [issue('a')], nextCursor: null }],
@@ -250,6 +269,26 @@ describe('realtime event handler', () => {
     }
   })
 
+  it('refetches Details panel counts filtered by "Has links" when links change', () => {
+    const handle = createRealtimeEventHandler({
+      queryClient,
+      workspaceSlug: 'tip',
+      fetchIssue: async (id) => issue(id),
+    })
+    const empty = { assignees: [], labels: [], priorities: [], projects: [] }
+    const byLinks = issueFacetsOptions('tip', {}, { ...EMPTY_FILTERS, hasLinks: true }).queryKey
+    const plain = issueFacetsOptions('tip', {}).queryKey
+    const stale = (key: typeof plain) => queryClient.getQueryState(key)!.isInvalidated
+
+    for (const fields of [['links'], ['pullRequests']] as const) {
+      queryClient.setQueryData(byLinks, empty)
+      queryClient.setQueryData(plain, empty)
+      handle({ type: 'issue.updated', issueId: 'a', fields: [...fields], ...actor })
+      expect(stale(byLinks)).toBe(true)
+      expect(stale(plain)).toBe(false)
+    }
+  })
+
   it("leaves caches alone while this tab's own edit is in flight", async () => {
     const fetchIssue = vi.fn(async (id: string) => issue(id, { status: inProgress }))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
@@ -281,7 +320,10 @@ describe('realtime event handler', () => {
     handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
     handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
-    expect(invalidate.mock.calls).toEqual([[{ queryKey: orpc.projects.key() }]])
+    expect(invalidate.mock.calls).toEqual([
+      [{ queryKey: orpc.projects.key() }],
+      [{ queryKey: orpc.milestones.key() }],
+    ])
   })
 
   it('marks the project activity card and feed stale on project events', async () => {

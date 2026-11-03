@@ -18,11 +18,13 @@ export const issueFieldSchema = z.enum([
   'dueDate',
   'pullRequests',
   'cycle',
+  'milestone',
   // The issue's parent changed / one of its sub-issues was added, removed or changed status.
   'parent',
   'subIssues',
   'subscribers',
   'relations',
+  'links',
 ])
 
 const base = {
@@ -82,5 +84,36 @@ export function createRealtimePublisher(redis: Redis): RealtimePublisher {
       realtimeChannel(workspaceId),
       JSON.stringify(realtimeEventSchema.parse(event)),
     )
+  }
+}
+
+/**
+ * Events for one user only, on `user:<userId>` (docs/domain.md → Notifications). The API
+ * forwards them to that user's sockets subscribed to the event's workspace.
+ */
+export const userEventSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('notification.created'),
+    workspaceId: z.uuid(),
+    notificationId: z.uuid(),
+  }),
+])
+
+export type UserEvent = z.infer<typeof userEventSchema>
+
+const USER_CHANNEL_PREFIX = 'user:'
+
+export const userChannel = (userId: string) => `${USER_CHANNEL_PREFIX}${userId}`
+
+/** The user id of a `user:<id>` channel, or null for any other channel. */
+export function userIdOfChannel(channel: string) {
+  return channel.startsWith(USER_CHANNEL_PREFIX) ? channel.slice(USER_CHANNEL_PREFIX.length) : null
+}
+
+export type UserEventPublisher = (userId: string, event: UserEvent) => Promise<void>
+
+export function createUserEventPublisher(redis: Redis): UserEventPublisher {
+  return async (userId, event) => {
+    await redis.publish(userChannel(userId), JSON.stringify(userEventSchema.parse(event)))
   }
 }

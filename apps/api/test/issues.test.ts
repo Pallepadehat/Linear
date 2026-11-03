@@ -1,6 +1,13 @@
 import type { ListIssuesInput } from '@linear/contract'
 import { createIssue } from '@linear/core'
-import { issueAttachments, issues, teams, uploads, workflowStatuses } from '@linear/db'
+import {
+  issueAttachments,
+  issues,
+  issues as issueTable,
+  teams,
+  uploads,
+  workflowStatuses,
+} from '@linear/db'
 import {
   addMember,
   createTeam,
@@ -200,7 +207,7 @@ describe('issues procedures', () => {
     expect(issue.createdAt).toBeInstanceOf(Date)
 
     const relations = { blocks: [], blockedBy: [], related: [], duplicateOf: [], duplicates: [] }
-    const detail = { ...issue, parent: null, children: [], relations }
+    const detail = { ...issue, parent: null, children: [], relations, links: [] }
     expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual(detail)
     expect(await issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'tip-1' })).toEqual(
       detail,
@@ -671,6 +678,57 @@ describe('issues.list filters, sorting and search', () => {
       (await stranger.client.issues.list({ workspaceSlug: 'mine', statusCategories: ['backlog'] }))
         .items,
     ).toEqual([])
+  })
+
+  it('lists finished issues only when they finished after completedAfter', async () => {
+    const { issues, created, status, ids } = await seeded()
+    // TIP-3 done long ago, TIP-4 done just now, TIP-5 canceled a while back.
+    for (const i of [2, 3]) {
+      await issues.update({ workspaceSlug: 'tip', id: created[i]!.id, statusId: status('Done').id })
+    }
+    await issues.update({
+      workspaceSlug: 'tip',
+      id: created[4]!.id,
+      statusId: status('Canceled').id,
+    })
+    const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    await db
+      .update(issueTable)
+      .set({ completedAt: daysAgo(40), updatedAt: daysAgo(40) })
+      .where(eq(issueTable.id, created[2]!.id))
+    // Canceled issues have no completedAt; their last update counts instead.
+    await db
+      .update(issueTable)
+      .set({ updatedAt: daysAgo(3) })
+      .where(eq(issueTable.id, created[4]!.id))
+
+    expect(await ids()).toHaveLength(5)
+    // Open issues (TIP-1, TIP-2) are always listed.
+    expect(await ids({ completedAfter: daysAgo(1) })).toEqual(['TIP-4', 'TIP-2', 'TIP-1'])
+    expect(await ids({ completedAfter: daysAgo(7) })).toEqual(['TIP-5', 'TIP-4', 'TIP-2', 'TIP-1'])
+    expect(await ids({ completedAfter: daysAgo(60) })).toHaveLength(5)
+    // Combines with other filters by AND.
+    expect(await ids({ completedAfter: daysAgo(7), statusIds: [status('Done').id] })).toEqual([
+      'TIP-4',
+    ])
+    // A cursor page keeps the same filter.
+    const first = await issues.list({ workspaceSlug: 'tip', completedAfter: daysAgo(7), limit: 2 })
+    expect(first.items.map((i) => i.identifier)).toEqual(['TIP-5', 'TIP-4'])
+    const second = await issues.list({
+      workspaceSlug: 'tip',
+      completedAfter: daysAgo(7),
+      limit: 2,
+      cursor: first.nextCursor,
+    })
+    expect(second.items.map((i) => i.identifier)).toEqual(['TIP-2', 'TIP-1'])
+    expect(second.nextCursor).toBeNull()
+
+    // Another workspace's members can't list them.
+    const stranger = await signUp(app, 'Stranger')
+    await stranger.client.workspaces.create({ name: 'Mine', slug: 'mine' })
+    await expect(
+      stranger.client.issues.list({ workspaceSlug: 'tip', completedAfter: daysAgo(7) }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
   })
 
   it('counts issues per assignee, label, priority and project for the same filters', async () => {

@@ -1,5 +1,5 @@
 {
-  "id": "cbace8a9-9379-4892-986b-5a4a1bd81429",
+  "id": "fbaf8e5c-2c75-4b86-9439-f9dce8bbff0d",
   "prevId": "070b48a3-a16e-4fb8-9741-ba511612a6e3",
   "version": "7",
   "dialect": "postgresql",
@@ -4683,8 +4683,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.project_activity": {
-      "name": "project_activity",
+    "public.issue_links": {
+      "name": "issue_links",
       "schema": "",
       "columns": {
         "id": {
@@ -4699,38 +4699,29 @@
           "primaryKey": false,
           "notNull": true
         },
-        "project_id": {
-          "name": "project_id",
+        "issue_id": {
+          "name": "issue_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "actor_type": {
-          "name": "actor_type",
-          "type": "activity_actor_type",
-          "typeSchema": "public",
+        "url": {
+          "name": "url",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "actor_id": {
-          "name": "actor_id",
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by_id": {
+          "name": "created_by_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "project_activity_kind",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "payload": {
-          "name": "payload",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
         },
         "created_at": {
           "name": "created_at",
@@ -4748,17 +4739,11 @@
         }
       },
       "indexes": {
-        "project_activity_project_id_id_index": {
-          "name": "project_activity_project_id_id_index",
+        "issue_links_issue_id_index": {
+          "name": "issue_links_issue_id_index",
           "columns": [
             {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
+              "expression": "issue_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -4769,8 +4754,8 @@
           "method": "btree",
           "with": {}
         },
-        "project_activity_workspace_id_index": {
-          "name": "project_activity_workspace_id_index",
+        "issue_links_workspace_id_index": {
+          "name": "issue_links_workspace_id_index",
           "columns": [
             {
               "expression": "workspace_id",
@@ -4786,9 +4771,9 @@
         }
       },
       "foreignKeys": {
-        "project_activity_workspace_id_workspaces_id_fk": {
-          "name": "project_activity_workspace_id_workspaces_id_fk",
-          "tableFrom": "project_activity",
+        "issue_links_workspace_id_workspaces_id_fk": {
+          "name": "issue_links_workspace_id_workspaces_id_fk",
+          "tableFrom": "issue_links",
           "tableTo": "workspaces",
           "columnsFrom": [
             "workspace_id"
@@ -4799,12 +4784,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "project_activity_project_id_projects_id_fk": {
-          "name": "project_activity_project_id_projects_id_fk",
-          "tableFrom": "project_activity",
-          "tableTo": "projects",
+        "issue_links_issue_id_issues_id_fk": {
+          "name": "issue_links_issue_id_issues_id_fk",
+          "tableFrom": "issue_links",
+          "tableTo": "issues",
           "columnsFrom": [
-            "project_id"
+            "issue_id"
           ],
           "columnsTo": [
             "id"
@@ -4812,12 +4797,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "project_activity_actor_id_users_id_fk": {
-          "name": "project_activity_actor_id_users_id_fk",
-          "tableFrom": "project_activity",
+        "issue_links_created_by_id_users_id_fk": {
+          "name": "issue_links_created_by_id_users_id_fk",
+          "tableFrom": "issue_links",
           "tableTo": "users",
           "columnsFrom": [
-            "actor_id"
+            "created_by_id"
           ],
           "columnsTo": [
             "id"
@@ -4829,12 +4814,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "project_activity_github_has_no_actor": {
-          "name": "project_activity_github_has_no_actor",
-          "value": "\"project_activity\".\"actor_type\" <> 'github' or \"project_activity\".\"actor_id\" is null"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },
@@ -4951,7 +4931,8 @@
         "due_date",
         "parent",
         "sub_issue",
-        "relation"
+        "relation",
+        "link"
       ]
     },
     "public.issue_relation_type": {
@@ -4971,22 +4952,6 @@
         "project",
         "view",
         "team"
-      ]
-    },
-    "public.project_activity_kind": {
-      "name": "project_activity_kind",
-      "schema": "public",
-      "values": [
-        "project.created",
-        "project.status_changed",
-        "project.priority_changed",
-        "project.lead_changed",
-        "project.dates_changed",
-        "milestone.created",
-        "milestone.completed",
-        "project_update.posted",
-        "project.issue_added",
-        "project.issue_removed"
       ]
     }
   },

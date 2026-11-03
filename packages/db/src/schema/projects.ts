@@ -3,6 +3,7 @@ import {
   check,
   date,
   index,
+  integer,
   pgEnum,
   pgTable,
   smallint,
@@ -133,5 +134,33 @@ export const projectLabelAssignments = pgTable(
     unique('project_label_assignments_project_id_label_id_unique').on(t.projectId, t.labelId),
     index().on(t.workspaceId),
     index().on(t.labelId),
+  ],
+)
+
+/**
+ * Ordered phases of a project (docs/domain.md → Project milestones). An issue's milestone
+ * always belongs to the issue's project; packages/core/src/projects/milestones enforces it.
+ */
+export const projectMilestones = pgTable(
+  'project_milestones',
+  {
+    id: id(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    name: text().notNull(),
+    description: text(),
+    targetDate: date({ mode: 'string' }),
+    // 0, 1, 2… within the project; rewritten as a whole by `reorderMilestones`.
+    sortOrder: integer().notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [
+    unique('project_milestones_project_id_name_unique').on(t.projectId, t.name),
+    index().on(t.workspaceId),
+    index().on(t.projectId, t.sortOrder),
   ],
 )
