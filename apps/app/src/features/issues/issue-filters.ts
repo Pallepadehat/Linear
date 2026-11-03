@@ -1,4 +1,4 @@
-import type { IssueDueFilter, IssueSort, SortDirection } from '@linear/contract'
+import type { IssueDueFilter } from '@linear/contract'
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 
 type QueryValue = LocationQuery[string] | undefined
@@ -29,16 +29,9 @@ export type IssueFilters = {
   /** User ids, or `me`. */
   subscriberIds: string[]
   q: string
-  sort: IssueSort
-  direction: SortDirection
   /** Only issues with a web link or a linked PR (domain.md → Links). */
   hasLinks: boolean
-  /** Display option: whether issues with a parent are listed (nested under it when loaded). */
-  showSubIssues: boolean
 }
-
-export const DEFAULT_SORT: IssueSort = 'createdAt'
-export const DEFAULT_DIRECTION: SortDirection = 'desc'
 
 export const EMPTY_FILTERS: IssueFilters = {
   statusIds: [],
@@ -51,14 +44,10 @@ export const EMPTY_FILTERS: IssueFilters = {
   due: [],
   subscriberIds: [],
   q: '',
-  sort: DEFAULT_SORT,
-  direction: DEFAULT_DIRECTION,
-  showSubIssues: true,
   hasLinks: false,
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const SORTS: readonly IssueSort[] = ['createdAt', 'updatedAt', 'priority', 'estimate', 'dueDate']
 export const DUE_FILTERS: readonly IssueDueFilter[] = ['overdue', 'dueThisWeek', 'noDueDate']
 
 function first(value: QueryValue) {
@@ -81,8 +70,6 @@ const idsOrNone = (value: QueryValue) =>
  * rather than failing, so a hand-edited or stale URL still opens a view.
  */
 export function parseIssueFilters(query: LocationQuery): IssueFilters {
-  const sort = first(query.sort)
-  const direction = first(query.dir)
   return {
     statusIds: ids(query.status),
     priorities: list(query.priority)
@@ -100,9 +87,6 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     ),
     subscriberIds: list(query.subscriber).filter((v) => v === ME || UUID.test(v)),
     q: first(query.q).trim(),
-    sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
-    direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_DIRECTION,
-    showSubIssues: first(query.subIssues) !== 'hide',
     hasLinks: first(query.links) === 'has',
   }
 }
@@ -122,9 +106,6 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     due: join(filters.due),
     subscriber: join(filters.subscriberIds),
     q: filters.q.trim() || undefined,
-    sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
-    dir: filters.direction === DEFAULT_DIRECTION ? undefined : filters.direction,
-    subIssues: filters.showSubIssues ? undefined : 'hide',
     links: filters.hasLinks ? 'has' : undefined,
   }
   return Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined))

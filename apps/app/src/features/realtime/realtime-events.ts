@@ -31,6 +31,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('status') &&
       (!!input.statusIds?.length ||
         !!input.statusCategories?.length ||
+        !!input.completedAfter ||
         !!input.due?.includes('overdue'))) ||
     (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||

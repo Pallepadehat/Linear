@@ -47,7 +47,17 @@ const PAGE_SIZE = 50
 
 export type IssueListFilter = Pick<
   ListIssuesInput,
-  'teamId' | 'projectId' | 'cycleId' | 'assignee' | 'creator' | 'statusCategories'
+  | 'teamId'
+  | 'projectId'
+  | 'cycleId'
+  | 'assignee'
+  | 'creator'
+  | 'statusCategories'
+  // From the view's display options.
+  | 'completedAfter'
+  | 'sort'
+  | 'direction'
+  | 'showSubIssues'
 >
 
 /**
@@ -59,12 +69,14 @@ function issueFiltersInput(
   filter: IssueListFilter,
   filters: IssueFilters,
 ): IssueFiltersInput {
-  const { q, due, hasLinks, sort: _sort, direction: _direction, ...rest } = filters
+  const { q, due, hasLinks, ...rest } = filters
+  // The sort only orders the list; it isn't a filter.
+  const { sort: _sort, direction: _direction, ...scope } = filter
   // Relative due filters are evaluated against the viewer's local day (domain.md).
   const relative = due.some((bucket) => bucket !== 'noDueDate')
   return {
     workspaceSlug,
-    ...filter,
+    ...scope,
     ...rest,
     ...(due.length && { due }),
     ...(relative && { today: todayIso() }),
@@ -86,8 +98,8 @@ export function issueListOptions(
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
       ...issueFiltersInput(workspaceSlug, filter, filters),
-      sort: filters.sort,
-      direction: filters.direction,
+      sort: filter.sort,
+      direction: filter.direction,
       cursor,
       limit: PAGE_SIZE,
     }),

@@ -196,6 +196,11 @@ export const issueFiltersSchema = workspaceScopedSchema.extend({
   statusIds: filterIdsSchema.optional(),
   /** Status categories (the Active / Backlog tabs); combines with `statusIds` via AND. */
   statusCategories: z.array(statusCategorySchema).max(5).optional(),
+  /**
+   * Completed and canceled issues only when they finished at or after this time
+   * (display options → Completed issues); open issues are unaffected.
+   */
+  completedAfter: z.date().optional(),
   priorities: z.array(issuePrioritySchema).max(5).optional(),
   assigneeIds: nullableFilterIdsSchema.optional(),
   projectIds: nullableFilterIdsSchema.optional(),

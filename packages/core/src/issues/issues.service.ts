@@ -20,6 +20,7 @@ import {
   desc,
   eq,
   gt,
+  gte,
   ilike,
   inArray,
   isNotNull,
@@ -109,6 +110,8 @@ export type ListIssuesInput = {
   statusIds?: string[]
   /** The issue's status category is one of these. */
   statusCategories?: StatusCategory[]
+  /** Completed / canceled issues only if they finished at or after this time. */
+  completedAfter?: Date
   priorities?: number[]
   /** `null` matches unassigned issues. */
   assigneeIds?: (string | null)[]
@@ -369,6 +372,7 @@ export function listFilter(input: IssueFilterInput) {
     input.statusCategories?.length
       ? inArray(workflowStatuses.category, input.statusCategories)
       : undefined,
+    completedAfterFilter(input.completedAfter),
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
@@ -394,6 +398,22 @@ export function listFilter(input: IssueFilterInput) {
             : undefined,
         )
       : undefined,
+  )
+}
+
+/**
+ * Open issues always pass; finished ones only if they finished recently enough.
+ * Canceled issues have no `completedAt`, so their last update stands in for it.
+ */
+function completedAfterFilter(after: Date | undefined) {
+  if (!after) return undefined
+  return or(
+    notInArray(workflowStatuses.category, ['completed', 'canceled']),
+    // A raw `sql` operand has no column type to encode a Date with, so pass ISO text.
+    gte(
+      sql`coalesce(${issues.completedAt}, ${issues.updatedAt})`,
+      sql`${after.toISOString()}::timestamptz`,
+    ),
   )
 }
 

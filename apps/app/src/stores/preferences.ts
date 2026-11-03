@@ -2,19 +2,25 @@ import { useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed } from 'vue'
 import {
+  parseDisplayOptions,
+  type DisplayOptions,
+  type DisplayViewKey,
+} from '@/features/issues/display-options'
+import {
   DEFAULT_PROJECT_SORT,
   isProjectSort,
   type ProjectSort,
 } from '@/features/projects/project-sort'
 import { isSectionExpanded, setSectionExpanded } from '@/layouts/sidebar-sections'
 
-export type IssueLayout = 'list' | 'board'
-
 /** Per-browser UI preferences (never server data). */
 export const usePreferencesStore = defineStore('preferences', () => {
   const lastWorkspaceSlug = useLocalStorage<string | null>('last-workspace', null)
-  /** List or board on the team and all-issues pages. */
-  const issueLayout = useLocalStorage<IssueLayout>('issue-layout', 'list')
+  /**
+   * Display options per issue view (layout, grouping, ordering, properties…).
+   * Stored as-is and parsed on read, so stale values fall back per field.
+   */
+  const storedDisplayOptions = useLocalStorage<Record<string, unknown>>('issue-display-options', {})
   /** Column the projects table is sorted by; a malformed stored value reads as the default. */
   const storedProjectSort = useLocalStorage<unknown>('project-sort', DEFAULT_PROJECT_SORT)
   const projectSort = computed<ProjectSort>({
@@ -36,6 +42,21 @@ export const usePreferencesStore = defineStore('preferences', () => {
     sidebarSections.value = setSectionExpanded(sidebarSections.value, key, expanded)
   }
 
+  function displayOptions(view: DisplayViewKey): DisplayOptions {
+    return parseDisplayOptions(storedDisplayOptions.value[view])
+  }
+  function setDisplayOptions(view: DisplayViewKey, changes: Partial<DisplayOptions>) {
+    storedDisplayOptions.value = {
+      ...storedDisplayOptions.value,
+      [view]: { ...displayOptions(view), ...changes },
+    }
+  }
+  /** Back to the defaults; the view's entry is dropped. */
+  function resetDisplayOptions(view: DisplayViewKey) {
+    const { [view]: _, ...rest } = storedDisplayOptions.value
+    storedDisplayOptions.value = rest
+  }
+
   function isDetailsOpen(view: string) {
     return issueDetails.value[view] === true
   }
@@ -46,7 +67,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   return {
     lastWorkspaceSlug,
-    issueLayout,
     sidebarSections,
     isExpanded,
     setExpanded,
@@ -54,5 +74,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     isDetailsOpen,
     toggleDetails,
     projectSort,
+    displayOptions,
+    setDisplayOptions,
+    resetDisplayOptions,
   }
 })
