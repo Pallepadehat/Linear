@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { issueTitleSchema } from '@linear/contract'
 import type { Issue } from '@linear/contract'
-import { Ellipsis, SearchX } from '@lucide/vue'
+import { SearchX } from '@lucide/vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { onKeyStroke } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
@@ -10,13 +10,6 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
@@ -24,6 +17,7 @@ import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
+import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
 import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
@@ -40,6 +34,7 @@ import {
 } from '../queries'
 
 const route = useRoute()
+const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
 const identifier = computed(() => String(route.params.identifier))
 
@@ -161,9 +156,6 @@ function setParent(parent: Issue) {
     },
   })
 }
-function removeParent() {
-  save({ parentId: null, parent: null })
-}
 
 // Title and description are drafts while focused, saved on blur (Enter for the title).
 const titleDraft = ref('')
@@ -250,6 +242,7 @@ onBeforeUnmount(commitDescription)
       :team-name="team?.name"
       :team-key="team?.key"
       @change="save"
+      @set-parent="parentDialogOpen = true"
     />
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
@@ -257,37 +250,6 @@ onBeforeUnmount(commitDescription)
           <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
           <span class="flex-1" aria-hidden="true" />
           <IssueViewers :issue-id="issue.id" />
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                class="text-ink-subtle data-[state=open]:bg-surface-2"
-                aria-label="Issue actions"
-              >
-                <Ellipsis aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              class="w-56 rounded-lg border-hairline bg-floating p-1.5"
-            >
-              <DropdownMenuItem
-                class="h-8 rounded-md text-[13px]"
-                @select="parentDialogOpen = true"
-              >
-                Set parent issue…
-                <DropdownMenuShortcut class="text-ink-subtle">⇧⌘P</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                v-if="issue.parentId"
-                class="h-8 rounded-md text-[13px]"
-                @select="removeParent"
-              >
-                Remove parent
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
         <RouterLink
           v-if="issue.parent"
