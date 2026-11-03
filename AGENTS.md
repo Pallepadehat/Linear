@@ -80,8 +80,8 @@ bun run db:seed           # demo workspace "Tip", team "TIP"
 bun run db:seed:issues -- 1200   # bulk demo issues in TIP (list performance checks)
 bun run demo:github connect      # demo repo + signed PR webhooks: open|merge|close <branch> (README → Demo script)
 
-# Whole stack from production images (app on :8080); see README → Option A
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build --wait
+# Whole stack from production images, zero config (app on :8080); see README → Option A
+docker compose -f docker-compose.prod.yml up -d --build --wait
 ```
 
 Scope to one package with `bun run --filter <name> <script>` or `turbo run <task> --filter=<name>`.

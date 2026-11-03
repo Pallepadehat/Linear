@@ -1,13 +1,14 @@
 # The whole stack from production images: app (nginx) → api → Postgres/Redis/storage, plus
-# the worker and a one-shot migrate (+ demo seed) job. No source checkout or Bun needed to run it.
+# the worker and a one-shot migrate (+ demo seed) job. Zero config: secrets are generated on
+# first start (docker/server/entrypoint.sh), the demo user and a demo repository are seeded.
 #
-#   cp .env.prod.example .env.prod      # set BETTER_AUTH_SECRET
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build   # build from source
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod pull && \
-#     docker compose -f docker-compose.prod.yml --env-file .env.prod up -d         # prebuilt :prod images
+#   docker compose -f docker-compose.prod.yml up -d --build --wait      # build from source
+#   docker compose -f docker-compose.prod.yml pull && \
+#     docker compose -f docker-compose.prod.yml up -d --wait            # prebuilt :prod images
 #
-# Open $PUBLIC_URL (default http://localhost:8080). Separate project name and volumes from the
-# dev compose file, so both can run at once.
+# Then open http://localhost:8080 and sign in as demo@tip.dev / password123. To customize, copy
+# .env.prod.example to .env.prod and add `--env-file .env.prod`. Separate project name and
+# volumes from the dev compose file, so both can run at once.
 name: linear-prod
 
 x-server-env: &server-env
@@ -15,7 +16,8 @@ x-server-env: &server-env
   LOG_LEVEL: ${LOG_LEVEL:-info}
   DATABASE_URL: postgres://linear:${POSTGRES_PASSWORD:-linear}@postgres:5432/linear
   REDIS_URL: redis://redis:6379
-  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env.prod (openssl rand -base64 32)}
+  # Empty → generated once and kept in the `secrets` volume.
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
   BETTER_AUTH_URL: ${PUBLIC_URL:-http://localhost:8080}
   APP_URL: ${PUBLIC_URL:-http://localhost:8080}
   S3_ENDPOINT: http://storage:9000
@@ -36,6 +38,8 @@ x-server: &server
   build: { context: ., target: server }
   restart: unless-stopped
   environment: *server-env
+  volumes:
+    - secrets:/secrets
 
 services:
   postgres:
@@ -106,7 +110,8 @@ services:
         echo "bucket ready: $$BUCKET"
     restart: 'no'
 
-  # One-shot: applies migrations, then (unless SEED_DEMO=false) the idempotent demo seed.
+  # One-shot: applies migrations, then (unless SEED_DEMO=false) the idempotent demo seed and the
+  # demo repository for `github-demo`. It runs first, so it also creates the secrets.
   migrate:
     <<: *server
     restart: 'no'
@@ -119,7 +124,9 @@ services:
     command:
       - sh
       - -c
-      - bun packages/db/src/migrate.ts && if [ "$$SEED_DEMO" = true ]; then bun packages/db/src/seed.ts; fi
+      - >-
+        bun packages/db/src/migrate.ts && if [ "$$SEED_DEMO" = true ]; then
+        bun packages/db/src/seed.ts && bun packages/db/src/demo-github.ts connect; fi
 
   api:
     <<: *server
@@ -151,8 +158,8 @@ services:
       redis:
         condition: service_healthy
 
-  # Tool, not a service: sends signed demo PR webhooks (README → "Demo without GitHub").
-  #   docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm github-demo connect
+  # Tool, not a service: sends signed demo PR webhooks (README → Demo script), e.g.
+  #   docker compose -f docker-compose.prod.yml run --rm github-demo open tip-1-add-login
   github-demo:
     <<: *server
     profiles: [tools]
@@ -161,7 +168,7 @@ services:
     environment:
       <<: *server-env
       WEBHOOK_URL: http://api:3000/webhooks/github
-    entrypoint: ['bun', 'packages/db/src/demo-github.ts']
+    entrypoint: ['linear-entrypoint', 'bun', 'packages/db/src/demo-github.ts']
     command: []
 
   app:
@@ -178,3 +185,4 @@ volumes:
   postgres-data:
   redis-data:
   storage-data:
+  secrets:

@@ -23,23 +23,27 @@ A Linear-inspired issue tracker built as a school project. Teams track issues wi
 
 ## Option A: try it with Docker only
 
-This runs the full production build: the app behind nginx, plus the api, worker, Postgres, Redis and object storage. Database migrations and the demo seed run automatically. You need **Docker** (Docker Desktop, or Docker Engine with the Compose plugin v2.20 or newer) and nothing else.
+This runs the full production build: the app behind nginx, plus the api, worker, Postgres, Redis and object storage. **There is nothing to configure.** You need **Docker** (Docker Desktop, or Docker Engine with the Compose plugin v2.20 or newer) and nothing else.
 
 ```bash
 git clone https://github.com/Pallepadehat/Linear.git && cd Linear
-cp .env.prod.example .env.prod
-# Set the two secrets (any random strings work):
-sed -i.bak "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -base64 32)|; \
-  s|^GITHUB_WEBHOOK_SECRET=.*|GITHUB_WEBHOOK_SECRET=$(openssl rand -hex 20)|" .env.prod && rm .env.prod.bak
-
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build --wait
+docker compose -f docker-compose.prod.yml up -d --build --wait
 ```
 
 The first build takes a few minutes. When the command returns, open **http://localhost:8080** and sign in as **`demo@tip.dev` / `password123`**. Then follow the [demo script](#demo-script) (use the Docker commands).
 
-- **Prebuilt images instead of building:** replace `up -d --build --wait` with `pull` followed by `up -d --wait`. This pulls the `:prod` images that CI publishes from `main` (see [Production images](#production-images-and-releases)).
-- **Stop it:** `docker compose -f docker-compose.prod.yml --env-file .env.prod down`. Add `-v` to also delete the data.
-- **Ports:** app `8080`, storage `8090` (the browser uploads files straight to storage). Change them with `APP_PORT`, `STORAGE_PORT`, `PUBLIC_URL` and `STORAGE_PUBLIC_URL` in `.env.prod`. The stack uses its own project name (`linear-prod`) and volumes, so it can run next to the development stack.
+On the first start the stack sets itself up:
+
+- **Secrets:** the auth and webhook secrets are generated and stored in the `secrets` volume, so logins survive restarts.
+- **Database:** migrations are applied.
+- **Demo data:** the demo user, workspace "Tip", team "TIP" and a connected demo repository (`tip-demo/linear-demo`) are created.
+
+Other things you can do:
+
+- **Use prebuilt images instead of building:** `docker compose -f docker-compose.prod.yml pull`, then `up -d --wait` without `--build`. This uses the `:prod` images that CI publishes from `main` (see [Production images](#production-images-and-releases)).
+- **Stop it:** `docker compose -f docker-compose.prod.yml down`. Add `-v` to also delete the data.
+- **Ports:** app `8080`, storage `8090` (the browser uploads files straight to storage). The stack uses its own project name (`linear-prod`) and volumes, so it can run next to the development stack.
+- **Change a setting** (ports, public URL, a real GitHub App, image tag): `cp .env.prod.example .env.prod`, edit it, and add `--env-file .env.prod` to every `docker compose` command.
 
 ## Option B: local development
 
@@ -123,7 +127,7 @@ Development reads one `.env` at the repo root, copied from [`.env.example`](.env
 
 The five `GITHUB_APP_*` values must be set together or not at all. Without them the app runs normally and the GitHub section in Settings explains that the App isn't configured. Only `VITE_*` variables reach the browser.
 
-The Docker stack reads [`.env.prod.example`](.env.prod.example) instead (copied to `.env.prod`). It sets the internal URLs itself and adds `PUBLIC_URL`, `STORAGE_PUBLIC_URL`, `APP_PORT`, `SEED_DEMO`, `POSTGRES_PASSWORD`, `IMAGE_REGISTRY` and `IMAGE_TAG`. Each one is explained in that file.
+The Docker stack needs no env file. To customize it, copy [`.env.prod.example`](.env.prod.example) to `.env.prod` and pass `--env-file .env.prod`. Blank secrets are generated automatically. The compose file sets the internal URLs itself and adds `PUBLIC_URL`, `STORAGE_PUBLIC_URL`, `APP_PORT`, `SEED_DEMO`, `POSTGRES_PASSWORD`, `IMAGE_REGISTRY` and `IMAGE_TAG`. Each one is explained in that file.
 
 ## Demo script
 
@@ -136,14 +140,14 @@ This walks through the whole GitHub flow (PRD §12, Test 10). There are two ways
 2. **Create an issue.** Press <kbd>C</kbd> (or **New issue**), enter the title "Add login page" and create it. It gets the identifier **TIP-1** (or the next free number; use that number below) and starts in **Backlog**.
 3. **Connect a repository.**
    - Real GitHub: **Settings → GitHub → Install**, choose the repository on GitHub, then click **Connect** next to it.
-   - Simulated (dev): `bun run demo:github connect`
-   - Simulated (Docker): `docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm github-demo connect`
+   - Simulated (dev): set `GITHUB_WEBHOOK_SECRET` in `.env` to any string (e.g. `openssl rand -hex 20`), restart `bun run dev`, then run `bun run demo:github connect`.
+   - Simulated (Docker): nothing to do. It's already connected, and the secret was generated for you.
 
    The repository `tip-demo/linear-demo` appears as connected in Settings → GitHub.
 4. **Open a pull request** whose branch starts with the identifier:
    - Real GitHub: `git checkout -b tip-1-add-login && git commit --allow-empty -m "add login" && git push -u origin tip-1-add-login`, then open the PR.
    - Simulated (dev): `bun run demo:github open tip-1-add-login "TIP-1 Add login page"`
-   - Simulated (Docker): `docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm github-demo open tip-1-add-login "TIP-1 Add login page"`
+   - Simulated (Docker): `docker compose -f docker-compose.prod.yml run --rm github-demo open tip-1-add-login "TIP-1 Add login page"`
 
    **TIP-1 moves to In Progress** within a second or two. Reload the issue list to see it.
 5. **Merge the pull request.**
@@ -206,7 +210,7 @@ Create it. Then, on the App's page:
 
 ### 3. Configure and connect
 
-1. Put the six `GITHUB_*` values in `.env` (dev) or `.env.prod` (Docker), then restart: `bun run dev`, or `docker compose … up -d` again.
+1. Put the six `GITHUB_*` values in `.env` (dev) or `.env.prod` (Docker), then restart: `bun run dev`, or `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d` again. In Docker, also set `SEED_DEMO=false` before the first start, so the fake demo repository isn't connected (or click **Disconnect** on it later).
 2. In the app, go to **Settings → GitHub → Install** (owners only). GitHub asks which repositories to grant, then sends you back to `/setup/github`.
 3. Click **Connect** next to a repository. From now on, its pull requests reach the issue tracker.
 
@@ -223,7 +227,7 @@ Create it. Then, on the App's page:
 - **`server`** runs the api (default command), the worker (`bun apps/worker/dist/index.js`) and the db scripts.
 - **`app`** is nginx serving the built SPA. It proxies `/api`, `/rpc`, `/webhooks` and `/health` to the api, so everything shares one origin and auth cookies stay first-party.
 
-[`docker-compose.prod.yml`](docker-compose.prod.yml) wires them together with Postgres, Redis and storage. The one-shot `migrate` service applies migrations, plus the demo seed unless `SEED_DEMO=false`, before the api and worker start.
+[`docker-compose.prod.yml`](docker-compose.prod.yml) wires them together with Postgres, Redis and storage. The one-shot `migrate` service runs before the api and worker start. It applies migrations, plus the demo seed and demo repository unless `SEED_DEMO=false`. The server image's entrypoint (`docker/server/entrypoint.sh`) generates any secret that isn't passed in and keeps it in the `secrets` volume. That's why the stack needs no configuration.
 
 The [Release workflow](.github/workflows/release.yml) builds both images and boots the full stack. It then smoke-tests health, the SPA, a demo login, an authenticated RPC call and webhook rejection:
 
@@ -243,7 +247,7 @@ GHCR packages start out private. To let anyone `pull` without `docker login ghcr
 | `port is already allocated` on `docker compose up` | Another project uses the port. Set `POSTGRES_PORT` etc. in `.env` and update the matching URL |
 | `Database has N applied migration(s) that no longer exist` | Your local DB ran a migration that was renumbered. Run `docker compose down -v && docker compose up -d && bun run db:migrate && bun run db:seed` |
 | `Invalid api environment: …` at startup | The message names the variable. Compare it with `.env.example` |
-| Webhooks return 401 | `GITHUB_WEBHOOK_SECRET` isn't set, or differs from the App's webhook secret |
+| Webhooks return 401 | `GITHUB_WEBHOOK_SECRET` isn't set (dev), or differs from the App's webhook secret |
 | PR opened but the issue didn't move | Check that the repository shows **Connected** in Settings → GitHub, that the branch or title starts with the identifier (`tip-1-…`), and that the issue is in Backlog or Todo. Automation never moves Done or Canceled issues |
 | Upload fails in Docker from another machine | Set `PUBLIC_URL` and `STORAGE_PUBLIC_URL` to addresses that machine can reach, then `up -d` again |
 

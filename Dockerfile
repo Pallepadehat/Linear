@@ -46,8 +46,12 @@ COPY package.json bun.lock ./
 COPY packages ./packages
 COPY --from=build /repo/apps/api/dist ./apps/api/dist
 COPY --from=build /repo/apps/worker/dist ./apps/worker/dist
+COPY docker/server/entrypoint.sh /usr/local/bin/linear-entrypoint
+# Owned by bun so a fresh named volume mounted here is writable (Docker copies the ownership).
+RUN mkdir /secrets && chown bun:bun /secrets
 USER bun
 EXPOSE 3000
+ENTRYPOINT ["linear-entrypoint"]
 CMD ["bun", "apps/api/dist/index.js"]
 
 FROM nginx:1.27-alpine AS app

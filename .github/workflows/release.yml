@@ -30,8 +30,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Also points every `docker compose` call below at the images built here.
       - name: Lowercase registry
-        run: echo "REGISTRY=${REGISTRY,,}" >> "$GITHUB_ENV"
+        run: |
+          echo "REGISTRY=${REGISTRY,,}" >> "$GITHUB_ENV"
+          echo "IMAGE_REGISTRY=${REGISTRY,,}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=ci" >> "$GITHUB_ENV"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -55,14 +59,9 @@ jobs:
           cache-from: type=gha,scope=app
           cache-to: type=gha,scope=app,mode=max
 
+      # Zero config, exactly as the README tells a newcomer (secrets are generated on start).
       - name: Start the production stack
-        run: |
-          cat > .env.prod <<EOF
-          BETTER_AUTH_SECRET=$(openssl rand -base64 32)
-          IMAGE_REGISTRY=$REGISTRY
-          IMAGE_TAG=ci
-          EOF
-          docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build --wait --wait-timeout 180
+        run: docker compose -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 180
 
       - name: Smoke test
         run: |
@@ -78,10 +77,12 @@ jobs:
             -d '{}' "$base/rpc/me/get" | grep -q 'demo@tip.dev'
           # Webhooks without a valid signature are rejected.
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d '{}' "$base/webhooks/github")" = 401
+          # The demo tool reaches the api with the generated webhook secret (202, not 401).
+          docker compose -f docker-compose.prod.yml run --rm -q github-demo open tip-1-smoke-test
 
       - name: Logs on failure
         if: failure()
-        run: docker compose -f docker-compose.prod.yml --env-file .env.prod logs --no-color
+        run: docker compose -f docker-compose.prod.yml logs --no-color
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
