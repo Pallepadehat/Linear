@@ -367,7 +367,9 @@ watchEffect(() => {
               />
               <GroupIcon :icon="row.group.icon" />
               <span class="truncate font-medium text-ink">{{ row.group.label }}</span>
-              <span class="text-ink-subtle tabular-nums">{{ groupCount(row.group, row.depth) }}</span>
+              <span class="text-ink-subtle tabular-nums">{{
+                groupCount(row.group, row.depth)
+              }}</span>
               <span
                 v-if="groupEstimate(row.group) > 0"
                 class="ml-1 flex items-center gap-1 text-xs text-ink-subtle tabular-nums"
