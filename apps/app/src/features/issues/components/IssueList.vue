@@ -404,6 +404,7 @@ watchEffect(() => {
             :cycles="cyclesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"
+            :projects="projects"
             :estimates="estimatesByTeam.get(row.issue.teamId)"
             :properties="properties"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"

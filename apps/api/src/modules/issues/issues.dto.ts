@@ -22,11 +22,21 @@ export function toIssueDto(record: IssueRecord): Issue {
     assigneeId: record.assigneeId,
     creatorId: record.creatorId,
     projectId: record.projectId,
+    project: record.project
+      ? {
+          id: record.project.id,
+          name: record.project.name,
+          iconUploadId: record.project.iconUploadId,
+        }
+      : null,
     milestoneId: record.milestoneId,
+    milestone: record.milestone ? { id: record.milestone.id, name: record.milestone.name } : null,
     cycleId: record.cycleId,
     estimate: record.estimate,
     dueDate: record.dueDate,
     labels: record.labels.map(toLabelDto),
+    pullRequests: record.pullRequests.map(({ number, state }) => ({ number, state })),
+    linkCount: record.linkCount,
     isSubscribed: record.isSubscribed,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,

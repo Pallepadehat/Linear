@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
+import { pullRequestStateSchema } from './github'
 import { labelSchema } from './labels'
 import { issueLinkSchema } from './links'
 import { issueRelationsSchema } from './relations'
@@ -30,6 +31,22 @@ export const issueIdentifierSchema = z
     return { teamKey: value.slice(0, dash).toUpperCase(), number: Number(value.slice(dash + 1)) }
   })
 
+/** The issue's project as its row shows it; the icon URL comes from the projects list. */
+export const issueProjectSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  iconUploadId: z.uuid().nullable(),
+})
+
+/** The issue's milestone as its row chip shows it. */
+export const issueMilestoneSchema = z.object({ id: z.uuid(), name: z.string() })
+
+/** A linked PR as its row chip shows it; the full PR comes from `github.pullRequests`. */
+export const issuePullRequestChipSchema = z.object({
+  number: z.number().int().positive(),
+  state: pullRequestStateSchema,
+})
+
 export const issueSchema = z.object({
   id: z.uuid(),
   identifier: z.string(),
@@ -42,12 +59,18 @@ export const issueSchema = z.object({
   assigneeId: z.uuid().nullable(),
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
+  project: issueProjectSchema.nullable(),
   /** Always a milestone of `projectId` (docs/domain.md → Project milestones). */
   milestoneId: z.uuid().nullable(),
+  milestone: issueMilestoneSchema.nullable(),
   cycleId: z.uuid().nullable(),
   estimate: issueEstimateSchema.nullable(),
   dueDate: issueDueDateSchema,
   labels: z.array(labelSchema),
+  /** Linked PRs: open and draft first, then merged, then closed; newest first within each. */
+  pullRequests: z.array(issuePullRequestChipSchema),
+  /** Web links on the issue (linked PRs are counted by `pullRequests`). */
+  linkCount: z.number().int().min(0),
   /** Whether the signed-in user is subscribed (docs/domain.md → Subscribers). */
   isSubscribed: z.boolean(),
   createdAt: z.date(),
@@ -185,11 +208,17 @@ const nullableFilterIdsSchema = z.array(z.uuid().nullable()).max(100)
 /** `'me'` stands for the signed-in user, so a shared URL means the viewer. */
 const userFilterIdsSchema = z.array(z.union([z.uuid(), z.literal('me')])).max(100)
 
+/** Labels filter: issues with any of `labelIds`, or with all of them. */
+export const labelFilterModeSchema = z.enum(['any', 'all'])
+
 /**
  * The issue list's scope and filters, shared by `issues.list` and `issues.facets`;
  * add new list filters here so every consumer gets them.
- * Filters combine with AND; values within one filter with OR (labels: any of).
- * An empty list doesn't filter.
+ * Filters combine with AND; values within one filter with OR (labels: any of, or all
+ * of with `labelMode: 'all'`). An empty list doesn't filter. `…Not` lists exclude
+ * issues with any of the values; on a nullable property an excluded value still
+ * keeps issues without one (assignee is not Ada keeps unassigned issues), and `null`
+ * excludes issues without one. Date bounds: `…After` is inclusive, `…Before` exclusive.
  */
 export const issueFiltersSchema = workspaceScopedSchema.extend({
   /** Scope from the page (team / project view), not a user filter. */
@@ -215,6 +244,29 @@ export const issueFiltersSchema = workspaceScopedSchema.extend({
   milestoneIds: nullableFilterIdsSchema.optional(),
   cycleIds: nullableFilterIdsSchema.optional(),
   labelIds: filterIdsSchema.optional(),
+  labelMode: labelFilterModeSchema.default('any'),
+  statusIdsNot: filterIdsSchema.optional(),
+  prioritiesNot: z.array(issuePrioritySchema).max(5).optional(),
+  assigneeIdsNot: nullableFilterIdsSchema.optional(),
+  projectIdsNot: nullableFilterIdsSchema.optional(),
+  labelIdsNot: filterIdsSchema.optional(),
+  /** Created by any of these users. */
+  creatorIds: userFilterIdsSchema.optional(),
+  creatorIdsNot: userFilterIdsSchema.optional(),
+  createdAfter: z.date().optional(),
+  createdBefore: z.date().optional(),
+  updatedAfter: z.date().optional(),
+  updatedBefore: z.date().optional(),
+  /**
+   * Completion date bounds (Completed date filter). Only finished issues have one, so
+   * either bound leaves out open issues, unlike `completedAfter` above.
+   */
+  completedSince: z.date().optional(),
+  completedBefore: z.date().optional(),
+  /** Title or description contains (case-insensitive). */
+  content: z.string().trim().max(255).optional(),
+  /** `true`: has a linked pull request; `false`: has none. */
+  hasPullRequests: z.boolean().optional(),
   /** Estimate values; `null` matches issues without an estimate, `'any'` those with one. */
   estimates: z
     .array(z.union([issueEstimateSchema, z.literal('any')]).nullable())
@@ -276,6 +328,9 @@ export const issueFacetsSchema = z.object({
 
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
 export type Issue = z.infer<typeof issueSchema>
+export type IssueProject = z.infer<typeof issueProjectSchema>
+export type IssueMilestone = z.infer<typeof issueMilestoneSchema>
+export type IssuePullRequestChip = z.infer<typeof issuePullRequestChipSchema>
 export type IssueDetail = z.infer<typeof issueDetailSchema>
 export type SubIssueProgress = NonNullable<Issue['subIssueProgress']>
 export type IssuePage = z.infer<typeof issuePageSchema>
@@ -290,4 +345,5 @@ export type IssueFacets = z.infer<typeof issueFacetsSchema>
 export type IssueSubscriptionInput = z.input<typeof issueSubscriptionInputSchema>
 export type IssueSort = z.infer<typeof issueSortSchema>
 export type SortDirection = z.infer<typeof sortDirectionSchema>
+export type LabelFilterMode = z.infer<typeof labelFilterModeSchema>
 export type IssueDueFilter = z.infer<typeof issueDueFilterSchema>

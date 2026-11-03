@@ -43,6 +43,10 @@ export function applyIssuePatch(issue: Issue, patch: IssuePatch, now = new Date(
     patch.milestoneId === undefined
   )
     next.milestoneId = null
+  // Row chips: the project resolves from the projects list and the milestone arrives with
+  // the server's response; a summary that no longer matches its id must go.
+  if (next.projectId !== next.project?.id) next.project = null
+  if (next.milestoneId !== next.milestone?.id) next.milestone = null
   if (patch.status) {
     const wasCompleted = issue.status.category === 'completed'
     const isCompleted = patch.status.category === 'completed'

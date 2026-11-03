@@ -48,6 +48,10 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     completedAt: null,
     blockedByCount: 0,
     blockingCount: 0,
+    project: null,
+    pullRequests: [],
+    linkCount: 0,
+    milestone: null,
     parentId: null,
     subIssueProgress: null,
     ...overrides,
@@ -236,6 +240,34 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.updated', issueId: 'a', fields: ['dueDate'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect(stale(byDueDate)).toBe(true)
+
+    // The filter menu's operators and new dimensions (M7-06).
+    const notStatus = keyFor({ statusIds: [todo.id], operators: { status: 'not' } })
+    const byContent = keyFor({ content: 'login' })
+    const byPr = keyFor({ hasPullRequests: true })
+    const completedRecently = keyFor({ completed: { kind: 'past', period: 'week' } })
+    const updatedRecently = keyFor({ updated: { kind: 'past', period: 'day' } })
+    const fresh = [notStatus, byContent, byPr, completedRecently, updatedRecently]
+    const seed = () => {
+      for (const key of [listKey, ...fresh]) {
+        queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
+          pages: [{ items: [issue('a')], nextCursor: null }],
+          pageParams: [null],
+        })
+      }
+    }
+    seed()
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['status'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), ...fresh.map(stale)]).toEqual([false, true, false, false, true, true])
+    seed()
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['description'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), ...fresh.map(stale)]).toEqual([false, false, true, false, false, true])
+    seed()
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['pullRequests'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), ...fresh.map(stale)]).toEqual([false, false, false, true, false, true])
   })
 
   it('refetches the Details panel counts, coalesced, when they can change', async () => {
@@ -263,6 +295,14 @@ describe('realtime event handler', () => {
     expect(stale()).toBe(false)
     await vi.advanceTimersByTimeAsync(1_000)
     expect(stale()).toBe(true)
+
+    // Description and PR changes count only where the counts are filtered on them.
+    const filtered = issueFacetsOptions('tip', {}, { ...EMPTY_FILTERS, content: 'login' }).queryKey
+    queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [] })
+    queryClient.setQueryData(filtered, { assignees: [], labels: [], priorities: [], projects: [] })
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['description'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(queryClient.getQueryState(filtered)!.isInvalidated).toBe(true)
 
     for (const event of [
       { type: 'issue.created' as const, issueId: 'c', ...actor },

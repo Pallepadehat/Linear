@@ -9,7 +9,7 @@ import type { AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/errors'
 import { client, orpc } from '@/lib/orpc'
-import { invalidateProjects } from '@/features/projects/queries'
+import { invalidateProjects, projectListOptions } from '@/features/projects/queries'
 import { issueDetailKeys, issueListKey, useUpdateIssue } from '../queries'
 import IssueRow from './IssueRow.vue'
 import SubIssueProgressRing from './SubIssueProgressRing.vue'
@@ -41,6 +41,8 @@ const teamQueries = useQueries({
     ),
   ),
 })
+// Names and icons for the rows' project chips (already cached on most pages).
+const { data: projects } = useQuery(computed(() => projectListOptions(props.workspaceSlug)))
 const statusesByTeam = computed(
   () => new Map(teamQueries.value.flatMap((q) => (q.data ? [[q.data.id, q.data.statuses]] : []))),
 )
@@ -123,6 +125,7 @@ function submit() {
           :statuses="statusesByTeam.get(child.teamId) ?? []"
           :users="users"
           :labels="labels"
+          :projects="projects ?? []"
           @update="(patch) => updateIssue.mutate({ issue: child, patch })"
         />
       </li>
