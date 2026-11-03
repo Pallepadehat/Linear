@@ -27,6 +27,7 @@ Exact rules behind PRD FR-02 – FR-14. If code and this doc disagree, one of th
 | Invite / remove members, change roles               |  ✅   |   ❌   |
 | Connect / disconnect GitHub installations and repos |  ✅   |   ❌   |
 | Create / edit teams                                 |  ✅   |   ✅   |
+| Change team issue defaults                          |  ✅   |   ❌   |
 | Create / edit / delete issues, projects, labels     |  ✅   |   ✅   |
 | Comment; edit/delete own comments                   |  ✅   |   ✅   |
 | Delete others' comments                             |  ✅   |   ❌   |
@@ -55,7 +56,23 @@ Each team gets these defaults on creation:
 
 - Logic (automation, filters, `completedAt`) uses **categories**, never status names.
 - Entering `completed` sets `completedAt`; leaving it clears `completedAt`.
-- New issues default to `Backlog` unless another status is given. If the team has no status named `Backlog`, the first `backlog` status (by order) is used, then the first `unstarted` one. The create dialog preselects the same status (`features/issues/default-status.ts`). Per-team defaults are planned in LIN-49.
+- New issues get the team's default status (see Team issue defaults) unless another status is given.
+
+## Team issue defaults
+
+Each team stores the defaults used when an issue is created without that field (team settings page → Issue defaults; `teams.update`, owner-only):
+
+| Field             | Column                | On team creation |
+| ----------------- | --------------------- | ---------------- |
+| Status            | `default_status_id`   | `Backlog`        |
+| Priority          | `default_priority`    | `0` No priority  |
+| Assignee          | `default_assignee_id` | none             |
+
+- The default status must belong to the same team (composite FK `teams_default_status_fk`). While it is someone's default, a status can't be deleted.
+- Fallback rule when no default status is stored: `Backlog` by name, else the first `backlog` status (by order), else the first `unstarted` one (`pickDefaultStatus` in `packages/core/src/teams`). Migration 0009 backfilled existing teams with this rule. `teams.get` returns the resolved status, so the app never needs the rule.
+- Omitted fields in `issues.create` use the defaults; explicit values win. `assigneeId: null` means unassigned even with a default assignee.
+- A default assignee who is no longer a workspace member is skipped (the issue is unassigned), not an error. Setting a non-member, or another team's status, as default → `BAD_REQUEST`. Deleting the user clears the default.
+- The create dialog preselects the picked team's defaults; switching team re-applies them for fields not picked by hand.
 
 ## Priorities
 
