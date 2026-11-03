@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
+import { pullRequestStateSchema } from './github'
 import { labelSchema } from './labels'
 import { issueLinkSchema } from './links'
 import { issueRelationsSchema } from './relations'
@@ -30,6 +31,19 @@ export const issueIdentifierSchema = z
     return { teamKey: value.slice(0, dash).toUpperCase(), number: Number(value.slice(dash + 1)) }
   })
 
+/** The issue's project as its row shows it; the icon URL comes from the projects list. */
+export const issueProjectSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  iconUploadId: z.uuid().nullable(),
+})
+
+/** A linked PR as its row chip shows it; the full PR comes from `github.pullRequests`. */
+export const issuePullRequestChipSchema = z.object({
+  number: z.number().int().positive(),
+  state: pullRequestStateSchema,
+})
+
 export const issueSchema = z.object({
   id: z.uuid(),
   identifier: z.string(),
@@ -42,10 +56,15 @@ export const issueSchema = z.object({
   assigneeId: z.uuid().nullable(),
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
+  project: issueProjectSchema.nullable(),
   cycleId: z.uuid().nullable(),
   estimate: issueEstimateSchema.nullable(),
   dueDate: issueDueDateSchema,
   labels: z.array(labelSchema),
+  /** Linked PRs: open and draft first, then merged, then closed; newest first within each. */
+  pullRequests: z.array(issuePullRequestChipSchema),
+  /** Web links on the issue (linked PRs are counted by `pullRequests`). */
+  linkCount: z.number().int().min(0),
   /** Whether the signed-in user is subscribed (docs/domain.md → Subscribers). */
   isSubscribed: z.boolean(),
   createdAt: z.date(),
@@ -265,6 +284,8 @@ export const issueFacetsSchema = z.object({
 
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
 export type Issue = z.infer<typeof issueSchema>
+export type IssueProject = z.infer<typeof issueProjectSchema>
+export type IssuePullRequestChip = z.infer<typeof issuePullRequestChipSchema>
 export type IssueDetail = z.infer<typeof issueDetailSchema>
 export type SubIssueProgress = NonNullable<Issue['subIssueProgress']>
 export type IssuePage = z.infer<typeof issuePageSchema>
