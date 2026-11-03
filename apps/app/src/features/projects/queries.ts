@@ -18,7 +18,19 @@ export const projectProgressOptions = (workspaceSlug: string, projectId: string)
 export const projectLabelListOptions = (workspaceSlug: string) =>
   orpc.projectLabels.list.queryOptions({ input: { workspaceSlug } })
 
-/** Matches every project query (list and detail); progress depends on issue changes. */
+/** The latest entries of a project's feed (newest first), for the Activity card. */
+export const projectActivityPreviewOptions = (workspaceSlug: string, projectId: string) =>
+  orpc.projects.activity.queryOptions({ input: { workspaceSlug, projectId, limit: 5 } })
+
+/** Newest-first pages of a project's feed, for the full Activity view. */
+export const projectActivityListOptions = (workspaceSlug: string, projectId: string) =>
+  orpc.projects.activity.infiniteOptions({
+    input: (cursor: string | null) => ({ workspaceSlug, projectId, cursor, limit: 50 }),
+    initialPageParam: null,
+    getNextPageParam: (page) => page.nextCursor,
+  })
+
+/** Matches every project query (list, detail and activity); progress depends on issue changes. */
 export const projectsKey = () => orpc.projects.key()
 
 /** Matches every milestone list; milestone progress depends on issue changes too. */

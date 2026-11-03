@@ -180,8 +180,15 @@
     {
       "idx": 25,
       "version": "7",
-      "when": 1793743238337,
-      "tag": "0025_project_progress_snapshots",
+      "when": 1793743227019,
+      "tag": "0025_project_activity",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793743948585,
+      "tag": "0026_project_progress_snapshots",
       "breakpoints": true
     }
   ]

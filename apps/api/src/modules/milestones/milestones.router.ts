@@ -41,7 +41,10 @@ export const milestonesRouter = {
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
       const { workspaceSlug: _, ...fields } = input
-      const milestone = await createMilestone(context.db, context.workspace.id, fields)
+      const milestone = await createMilestone(context.db, context.workspace.id, fields, {
+        type: 'user',
+        id: context.user.id,
+      })
       await publishChange(context, { type: 'project.updated', projectId: milestone.projectId })
       return toMilestoneDto(milestone)
     }),

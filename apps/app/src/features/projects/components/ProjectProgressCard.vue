@@ -44,9 +44,9 @@ const legend = computed(() => {
 <template>
   <section
     aria-labelledby="project-progress-title"
-    class="grid gap-4 rounded-lg border border-hairline bg-surface-1 p-4"
+    class="grid gap-3 rounded-lg border border-hairline bg-surface-1 p-3"
   >
-    <h2 id="project-progress-title" class="text-sm font-medium text-ink">Progress</h2>
+    <h2 id="project-progress-title" class="text-xs font-medium text-ink-subtle">Progress</h2>
     <div v-if="isPending" class="grid gap-3" aria-hidden="true">
       <div class="h-10 animate-pulse rounded-md bg-surface-2" />
       <div class="h-30 animate-pulse rounded-md bg-surface-2" />

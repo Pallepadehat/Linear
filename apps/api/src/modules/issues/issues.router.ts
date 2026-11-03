@@ -66,6 +66,9 @@ export const issuesRouter = {
         creatorId: context.user.id,
       })
       await publishChange(context, { type: 'issue.created', issueId: issue.id })
+      // Its project's feed got a `project.issue_added` entry.
+      if (issue.projectId)
+        await publishChange(context, { type: 'project.updated', projectId: issue.projectId })
       if (issue.parentId) await publishSubIssuesChanged(context, [issue.parentId])
       const source = { issueId: issue.id, activityId: issue.createdActivityId }
       await notify(context, [
@@ -128,8 +131,12 @@ export const issuesRouter = {
           : []
       await publishSubIssuesChanged(context, parents)
       await notify(context, issueUpdateEvents(issue.id, issue.activity, issue.assigneeId))
+      // Each project whose feed got an entry (issue removed / added, milestone completed).
+      for (const projectId of issue.feedProjectIds) {
+        await publishChange(context, { type: 'project.updated', projectId })
+      }
       if (changesProgress(fields))
-        await snapshotProjectsProgress(context, [issue.previousProjectId, issue.projectId])
+        await snapshotProjectsProgress(context, [issue.projectChange?.from, issue.projectId])
       return toIssueDto(issue)
     }),
 
@@ -189,10 +196,14 @@ export const issuesRouter = {
           context,
           updated.map((issue) => issue.parentId),
         )
+      // Each project whose feed got an entry hears about it once.
+      for (const projectId of new Set(updated.flatMap((issue) => issue.feedProjectIds))) {
+        await publishChange(context, { type: 'project.updated', projectId })
+      }
       if (changesProgress(fields))
         await snapshotProjectsProgress(
           context,
-          updated.flatMap((issue) => [issue.previousProjectId, issue.projectId]),
+          updated.flatMap((issue) => [issue.projectChange?.from, issue.projectId]),
         )
       return { items: updated.map(toIssueDto) }
     }),

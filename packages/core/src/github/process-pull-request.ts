@@ -57,6 +57,8 @@ export type ChangedIssue = {
   linked: boolean
   /** Activity entries of the status changes automation made (the notifications' source). */
   statusActivityIds: string[]
+  /** Projects whose activity feed got an entry (a milestone completed). */
+  feedProjectIds: string[]
 }
 
 export type DeliveryResult = {
@@ -140,7 +142,8 @@ export async function processPullRequestDelivery(
         issueId,
         statusChanged: moved.has(issueId),
         linked: newlyLinked.has(issueId),
-        statusActivityIds: moved.get(issueId) ?? [],
+        statusActivityIds: moved.get(issueId)?.activityIds ?? [],
+        feedProjectIds: moved.get(issueId)?.feedProjectIds ?? [],
       })),
     }
   })
@@ -301,11 +304,11 @@ async function automate(
   }
 
   // A fixed order keeps concurrent deliveries from locking the same issues in opposite order.
-  // Issue id → the status activity entries automation wrote for it.
-  const moved = new Map<string, string[]>()
+  // Issue id → the status activity entries automation wrote for it, and the project feeds it touched.
+  const moved = new Map<string, { activityIds: string[]; feedProjectIds: string[] }>()
   for (const issueId of [...events.keys()].sort()) {
-    const activityIds = await automateIssue(tx, pr, issueId, events.get(issueId)!)
-    if (activityIds.length > 0) moved.set(issueId, activityIds)
+    const result = await automateIssue(tx, pr, issueId, events.get(issueId)!)
+    if (result.activityIds.length > 0) moved.set(issueId, result)
   }
   return moved
 }
@@ -322,7 +325,7 @@ async function automateIssue(
     .innerJoin(workflowStatuses, eq(workflowStatuses.id, issues.statusId))
     .where(and(eq(issues.workspaceId, pr.workspaceId), eq(issues.id, issueId)))
     .for('update', { of: issues })
-  if (!issue) return []
+  if (!issue) return { activityIds: [], feedProjectIds: [] }
 
   const links = await tx
     .select({ type: issuePullRequestLinks.type, prState: pullRequests.state })
@@ -337,6 +340,7 @@ async function automateIssue(
 
   let category = issue.category
   const activityIds: string[] = []
+  const feedProjectIds = new Set<string>()
   for (const event of events) {
     const result = evaluate({ category }, links, event)
     if (!result) continue
@@ -362,6 +366,7 @@ async function automateIssue(
     })
     category = result.to
     activityIds.push(...updated.activity.filter((a) => a.kind === 'status').map((a) => a.id))
+    for (const projectId of updated.feedProjectIds) feedProjectIds.add(projectId)
   }
-  return activityIds
+  return { activityIds, feedProjectIds: [...feedProjectIds] }
 }

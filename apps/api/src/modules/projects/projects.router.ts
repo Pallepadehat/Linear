@@ -5,6 +5,7 @@ import {
   deleteProject,
   getProject,
   getProjectProgress,
+  listProjectActivity,
   listProjectLabels,
   listProjects,
   updateProject,
@@ -15,6 +16,7 @@ import { imageUrl } from '../../lib/upload-urls'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
 import { publishChange } from '../realtime/publish'
+import { toProjectActivityDto } from './project-activity.dto'
 
 const inWorkspace = requireWorkspace()
 
@@ -76,14 +78,20 @@ export const projectsRouter = {
   create: authed.projects.create
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const project = await createProject(context.db, context.workspace.id, input)
+      const project = await createProject(context.db, context.workspace.id, input, {
+        type: 'user',
+        id: context.user.id,
+      })
       await publishChange(context, { type: 'project.updated', projectId: project.id })
       return toDto(context.db, context.storage, project)
     }),
   update: authed.projects.update
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const project = await updateProject(context.db, context.workspace.id, input.id, input)
+      const project = await updateProject(context.db, context.workspace.id, input.id, input, {
+        type: 'user',
+        id: context.user.id,
+      })
       await publishChange(context, { type: 'project.updated', projectId: project.id })
       return toDto(context.db, context.storage, project)
     }),
@@ -93,6 +101,30 @@ export const projectsRouter = {
       const deleted = await deleteProject(context.db, context.workspace.id, input.id)
       await publishChange(context, { type: 'project.updated', projectId: deleted.id })
       return deleted
+    }),
+  activity: authed.projects.activity
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const page = await listProjectActivity(context.db, {
+        workspaceId: context.workspace.id,
+        projectId: input.projectId,
+        cursor: input.cursor,
+        limit: input.limit,
+      })
+      // Each distinct actor's avatar is resolved once per page, not once per entry.
+      const avatars = new Map(
+        await Promise.all(
+          [...new Set(page.items.map((item) => item.actorAvatarUploadId))].map(
+            async (id) => [id, await imageUrl(context.db, context.storage, id)] as const,
+          ),
+        ),
+      )
+      return {
+        items: page.items.map((item) =>
+          toProjectActivityDto(item, avatars.get(item.actorAvatarUploadId) ?? null),
+        ),
+        nextCursor: page.nextCursor,
+      }
     }),
 }
 
