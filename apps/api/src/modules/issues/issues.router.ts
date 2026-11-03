@@ -43,11 +43,16 @@ function toIssueFilter(
   context: { workspace: { id: string }; user: { id: string } },
   input: IssueFiltersInput,
 ) {
-  const { workspaceSlug: _, assignee, creator, subscriberIds, ...filters } = input
+  const { workspaceSlug: _, assignee, creator, ...filters } = input
+  // User filters take `'me'` for the signed-in user, so a shared URL means its viewer.
+  const resolve = (ids: string[] | undefined) =>
+    ids?.map((id) => (id === 'me' ? context.user.id : id))
   return {
     ...filters,
     workspaceId: context.workspace.id,
-    subscriberIds: subscriberIds?.map((id) => (id === 'me' ? context.user.id : id)),
+    subscriberIds: resolve(filters.subscriberIds),
+    creatorIds: resolve(filters.creatorIds),
+    creatorIdsNot: resolve(filters.creatorIdsNot),
     assigneeId: assignee === 'me' ? context.user.id : undefined,
     creatorId: creator === 'me' ? context.user.id : undefined,
   }
