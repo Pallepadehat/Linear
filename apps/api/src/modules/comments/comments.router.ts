@@ -10,6 +10,7 @@ import type { Storage } from '@linear/storage'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
 import { imageUrl } from '../../lib/upload-urls'
+import { publishChange } from '../realtime/publish'
 import { toCommentDto } from './comments.dto'
 
 const inWorkspace = requireWorkspace()
@@ -53,6 +54,11 @@ export const commentsRouter = {
         authorId: context.user.id,
         body: input.body,
       })
+      await publishChange(context, {
+        type: 'comment.created',
+        issueId: comment.issueId,
+        commentId: comment.id,
+      })
       return toCommentDtoWithAvatar(context, comment)
     }),
 
@@ -65,17 +71,24 @@ export const commentsRouter = {
         userId: context.user.id,
         body: input.body,
       })
+      await publishChange(context, {
+        type: 'comment.updated',
+        issueId: comment.issueId,
+        commentId: comment.id,
+      })
       return toCommentDtoWithAvatar(context, comment)
     }),
 
   delete: authed.comments.delete
     .use(inWorkspace, (input) => input.workspaceSlug)
-    .handler(async ({ context, input }) =>
-      deleteComment(context.db, {
+    .handler(async ({ context, input }) => {
+      const { id, issueId } = await deleteComment(context.db, {
         workspaceId: context.workspace.id,
         id: input.id,
         userId: context.user.id,
         canDeleteOthers: context.role === 'owner',
-      }),
-    ),
+      })
+      await publishChange(context, { type: 'comment.deleted', issueId, commentId: id })
+      return { id }
+    }),
 }

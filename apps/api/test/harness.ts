@@ -78,10 +78,14 @@ export async function signUp(app: FastifyInstance, name = 'Test User') {
 }
 
 /** A typed oRPC client that talks to the app through `inject()` (no network). */
-export function rpcClient(app: FastifyInstance, cookie?: string): ContractClient {
+export function rpcClient(
+  app: FastifyInstance,
+  cookie?: string,
+  headers: Record<string, string> = {},
+): ContractClient {
   const link = new RPCLink({
     url: 'http://localhost/rpc',
-    headers: cookie ? { cookie } : {},
+    headers: { ...headers, ...(cookie ? { cookie } : {}) },
     fetch: async (request) => {
       const req = request as Request
       const res = await app.inject({

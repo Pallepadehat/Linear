@@ -4,6 +4,7 @@ import type { Queues } from '@linear/queue'
 import type { Storage } from '@linear/storage'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Auth } from '../auth/auth'
+import type { RealtimeHub } from '../modules/realtime/realtime.hub'
 
 /** Built per request by the oRPC plugin. */
 export type InitialContext = {
@@ -15,6 +16,8 @@ export type InitialContext = {
   github: GitHubAppClient | null
   /** Signs the GitHub install `state`. */
   installStateSecret: string
+  /** Publishes domain events to Redis and streams them to subscribers. */
+  realtime: RealtimeHub
   logger: FastifyBaseLogger
   headers: Headers
 }
