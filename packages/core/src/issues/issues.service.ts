@@ -133,8 +133,31 @@ export type ListIssuesInput = {
   milestoneIds?: (string | null)[]
   /** `null` matches issues without a cycle. */
   cycleIds?: (string | null)[]
-  /** Any of these labels. */
+  /** Any of these labels (`labelMode: 'all'`: all of them). */
   labelIds?: string[]
+  labelMode?: 'any' | 'all'
+  /** Exclusions: issues with any of these values are left out. */
+  statusIdsNot?: string[]
+  prioritiesNot?: number[]
+  /** `null` leaves out unassigned issues; unassigned issues stay otherwise. */
+  assigneeIdsNot?: (string | null)[]
+  /** `null` leaves out issues without a project; they stay otherwise. */
+  projectIdsNot?: (string | null)[]
+  labelIdsNot?: string[]
+  creatorIds?: string[]
+  creatorIdsNot?: string[]
+  /** `…After` is inclusive, `…Before` exclusive. */
+  createdAfter?: Date
+  createdBefore?: Date
+  updatedAfter?: Date
+  updatedBefore?: Date
+  /** Completion date bounds; both leave out open issues (unlike `completedAfter`). */
+  completedSince?: Date
+  completedBefore?: Date
+  /** Title or description contains (case-insensitive). */
+  content?: string
+  /** Has (`true`) or lacks (`false`) a linked pull request. */
+  hasPullRequests?: boolean
   /** Estimate values; `null` matches no estimate, `'any'` any estimate. */
   estimates?: (number | 'any' | null)[]
   /** Any of these buckets; `overdue` and `dueThisWeek` are relative to `today`. */
@@ -390,6 +413,7 @@ function hasLinksFilter(hasLinks: boolean | undefined) {
 export function listFilter(input: IssueFilterInput) {
   const identifier = input.q ? parseIdentifierQuery(input.q) : null
   const search = input.q?.trim()
+  const content = input.content?.trim()
   return and(
     input.teamId ? eq(issues.teamId, input.teamId) : undefined,
     input.projectId ? eq(issues.projectId, input.projectId) : undefined,
@@ -413,10 +437,34 @@ export function listFilter(input: IssueFilterInput) {
     input.excludeSubtreeOf
       ? sql`${issues.id} not in (with recursive subtree(id) as (select ${input.excludeSubtreeOf}::uuid union select child.id from issues child join subtree on child.parent_id = subtree.id) select id from subtree)`
       : undefined,
-    input.labelIds?.length
-      ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
-      : undefined,
+    labelFilter(input.labelIds, input.labelMode),
     dueFilter(input.due, input.today),
+    input.statusIdsNot?.length ? notInArray(issues.statusId, input.statusIdsNot) : undefined,
+    input.prioritiesNot?.length ? notInArray(issues.priority, input.prioritiesNot) : undefined,
+    noneOf(issues.assigneeId, input.assigneeIdsNot),
+    noneOf(issues.projectId, input.projectIdsNot),
+    input.labelIdsNot?.length
+      ? sql`not exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIdsNot)})`
+      : undefined,
+    input.creatorIds?.length ? inArray(issues.creatorId, input.creatorIds) : undefined,
+    input.creatorIdsNot?.length ? notInArray(issues.creatorId, input.creatorIdsNot) : undefined,
+    input.createdAfter ? gte(issues.createdAt, input.createdAfter) : undefined,
+    input.createdBefore ? lt(issues.createdAt, input.createdBefore) : undefined,
+    input.updatedAfter ? gte(issues.updatedAt, input.updatedAfter) : undefined,
+    input.updatedBefore ? lt(issues.updatedAt, input.updatedBefore) : undefined,
+    input.completedSince ? gte(issues.completedAt, input.completedSince) : undefined,
+    input.completedBefore ? lt(issues.completedAt, input.completedBefore) : undefined,
+    content
+      ? or(
+          ilike(issues.title, `%${escapeLike(content)}%`),
+          ilike(issues.description, `%${escapeLike(content)}%`),
+        )
+      : undefined,
+    input.hasPullRequests === undefined
+      ? undefined
+      : input.hasPullRequests
+        ? sql`exists (select 1 from ${issuePullRequestLinks} where ${issuePullRequestLinks.issueId} = ${issues.id} and ${eq(issuePullRequestLinks.workspaceId, input.workspaceId)})`
+        : sql`not exists (select 1 from ${issuePullRequestLinks} where ${issuePullRequestLinks.issueId} = ${issues.id} and ${eq(issuePullRequestLinks.workspaceId, input.workspaceId)})`,
     hasLinksFilter(input.hasLinks),
     input.subscriberIds?.length
       ? sql`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.workspaceId, input.workspaceId)} and ${inArray(issueSubscriptions.userId, input.subscriberIds)})`
@@ -473,6 +521,22 @@ function anyOf(column: AnyColumn, values: (string | null)[] | undefined) {
     ids.length ? inArray(column, ids) : undefined,
     values.includes(null) ? isNull(column) : undefined,
   )
+}
+
+/** `NOT IN (...)` that keeps NULL rows unless the list contains `null`. */
+function noneOf(column: AnyColumn, values: (string | null)[] | undefined) {
+  if (!values?.length) return undefined
+  const ids = values.filter((value): value is string => value !== null)
+  const excluded = ids.length ? notInArray(column, ids) : undefined
+  return values.includes(null) ? and(isNotNull(column), excluded) : or(isNull(column), excluded)
+}
+
+/** Any of the labels, or (`all`) every one of them. */
+function labelFilter(labelIds: string[] | undefined, mode: 'any' | 'all' = 'any') {
+  if (!labelIds?.length) return undefined
+  const has = (ids: string[]) =>
+    sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, ids)})`
+  return mode === 'all' ? and(...[...new Set(labelIds)].map((id) => has([id]))) : has(labelIds)
 }
 
 /** Values OR'd together: specific points, `null` for none, `'any'` for any estimate. */

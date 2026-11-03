@@ -24,7 +24,6 @@ import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
 import { cyclesKey } from '@/features/cycles/queries'
 import { invalidateProjects } from '@/features/projects/queries'
-import { todayIso } from '@/lib/due-dates'
 import { client, orpc } from '@/lib/orpc'
 import { patchCommentInPages, toggleReaction } from './comment-cache'
 import {
@@ -41,9 +40,19 @@ import {
   type BulkIssueChange,
   type IssuePatch,
 } from './issue-cache'
-import { EMPTY_FILTERS, type IssueFilters } from './issue-filters'
+import { EMPTY_FILTERS, toListInput, type IssueFilters } from './issue-filters'
 
 const PAGE_SIZE = 50
+
+/**
+ * "Past week" filters are anchored to now, rounded to the minute so the list, board
+ * and Details panel built in the same moment share one query key.
+ */
+function minuteNow() {
+  const now = new Date()
+  now.setSeconds(0, 0)
+  return now
+}
 
 export type IssueListFilter = Pick<
   ListIssuesInput,
@@ -69,21 +78,9 @@ function issueFiltersInput(
   filter: IssueListFilter,
   filters: IssueFilters,
 ): IssueFiltersInput {
-  const { q, due, hasLinks, ...rest } = filters
   // The sort only orders the list; it isn't a filter.
   const { sort: _sort, direction: _direction, ...scope } = filter
-  // Relative due filters are evaluated against the viewer's local day (domain.md).
-  const relative = due.some((bucket) => bucket !== 'noDueDate')
-  return {
-    workspaceSlug,
-    ...scope,
-    ...rest,
-    ...(due.length && { due }),
-    ...(relative && { today: todayIso() }),
-    // Only "Has links" is offered; `false` would mean "has no links".
-    ...(hasLinks && { hasLinks }),
-    q: q || undefined,
-  }
+  return { workspaceSlug, ...scope, ...toListInput(filters, minuteNow()) }
 }
 
 /**
