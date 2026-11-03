@@ -1,5 +1,11 @@
-import type { Issue, IssuePage, RealtimeEvent, RealtimeIssueField } from '@linear/contract'
-import type { InfiniteData, QueryClient } from '@tanstack/vue-query'
+import type {
+  Issue,
+  IssuePage,
+  ListIssuesInput,
+  RealtimeEvent,
+  RealtimeIssueField,
+} from '@linear/contract'
+import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
 import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { issueDetailKeys, issueListKey, writeIssueToCaches } from '@/features/issues/queries'
@@ -8,6 +14,19 @@ import { client, orpc } from '@/lib/orpc'
 // Fields that decide which lists an issue is in (My Issues, project); a status change
 // only regroups, which the patched copy already does.
 const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project']
+// Whether a list with this input may gain, lose or reorder an issue when these
+// fields change: only filtered or sorted lists depend on more than membership.
+function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssueField>) {
+  return (
+    input.sort === 'updatedAt' ||
+    (fields.has('status') && !!input.statusIds?.length) ||
+    (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
+    (fields.has('labels') && !!input.labelIds?.length) ||
+    (fields.has('title') && !!input.q)
+  )
+}
+const listInput = (query: Query) =>
+  ((query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input ?? {})
 // Fields that change project progress counts.
 const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project']
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.
@@ -31,21 +50,39 @@ export function createRealtimeEventHandler({
   fetchIssue = (id) => client.issues.get({ workspaceSlug, id }),
 }: Deps) {
   const pending = new Set<'lists' | 'projects'>()
+  // Changed fields that only matter to filtered or sorted lists.
+  const pendingFields = new Set<RealtimeIssueField>()
   let timer: ReturnType<typeof setTimeout> | undefined
+
+  function flush() {
+    timer = undefined
+    if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
+    else if (pendingFields.size) invalidateDependentLists(new Set(pendingFields))
+    if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    pending.clear()
+    pendingFields.clear()
+  }
 
   function invalidateSoon(...what: ('lists' | 'projects')[]) {
     what.forEach((w) => pending.add(w))
-    timer ??= setTimeout(() => {
-      timer = undefined
-      if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
-      if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
-      pending.clear()
-    }, COALESCE_MS)
+    timer ??= setTimeout(flush, COALESCE_MS)
+  }
+
+  function invalidateFieldsSoon(fields: RealtimeIssueField[]) {
+    fields.forEach((f) => pendingFields.add(f))
+    timer ??= setTimeout(flush, COALESCE_MS)
+  }
+
+  function invalidateDependentLists(fields: Set<RealtimeIssueField>) {
+    const predicate = (query: Query) => listDependsOn(listInput(query), fields)
+    if (!queryClient.getQueryCache().findAll({ queryKey: issueListKey(), predicate }).length) return
+    void queryClient.invalidateQueries({ queryKey: issueListKey(), predicate })
   }
 
   async function onIssueUpdated(issueId: string, fields: RealtimeIssueField[]) {
     void queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) })
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
+    else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects')
 
     // While this tab has its own edits in flight, their settle refetches everything;
