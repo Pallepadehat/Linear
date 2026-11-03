@@ -125,12 +125,12 @@ export const issuesRouter = {
   list: authed.issues.list
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { workspaceSlug: _, assignee, creator, subscriberIds, ...query } = input
+      const { workspaceSlug: _, assignee, creator, ...query } = input
       const page = await listIssues(context.db, {
         ...query,
+        ...resolveMe(query, context.user.id),
         workspaceId: context.workspace.id,
         viewerId: context.user.id,
-        subscriberIds: subscriberIds?.map((id) => (id === 'me' ? context.user.id : id)),
         assigneeId: assignee === 'me' ? context.user.id : undefined,
         creatorId: creator === 'me' ? context.user.id : undefined,
       })
@@ -140,11 +140,11 @@ export const issuesRouter = {
   facets: authed.issues.facets
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { workspaceSlug: _, assignee, creator, subscriberIds, ...filters } = input
+      const { workspaceSlug: _, assignee, creator, ...filters } = input
       return getIssueFacets(context.db, {
         ...filters,
+        ...resolveMe(filters, context.user.id),
         workspaceId: context.workspace.id,
-        subscriberIds: subscriberIds?.map((id) => (id === 'me' ? context.user.id : id)),
         assigneeId: assignee === 'me' ? context.user.id : undefined,
         creatorId: creator === 'me' ? context.user.id : undefined,
       })
@@ -195,4 +195,20 @@ export const issuesRouter = {
         })),
       )
     }),
+}
+
+type UserFilters = {
+  subscriberIds?: string[]
+  creatorIds?: string[]
+  creatorIdsNot?: string[]
+}
+
+/** User filters take `'me'` for the signed-in user, so a shared URL means its viewer. */
+function resolveMe(filters: UserFilters, userId: string): UserFilters {
+  const resolve = (ids: string[] | undefined) => ids?.map((id) => (id === 'me' ? userId : id))
+  return {
+    subscriberIds: resolve(filters.subscriberIds),
+    creatorIds: resolve(filters.creatorIds),
+    creatorIdsNot: resolve(filters.creatorIdsNot),
+  }
 }

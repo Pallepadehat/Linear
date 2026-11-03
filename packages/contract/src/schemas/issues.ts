@@ -144,9 +144,15 @@ const nullableFilterIdsSchema = z.array(z.uuid().nullable()).max(100)
 /** `'me'` stands for the signed-in user, so a shared URL means the viewer. */
 const userFilterIdsSchema = z.array(z.union([z.uuid(), z.literal('me')])).max(100)
 
+/** Labels filter: issues with any of `labelIds`, or with all of them. */
+export const labelFilterModeSchema = z.enum(['any', 'all'])
+
 /**
- * Filters combine with AND; values within one filter with OR (labels: any of).
- * An empty list doesn't filter.
+ * Filters combine with AND; values within one filter with OR (labels: any of, or all
+ * of with `labelMode: 'all'`). An empty list doesn't filter. `…Not` lists exclude
+ * issues with any of the values; on a nullable property an excluded value still
+ * keeps issues without one (assignee is not Ada keeps unassigned issues), and `null`
+ * excludes issues without one. Date bounds: `…After` is inclusive, `…Before` exclusive.
  */
 export const listIssuesInputSchema = workspaceScopedSchema.extend({
   /** Scope from the page (team / project view), not a user filter. */
@@ -165,6 +171,26 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   projectIds: nullableFilterIdsSchema.optional(),
   cycleIds: nullableFilterIdsSchema.optional(),
   labelIds: filterIdsSchema.optional(),
+  labelMode: labelFilterModeSchema.default('any'),
+  statusIdsNot: filterIdsSchema.optional(),
+  prioritiesNot: z.array(issuePrioritySchema).max(5).optional(),
+  assigneeIdsNot: nullableFilterIdsSchema.optional(),
+  projectIdsNot: nullableFilterIdsSchema.optional(),
+  labelIdsNot: filterIdsSchema.optional(),
+  /** Created by any of these users. */
+  creatorIds: userFilterIdsSchema.optional(),
+  creatorIdsNot: userFilterIdsSchema.optional(),
+  createdAfter: z.date().optional(),
+  createdBefore: z.date().optional(),
+  updatedAfter: z.date().optional(),
+  updatedBefore: z.date().optional(),
+  /** Only completed issues have `completedAt`, so either bound leaves out open ones. */
+  completedAfter: z.date().optional(),
+  completedBefore: z.date().optional(),
+  /** Title or description contains (case-insensitive). */
+  content: z.string().trim().max(255).optional(),
+  /** `true`: has a linked pull request; `false`: has none. */
+  hasPullRequests: z.boolean().optional(),
   /** Estimate values; `null` matches issues without an estimate, `'any'` those with one. */
   estimates: z
     .array(z.union([issueEstimateSchema, z.literal('any')]).nullable())
@@ -235,4 +261,5 @@ export type IssueFacets = z.infer<typeof issueFacetsSchema>
 export type IssueSubscriptionInput = z.input<typeof issueSubscriptionInputSchema>
 export type IssueSort = z.infer<typeof issueSortSchema>
 export type SortDirection = z.infer<typeof sortDirectionSchema>
+export type LabelFilterMode = z.infer<typeof labelFilterModeSchema>
 export type IssueDueFilter = z.infer<typeof issueDueFilterSchema>
