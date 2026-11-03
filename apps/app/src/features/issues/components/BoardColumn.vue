@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button'
 import { pointsText, sumEstimates, type EstimateSettings } from '@/lib/estimates'
 import type { BoardColumn } from '../board-columns'
 import type { IssuePatch } from '../issue-cache'
+import { groupSelectionState } from '../selection'
 import BoardCard from './BoardCard.vue'
+import SelectionCheckbox from './SelectionCheckbox.vue'
 
 const props = defineProps<{
   column: BoardColumn
@@ -24,6 +26,8 @@ const props = defineProps<{
   canDrop: boolean
   /** Shows the `+` that creates an issue in this status. */
   creatable: boolean
+  /** The bulk selection (see `useIssueSelection`). */
+  selectedIds: ReadonlySet<string>
 }>()
 const emit = defineEmits<{
   update: [issue: Issue, patch: IssuePatch]
@@ -32,12 +36,20 @@ const emit = defineEmits<{
   drop: []
   create: []
   open: [issue: Issue]
+  select: [issue: Issue, event: MouseEvent]
+  selectAll: []
 }>()
 
 // Card height varies with the title (up to two lines) and labels; measured after render.
 const ESTIMATED_CARD_HEIGHT = 104
 
 const headingId = useId()
+const selectionState = computed(() =>
+  groupSelectionState(
+    props.selectedIds,
+    props.column.issues.map((issue) => issue.id),
+  ),
+)
 // From the cached issues, so optimistic estimate changes show at once.
 const estimateTotal = computed(() =>
   sumEstimates(props.column.issues, (teamId) => props.estimatesByTeam.get(teamId)?.scale),
@@ -93,8 +105,19 @@ function onDrop(event: DragEvent) {
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
-    <header class="flex h-10 shrink-0 items-center gap-2 pr-1.5 pl-3">
-      <StatusIcon :category="column.status.category" />
+    <header class="group/header flex h-10 shrink-0 items-center gap-2 pr-1.5 pl-3">
+      <SelectionCheckbox
+        v-if="column.issues.length"
+        class="-mx-1"
+        :class="selectionState ? 'flex' : 'hidden group-hover/header:flex focus-visible:flex'"
+        :checked="selectionState"
+        :label="`Select all issues in ${column.status.name}`"
+        @toggle="emit('selectAll')"
+      />
+      <StatusIcon
+        :class="column.issues.length && !selectionState ? 'group-hover/header:hidden' : undefined"
+        :category="column.status.category"
+      />
       <h2 :id="headingId" class="truncate font-medium text-ink">{{ column.status.name }}</h2>
       <span class="text-ink-subtle tabular-nums">{{ column.issues.length }}</span>
       <span
@@ -140,10 +163,12 @@ function onDrop(event: DragEvent) {
             :labels="labels"
             :estimates="estimatesByTeam.get(issue.teamId)"
             :dragging="draggingId === issue.id"
+            :selected="selectedIds.has(issue.id)"
             @update="(patch) => emit('update', issue, patch)"
             @dragstart="(event) => emit('dragstart', issue, event)"
             @dragend="emit('dragend')"
             @open="emit('open', issue)"
+            @select="(event) => emit('select', issue, event)"
           />
         </div>
       </div>
