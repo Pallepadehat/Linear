@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PanelRight } from '@lucide/vue'
+import { Layers, PanelRight } from '@lucide/vue'
 import { computed, defineAsyncComponent, ref } from 'vue'
 import IconButton from '@/components/common/IconButton.vue'
 import { useHotkeys } from '@/composables/useHotkeys'
@@ -19,16 +19,23 @@ import IssueViewTabs from './IssueViewTabs.vue'
 
 // Drag and drop is only needed once someone opens the board.
 const IssueBoard = defineAsyncComponent(() => import('./IssueBoard.vue'))
+const SaveViewDialog = defineAsyncComponent(
+  () => import('@/features/views/components/SaveViewDialog.vue'),
+)
 
-const props = defineProps<{ workspaceSlug: string; teamId?: string }>()
+/** `savedViewId`: a saved view's page, which has no tabs and no "Save as view". */
+const props = defineProps<{ workspaceSlug: string; teamId?: string; savedViewId?: string }>()
 
 const PANEL_ID = 'issue-view-panel'
 
 const preferences = usePreferencesStore()
 const viewKey = computed(() => displayViewKey(props))
 const { options } = useDisplayOptions(viewKey)
-const { view, select } = useIssueView()
+const { view: tabView, select } = useIssueView()
+// A saved view lists what its filters say, so the tabs don't apply.
+const view = computed(() => (props.savedViewId ? 'all' : tabView.value))
 const tab = computed({ get: () => view.value, set: select })
+const saveViewOpen = ref(false)
 
 const { filters, update } = useIssueFilters()
 const dimensions = useFilterDimensions(() => props, filters, update)
@@ -53,7 +60,18 @@ useHotkeys([
     role="toolbar"
     aria-label="Issue view"
   >
-    <IssueViewTabs v-model="tab" :panel-id="PANEL_ID" />
+    <template v-if="!savedViewId">
+      <IssueViewTabs v-model="tab" :panel-id="PANEL_ID" />
+      <IconButton :icon="Layers" label="Save as view" @click="saveViewOpen = true" />
+      <SaveViewDialog
+        v-if="saveViewOpen"
+        v-model:open="saveViewOpen"
+        :team-id="teamId"
+        :filters="filters"
+        :display="options"
+      />
+    </template>
+    <slot name="toolbar" />
     <div class="ml-auto flex items-center gap-1">
       <IssueFilterMenu v-model:open="filterOpen" :dimensions="dimensions" compact />
       <IssueDisplayOptions :view-key="viewKey" allow-board />
@@ -71,21 +89,29 @@ useHotkeys([
   <div class="flex min-h-0 flex-1">
     <div
       :id="PANEL_ID"
-      role="tabpanel"
-      :aria-labelledby="`issue-view-tab-${view}`"
+      :role="savedViewId ? undefined : 'tabpanel'"
+      :aria-labelledby="savedViewId ? undefined : `issue-view-tab-${view}`"
       class="flex min-h-0 min-w-0 flex-1 flex-col"
     >
       <IssueBoard
         v-if="options.layout === 'board'"
         :workspace-slug="workspaceSlug"
+        :saved-view-id="savedViewId"
         :team-id="teamId"
         :view="view"
       />
-      <IssueList v-else :workspace-slug="workspaceSlug" :team-id="teamId" :view="view" />
+      <IssueList
+        v-else
+        :workspace-slug="workspaceSlug"
+        :saved-view-id="savedViewId"
+        :team-id="teamId"
+        :view="view"
+      />
     </div>
     <IssueDetailsPanel
       v-if="detailsOpen"
       :workspace-slug="workspaceSlug"
+      :saved-view-id="savedViewId"
       :team-id="teamId"
       :view="view"
       :dimensions="dimensions"
