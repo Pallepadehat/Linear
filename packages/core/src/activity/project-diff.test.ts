@@ -66,26 +66,3 @@ describe('issueProjectEvents', () => {
     expect(issueProjectEvents(null, null, issue)).toEqual([])
   })
 })
-
-describe('completesMilestone', () => {
-  it('fires when the last open issue moves to done', () => {
-    expect(completesMilestone({ completed: 2, total: 3 }, { completed: 3, total: 3 })).toBe(true)
-  })
-
-  it('does not fire while issues are still open', () => {
-    expect(completesMilestone({ completed: 1, total: 3 }, { completed: 2, total: 3 })).toBe(false)
-  })
-
-  it('does not fire again for a milestone that was already complete', () => {
-    expect(completesMilestone({ completed: 3, total: 3 }, { completed: 3, total: 3 })).toBe(false)
-  })
-
-  it('fires when removing the last open issue leaves only done issues', () => {
-    expect(completesMilestone({ completed: 2, total: 3 }, { completed: 2, total: 2 })).toBe(true)
-  })
-
-  it('never fires for an empty milestone', () => {
-    expect(completesMilestone({ completed: 1, total: 1 }, { completed: 0, total: 0 })).toBe(false)
-    expect(completesMilestone({ completed: 0, total: 1 }, { completed: 0, total: 0 })).toBe(false)
-  })
-})

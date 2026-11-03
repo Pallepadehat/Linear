@@ -14,6 +14,20 @@ export function isMilestoneComplete({ issueCount, doneCount }: MilestoneCounts):
   return issueCount > 0 && doneCount === issueCount
 }
 
+/**
+ * Whether an issue change completed its milestone, i.e. the milestone's last open issue
+ * moved to done: the issue entered `completed` in this change and, counted after it, every
+ * issue of the milestone is done. An issue that was already done (edited, or moved into the
+ * milestone) never fires, nor does an empty milestone. Reopening and finishing the last issue
+ * again completes it again.
+ */
+export function completesMilestone(
+  after: MilestoneCounts,
+  issue: { wasDone: boolean; isDone: boolean },
+): boolean {
+  return issue.isDone && !issue.wasDone && isMilestoneComplete(after)
+}
+
 /** The project's current milestone: the first, in order, that isn't complete. */
 export function currentMilestoneOf<T extends MilestoneCounts>(ordered: T[]): T | null {
   return ordered.find((milestone) => !isMilestoneComplete(milestone)) ?? null

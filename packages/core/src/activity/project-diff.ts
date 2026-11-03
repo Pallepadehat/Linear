@@ -56,16 +56,3 @@ export function issueProjectEvents(
   if (to) events.push({ projectId: to, event: { kind: 'project.issue_added', payload: issue } })
   return events
 }
-
-export type MilestoneProgress = { completed: number; total: number }
-
-/**
- * Whether an issue change completed a milestone: every issue is done now and wasn't
- * before. An empty milestone is never completed, and a milestone that already was
- * (another done issue edited, or one added and removed again) doesn't fire twice.
- * Wired up by the milestone feature (docs/domain.md → Project activity).
- */
-export function completesMilestone(before: MilestoneProgress, after: MilestoneProgress) {
-  const done = (p: MilestoneProgress) => p.total > 0 && p.completed === p.total
-  return done(after) && !done(before)
-}

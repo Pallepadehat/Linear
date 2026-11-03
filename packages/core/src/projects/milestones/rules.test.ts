@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { DomainError } from '../../errors'
 import {
   assertMilestoneInProject,
+  completesMilestone,
   currentMilestoneOf,
   isMilestoneComplete,
   mergeMilestoneOrder,
@@ -33,6 +34,38 @@ describe('isMilestoneComplete / currentMilestoneOf', () => {
     ]
     expect(currentMilestoneOf(list)?.id).toBe('b')
     expect(currentMilestoneOf(list.slice(0, 1))).toBeNull()
+  })
+})
+
+describe('completesMilestone', () => {
+  const movedToDone = { wasDone: false, isDone: true }
+
+  it('fires when the last open issue moves to done', () => {
+    expect(completesMilestone({ issueCount: 3, doneCount: 3 }, movedToDone)).toBe(true)
+    expect(completesMilestone({ issueCount: 1, doneCount: 1 }, movedToDone)).toBe(true)
+  })
+
+  it('does not fire while other issues are still open', () => {
+    expect(completesMilestone({ issueCount: 3, doneCount: 2 }, movedToDone)).toBe(false)
+  })
+
+  it('does not fire for an issue that was already done', () => {
+    // Edited while done, or a done issue moved into the milestone.
+    const stillDone = { wasDone: true, isDone: true }
+    expect(completesMilestone({ issueCount: 3, doneCount: 3 }, stillDone)).toBe(false)
+  })
+
+  it('does not fire when the issue is not done after the change', () => {
+    expect(
+      completesMilestone({ issueCount: 2, doneCount: 1 }, { wasDone: true, isDone: false }),
+    ).toBe(false)
+    expect(
+      completesMilestone({ issueCount: 0, doneCount: 0 }, { wasDone: false, isDone: false }),
+    ).toBe(false)
+  })
+
+  it('never fires for an empty milestone', () => {
+    expect(completesMilestone({ issueCount: 0, doneCount: 0 }, movedToDone)).toBe(false)
   })
 })
 
