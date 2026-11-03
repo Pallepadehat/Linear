@@ -23,7 +23,7 @@ const { data: teams, isPending } = useQuery(
         <li v-if="isPending" class="px-4 py-3 text-ink-subtle">Loading…</li>
         <li v-for="team in teams" :key="team.id" class="flex items-center hover:bg-surface-2">
           <RouterLink
-            :to="{ name: 'team', params: { workspaceSlug: slug, teamKey: team.key } }"
+            :to="{ name: 'team-issues', params: { workspaceSlug: slug, teamKey: team.key } }"
             class="flex min-w-0 flex-1 items-center justify-between gap-4 py-3 pl-4"
           >
             <span class="truncate font-medium text-ink">{{ team.name }}</span>

@@ -23,5 +23,17 @@ export const useUiStore = defineStore('ui', () => {
   /** Breadcrumb a page puts in the panel header; null falls back to the route title. */
   const breadcrumb = ref<string[] | null>(null)
 
-  return { createIssueOpen, createIssueDefaults, openCreateIssue, breadcrumb }
+  /**
+   * Set by the sidebar search button; the issue filter bar focuses its search field and clears it.
+   * Stand-in until the command menu (M7-11) takes over search.
+   */
+  const searchFocusRequested = ref(false)
+
+  return {
+    createIssueOpen,
+    createIssueDefaults,
+    openCreateIssue,
+    breadcrumb,
+    searchFocusRequested,
+  }
 })

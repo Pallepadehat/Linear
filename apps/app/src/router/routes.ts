@@ -83,9 +83,27 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/features/teams/pages/TeamsPage.vue'),
       },
       {
+        path: 'inbox',
+        name: 'inbox',
+        meta: { title: 'Inbox' },
+        component: () => import('@/features/inbox/pages/InboxPage.vue'),
+      },
+      {
+        path: 'views',
+        name: 'views',
+        meta: { title: 'Views' },
+        component: () => import('@/features/views/pages/ViewsPage.vue'),
+      },
+      {
+        // A team opens on its issues, like Linear.
         path: 'team/:teamKey',
         name: 'team',
-        meta: { title: 'Team' },
+        redirect: (to) => ({ name: 'team-issues', params: to.params }),
+      },
+      {
+        path: 'team/:teamKey/issues',
+        name: 'team-issues',
+        meta: { title: 'Issues' },
         component: () => import('@/features/teams/pages/TeamPage.vue'),
       },
       {
@@ -99,6 +117,18 @@ export const routes: RouteRecordRaw[] = [
         name: 'cycle',
         meta: { title: 'Cycle' },
         component: () => import('@/features/cycles/pages/CycleDetailPage.vue'),
+      },
+      {
+        path: 'team/:teamKey/projects',
+        name: 'team-projects',
+        meta: { title: 'Projects' },
+        component: () => import('@/features/projects/pages/ProjectsPage.vue'),
+      },
+      {
+        path: 'team/:teamKey/views',
+        name: 'team-views',
+        meta: { title: 'Views' },
+        component: () => import('@/features/views/pages/ViewsPage.vue'),
       },
       {
         path: 'team/:teamKey/settings',
