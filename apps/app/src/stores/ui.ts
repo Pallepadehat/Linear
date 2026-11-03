@@ -60,9 +60,6 @@ export const useUiStore = defineStore('ui', () => {
   /** Issue awaiting the delete confirmation dialog. */
   const issueToDelete = ref<IssueRef | null>(null)
 
-  /** The issue list's Details panel (⌘I); the toolbar toggles it, the panel itself lands in M7-05. */
-  const issueDetailsOpen = ref(false)
-
   /** The entity the current page shows, for the header star and ⌥F; reset on navigation. */
   const favoriteTarget = ref<FavoriteTarget | null>(null)
 
@@ -79,6 +76,5 @@ export const useUiStore = defineStore('ui', () => {
     activeIssue,
     issueToDelete,
     favoriteTarget,
-    issueDetailsOpen,
   }
 })

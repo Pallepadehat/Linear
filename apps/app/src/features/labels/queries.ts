@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
 import { errorCode, errorMessage } from '@/lib/errors'
 import { client, orpc } from '@/lib/orpc'
-import { issueDetailKeys, issueListKey } from '@/features/issues/queries'
+import { issueDetailKeys, issueFacetsKey, issueListKey } from '@/features/issues/queries'
 import { findLabelByName } from './label-options'
 
 /** Workspace labels plus `teamId`'s; without a team, every label in the workspace. */
@@ -54,6 +54,7 @@ function invalidateLabelUsers(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: labelListKey() }),
     queryClient.invalidateQueries({ queryKey: issueListKey() }),
+    queryClient.invalidateQueries({ queryKey: issueFacetsKey() }),
     ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   ])
 }

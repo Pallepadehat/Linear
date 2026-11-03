@@ -137,6 +137,9 @@ export type ListIssuesInput = {
   limit: number
 }
 
+/** The list's scope and filters, without paging or sort (also used by `getIssueFacets`). */
+export type IssueFilterInput = Omit<ListIssuesInput, 'sort' | 'direction' | 'cursor' | 'limit'>
+
 export type IssueRecord = Awaited<ReturnType<typeof withLabels>>[number]
 export type IssueDetailRecord = Awaited<ReturnType<typeof getIssue>>
 
@@ -340,7 +343,8 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
   return { items: await withLabels(db, input.workspaceId, page), nextCursor }
 }
 
-function listFilter(input: ListIssuesInput) {
+/** Expects `teams` and `workflowStatuses` joined on the issue. */
+export function listFilter(input: IssueFilterInput) {
   const identifier = input.q ? parseIdentifierQuery(input.q) : null
   const search = input.q?.trim()
   return and(
