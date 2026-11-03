@@ -1,10 +1,20 @@
 import type { Project } from '@linear/contract'
-import { createProject, deleteProject, getProject, listProjects, updateProject } from '@linear/core'
+import {
+  createProject,
+  createProjectLabel,
+  deleteProject,
+  getProject,
+  listProjectLabels,
+  listProjects,
+  updateProject,
+} from '@linear/core'
 import type { DbOrTx } from '@linear/db'
 import type { Storage } from '@linear/storage'
 import { imageUrl } from '../../lib/upload-urls'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
+import { toLabelDto } from '../labels/labels.dto'
+import { publishChange } from '../realtime/publish'
 
 const inWorkspace = requireWorkspace()
 
@@ -19,7 +29,14 @@ async function toDto(db: DbOrTx, storage: Storage, row: ProjectRow): Promise<Pro
     iconUploadId: row.iconUploadId,
     iconUrl: await imageUrl(db, storage, row.iconUploadId),
     teamIds: row.teamIds,
+    priority: row.priority,
+    leadId: row.leadId,
+    memberIds: row.memberIds,
+    startDate: row.startDate,
+    targetDate: row.targetDate,
+    labelIds: row.labelIds,
     progress: row.progress,
+    issueCount: row.issueCount,
     createdAt: row.createdAt,
   }
 }
@@ -42,25 +59,37 @@ export const projectsRouter = {
     ),
   create: authed.projects.create
     .use(inWorkspace, (input) => input.workspaceSlug)
-    .handler(async ({ context, input }) =>
-      toDto(
-        context.db,
-        context.storage,
-        await createProject(context.db, context.workspace.id, input),
-      ),
-    ),
+    .handler(async ({ context, input }) => {
+      const project = await createProject(context.db, context.workspace.id, input)
+      await publishChange(context, { type: 'project.updated', projectId: project.id })
+      return toDto(context.db, context.storage, project)
+    }),
   update: authed.projects.update
     .use(inWorkspace, (input) => input.workspaceSlug)
-    .handler(async ({ context, input }) =>
-      toDto(
-        context.db,
-        context.storage,
-        await updateProject(context.db, context.workspace.id, input.id, input),
-      ),
-    ),
+    .handler(async ({ context, input }) => {
+      const project = await updateProject(context.db, context.workspace.id, input.id, input)
+      await publishChange(context, { type: 'project.updated', projectId: project.id })
+      return toDto(context.db, context.storage, project)
+    }),
   delete: authed.projects.delete
     .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const deleted = await deleteProject(context.db, context.workspace.id, input.id)
+      await publishChange(context, { type: 'project.updated', projectId: deleted.id })
+      return deleted
+    }),
+}
+
+// Any member may manage project labels, like issue labels (docs/domain.md → Roles).
+export const projectLabelsRouter = {
+  list: authed.projectLabels.list
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context }) =>
+      (await listProjectLabels(context.db, context.workspace.id)).map(toLabelDto),
+    ),
+  create: authed.projectLabels.create
+    .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) =>
-      deleteProject(context.db, context.workspace.id, input.id),
+      toLabelDto(await createProjectLabel(context.db, context.workspace.id, input)),
     ),
 }

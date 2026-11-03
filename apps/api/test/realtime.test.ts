@@ -111,6 +111,17 @@ describe('realtime', () => {
     )
   })
 
+  it('streams project changes as ID-only project.updated events', async () => {
+    const { owner, member } = await workspaceWithIssue()
+    const { events } = await subscribe(member.cookie, 'tip')
+    const project = await owner.client.projects.create({ workspaceSlug: 'tip', name: 'Launch' })
+    await owner.client.projects.update({ workspaceSlug: 'tip', id: project.id, priority: 1 })
+    await owner.client.projects.delete({ workspaceSlug: 'tip', id: project.id })
+
+    const event = { type: 'project.updated', projectId: project.id, actorId: owner.userId }
+    await eventually(() => expect(events).toEqual([event, event, event]))
+  })
+
   it('skips the echo of a change made by the subscribing tab itself', async () => {
     const { owner, issue } = await workspaceWithIssue()
     const { events } = await subscribe(owner.cookie, 'tip', 'tab-1')

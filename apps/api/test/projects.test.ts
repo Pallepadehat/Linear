@@ -227,4 +227,173 @@ describe('projects', () => {
       }),
     ).toMatchObject({ iconUploadId: null })
   })
+
+  it('creates and updates every project property', async () => {
+    const { owner, workspace } = await arrange()
+    const member = await signUp(app, 'Member')
+    await addMember(db, workspace.id, member.userId)
+    const scope = { workspaceSlug: 'tip' }
+    const bug = await member.client.projectLabels.create({
+      ...scope,
+      name: ' Bet ',
+      color: '#AABBCC',
+    })
+    expect(bug).toMatchObject({ name: 'Bet', color: '#aabbcc' })
+    const infra = await member.client.projectLabels.create({
+      ...scope,
+      name: 'Infra',
+      color: '#5e6ad2',
+    })
+    await expect(
+      member.client.projectLabels.create({ ...scope, name: 'Bet', color: '#000000' }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' })
+    expect(await owner.client.projectLabels.list(scope)).toEqual([bug, infra])
+    // Issue labels are a separate set.
+    expect(await owner.client.labels.list(scope)).toEqual([])
+
+    const project = await member.client.projects.create({
+      ...scope,
+      name: 'Launch',
+      priority: 2,
+      leadId: owner.userId,
+      memberIds: [owner.userId, member.userId, owner.userId],
+      startDate: '2026-11-03',
+      targetDate: '2026-12-31',
+      labelIds: [bug.id],
+    })
+    expect(project).toMatchObject({
+      priority: 2,
+      leadId: owner.userId,
+      memberIds: [owner.userId, member.userId],
+      startDate: '2026-11-03',
+      targetDate: '2026-12-31',
+      labelIds: [bug.id],
+      issueCount: 0,
+    })
+    const defaults = await member.client.projects.create({ ...scope, name: 'Defaults' })
+    expect(defaults).toMatchObject({
+      priority: 0,
+      leadId: null,
+      memberIds: [],
+      startDate: null,
+      targetDate: null,
+      labelIds: [],
+    })
+
+    // Omitted fields stay; supplied sets are replaced.
+    const updated = await owner.client.projects.update({
+      ...scope,
+      id: project.id,
+      priority: 4,
+      leadId: member.userId,
+      memberIds: [member.userId],
+      targetDate: '2027-01-15',
+      labelIds: [infra.id, bug.id],
+    })
+    expect(updated).toMatchObject({
+      priority: 4,
+      leadId: member.userId,
+      memberIds: [member.userId],
+      startDate: '2026-11-03',
+      targetDate: '2027-01-15',
+      teamIds: [],
+    })
+    expect([...updated.labelIds].sort()).toEqual([bug.id, infra.id].sort())
+    expect(
+      await owner.client.projects.update({
+        ...scope,
+        id: project.id,
+        leadId: null,
+        memberIds: [],
+        startDate: null,
+        targetDate: null,
+        labelIds: [],
+      }),
+    ).toMatchObject({
+      leadId: null,
+      memberIds: [],
+      startDate: null,
+      targetDate: null,
+      labelIds: [],
+    })
+
+    // Priority range and date ordering, including against the stored date.
+    for (const priority of [-1, 5]) {
+      await expect(
+        owner.client.projects.update({ ...scope, id: project.id, priority }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+    }
+    await expect(
+      owner.client.projects.create({
+        ...scope,
+        name: 'Backwards',
+        startDate: '2026-12-01',
+        targetDate: '2026-11-01',
+      }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+    await owner.client.projects.update({ ...scope, id: project.id, targetDate: '2026-11-10' })
+    await expect(
+      owner.client.projects.update({ ...scope, id: project.id, startDate: '2026-11-11' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+    await expect(
+      owner.client.projects.update({ ...scope, id: project.id, startDate: '03/11/2026' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+
+    // The list carries the same properties and the issue count.
+    const team = await createTeam(db, { workspaceId: workspace.id, key: 'ISS' })
+    await member.client.issues.create({
+      ...scope,
+      teamId: team.id,
+      title: 'A',
+      projectId: project.id,
+    })
+    expect(await owner.client.projects.list(scope)).toMatchObject([
+      { id: defaults.id, issueCount: 0 },
+      { id: project.id, priority: 4, targetDate: '2026-11-10', issueCount: 1 },
+    ])
+  })
+
+  it('rejects leads, members and labels from another workspace as NOT_FOUND', async () => {
+    const { owner } = await arrange()
+    const stranger = await signUp(app, 'Stranger')
+    await stranger.client.workspaces.create({ name: 'Other', slug: 'other' })
+    const foreignLabel = await stranger.client.projectLabels.create({
+      workspaceSlug: 'other',
+      name: 'Foreign',
+      color: '#123456',
+    })
+    const foreign = await stranger.client.projects.create({ workspaceSlug: 'other', name: 'F' })
+    const scope = { workspaceSlug: 'tip' }
+    const project = await owner.client.projects.create({ ...scope, name: 'Launch' })
+    for (const changes of [
+      { leadId: stranger.userId },
+      { memberIds: [owner.userId, stranger.userId] },
+      { labelIds: [foreignLabel.id] },
+    ]) {
+      await expect(
+        owner.client.projects.update({ ...scope, id: project.id, ...changes }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+      await expect(
+        owner.client.projects.create({ ...scope, name: 'New', ...changes }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    }
+    await expect(
+      owner.client.projects.update({ ...scope, id: foreign.id, priority: 1 }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    // Nothing was written by the rejected calls.
+    expect(await owner.client.projects.list(scope)).toMatchObject([
+      { id: project.id, leadId: null, memberIds: [], labelIds: [] },
+    ])
+    // Project labels are workspace-scoped too.
+    expect(await owner.client.projectLabels.list(scope)).toEqual([])
+    await expect(stranger.client.projectLabels.list(scope)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+    await expect(
+      stranger.client.projectLabels.create({ ...scope, name: 'X', color: '#123456' }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    await expect(rpcClient(app).projectLabels.list(scope)).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    })
+  })
 })
