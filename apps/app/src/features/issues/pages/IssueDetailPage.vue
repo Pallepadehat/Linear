@@ -340,7 +340,7 @@ onBeforeUnmount(commitDescription)
       <SubscribeButton :subscribed="issue.isSubscribed" @toggle="toggleMySubscription" />
     </IssueDetailHeader>
     <article class="min-w-0 lg:overflow-y-auto">
-      <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
+      <div class="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-2 px-8 pt-8 pb-12">
         <div class="flex h-7 items-center gap-2">
           <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
           <span class="flex-1" aria-hidden="true" />
@@ -364,7 +364,7 @@ onBeforeUnmount(commitDescription)
           autocomplete="off"
           :aria-invalid="Boolean(titleError)"
           :aria-describedby="titleError ? 'issue-title-error' : undefined"
-          class="-mx-1 field-sizing-content resize-none rounded-md bg-transparent px-1 text-2xl font-semibold tracking-tight text-ink caret-primary outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+          class="-mx-1 field-sizing-content w-full min-w-0 resize-none rounded-md bg-transparent px-1 text-2xl font-semibold tracking-tight wrap-anywhere text-ink caret-primary outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           @blur="commitTitle"
           @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
           @keydown.esc.prevent="revertTitle"
