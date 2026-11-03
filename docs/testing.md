@@ -8,7 +8,7 @@
 | Integration | Vitest      | `apps/api/test/**/*.test.ts`               | oRPC procedures + webhook route against real Postgres/Redis  |
 | Worker      | Vitest      | `apps/worker/test/**/*.test.ts`            | Job handlers called directly with a real DB                  |
 | Component   | Vitest + @vue/test-utils | `apps/app/src/**/*.test.ts`   | Only for components with real logic (pickers, filters)       |
-| E2E         | Playwright  | `apps/app/e2e/`                            | Critical flows: sign up → workspace → issue; demo scenario   |
+| E2E         | Playwright  | `apps/app/e2e/`                            | The demo scenario (PRD §12 Test 10) in a real browser        |
 
 ## Rules
 
@@ -35,6 +35,7 @@ One file per test in `apps/api/test/acceptance/`. Tests 3–9 drive the real pat
 | 7 Multiple PRs | `07-multiple-prs.test.ts` | `evaluate.test.ts` (multi-PR cases) |
 | 8 Duplicate webhooks | `08-duplicate-webhooks.test.ts` | `apps/api/test/github-webhook.test.ts` (concurrent duplicates) |
 | 9 Cross-workspace protection | `09-cross-workspace-protection.test.ts` | `apps/worker/test/github-webhook.test.ts` |
+| 10 End-to-end demonstration | `apps/app/e2e/demo.spec.ts` (Playwright, see [E2E](#e2e-playwright)) | Tests 3–5 |
 
 `apps/worker/test/github-webhook.test.ts` also covers the same scenarios at the job level, plus out-of-order events, edits and rule F.
 
@@ -48,7 +49,7 @@ bun run --filter @linear/api test -- test/acceptance   # only the acceptance tes
 bun run test                          # all (packages run one at a time: DB suites share linear_test)
 bun run --filter @linear/core test    # one package
 bun run test -- --watch               # watch mode
-bun run test:e2e                      # Playwright (needs dev stack running)
+bun run test:e2e                      # Playwright; starts its own stack (see E2E below)
 ```
 
 For Podman installations, the same infrastructure runs with `podman compose up -d postgres redis`.
@@ -63,6 +64,21 @@ Tests need access to the local PostgreSQL and Redis services. In a restricted ag
 run the checks with local service access enabled. The Vite source-map error
 `code.charCodeAt is not a function` can mask a global-setup failure: check database
 configuration and connectivity before changing test dependencies.
+
+## E2E (Playwright)
+
+`apps/app/e2e/demo.spec.ts` is PRD §12 Test 10 in headless Chromium: log in as `demo@tip.dev`, create "Fix login validation" in TIP, then send a signed `pull_request.opened` (branch `tip-<n>-fix-login`) and a merged `pull_request.closed` to the real `/webhooks/github`. The open issue page must show **In Progress** / PR **Open**, then **Done** / **Merged**, without a reload (realtime).
+
+- `e2e/stack.ts` is Playwright's `webServer`. It drops and re-creates the `linear_e2e` database, runs `db:migrate`, `db:seed` and `demo:github connect`, then starts the api, the worker and Vite. Stopping the run stops all three.
+- It is isolated from a dev stack: api on `3100`, app on `5180`, Redis logical DB `1`, its own database, a test-only webhook secret, and the GitHub App disabled. Override with `E2E_API_PORT`, `E2E_APP_PORT`, `E2E_DATABASE_URL` (name must contain `e2e`), `E2E_REDIS_URL`; `E2E_LOG_LEVEL` (default `warn`) controls api/worker logs.
+- Postgres and Redis come from `DATABASE_URL` / `REDIS_URL` (env or root `.env`). If Postgres refuses connections locally, it runs `docker compose up -d --wait postgres redis` first. Object storage isn't needed.
+- `e2e/github.ts` signs payloads from `apps/api/test/fixtures/github/`, retargeted at the demo repository.
+- Traces and screenshots are kept for failed tests (`apps/app/test-results/`, open with `bunx playwright show-trace`). CI runs it in the `e2e` job and uploads the report and traces on failure.
+
+```bash
+cd apps/app && bunx playwright install chromium   # once
+bun run test:e2e
+```
 
 ## Test data
 
