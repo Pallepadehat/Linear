@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import type { Issue } from '@linear/contract'
+import type { IssueDetail } from '@linear/contract'
 import {
   ChevronDown,
   ChevronUp,
   Copy,
+  CopyPlus,
   Ellipsis,
+  GitBranch,
   GitCompareArrows,
+  Hash,
+  Link,
   Link2,
   ListTree,
   Star,
@@ -18,6 +22,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watchEffect } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { toast } from 'vue-sonner'
+import IconButton from '@/components/common/IconButton.vue'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -45,6 +50,8 @@ import { useHotkeys } from '@/composables/useHotkeys'
 import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
+import { useIssueCopy } from '../composables/useIssueCopy'
+import { COPY_LABELS, copyShortcut, type CopyKind } from '../copy-shortcuts'
 import { useIssueNav } from '../composables/useIssueNav'
 import type { IssuePatch } from '../issue-cache'
 import { issuePrefill } from '../prefill'
@@ -53,7 +60,7 @@ import { RELATION_KINDS, type RelationKind } from '../relation-kinds'
 
 const props = defineProps<{
   workspaceSlug: string
-  issue: Issue
+  issue: IssueDetail
   /** The issue's team, once loaded: the breadcrumb and the fallback list (its issues). */
   teamName?: string
   teamKey?: string
@@ -71,6 +78,17 @@ const ui = useUiStore()
 const router = useRouter()
 const queryClient = useQueryClient()
 const nav = useIssueNav(() => props.issue.identifier)
+const { copy } = useIssueCopy(() => props.issue)
+const copyKinds: CopyKind[] = ['url', 'id', 'branch', 'prompt']
+
+// Coding tool integrations aren't built yet; the settings section says so.
+function configureCodingTools() {
+  void router.push({
+    name: 'settings',
+    params: { workspaceSlug: props.workspaceSlug },
+    hash: '#coding-tools',
+  })
+}
 
 /** The list the issue was opened from, else the team's issues, else all issues. */
 const listRoute = computed<RouteLocationRaw>(
@@ -165,6 +183,69 @@ const itemClass = 'h-8 rounded-md text-[13px]'
 
 <template>
   <Teleport defer :to="PANEL_HEADER_ACTIONS">
+    <div class="flex items-center gap-0.5">
+      <IconButton
+        :icon="Link"
+        :label="COPY_LABELS.url"
+        :shortcut="copyShortcut('url')"
+        @click="copy('url')"
+      />
+      <IconButton
+        :icon="Hash"
+        :label="COPY_LABELS.id"
+        :shortcut="copyShortcut('id')"
+        @click="copy('id')"
+      />
+      <IconButton
+        :icon="GitBranch"
+        :label="COPY_LABELS.branch"
+        :shortcut="copyShortcut('branch')"
+        @click="copy('branch')"
+      />
+    </div>
+    <div class="flex items-center rounded-full border border-hairline">
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="h-[26px] rounded-r-none pr-2 pl-3"
+            :aria-keyshortcuts="copyShortcut('prompt')"
+            @click="copy('prompt')"
+          >
+            {{ COPY_LABELS.prompt }}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent class="flex items-center gap-2">
+          Copy issue as a prompt for a coding agent
+          <kbd class="font-sans text-ink-subtle">{{ copyShortcut('prompt') }}</kbd>
+        </TooltipContent>
+      </Tooltip>
+      <span class="h-3.5 w-px bg-hairline" aria-hidden="true" />
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Copy as prompt options"
+            class="h-[26px] w-6 rounded-l-none data-[state=open]:bg-surface-2"
+          >
+            <ChevronDown aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" class="w-56 rounded-lg border-hairline bg-floating p-1.5">
+          <DropdownMenuItem :class="itemClass" @select="copy('prompt')">
+            {{ COPY_LABELS.prompt }}
+            <DropdownMenuShortcut class="tracking-normal text-ink-subtle">
+              {{ copyShortcut('prompt') }}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem :class="itemClass" @select="configureCodingTools">
+            Configure coding tools…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
     <div v-if="nav.position.value" class="flex items-center gap-0.5">
       <span class="px-1 text-xs text-ink-subtle tabular-nums" aria-live="polite">
         {{ nav.position.value.index }}
@@ -273,8 +354,27 @@ const itemClass = 'h-8 rounded-md text-[13px]'
           {{ isFavorite ? 'Remove from favorites' : 'Add to favorites' }}
           <DropdownMenuShortcut class="tracking-normal text-ink-subtle">⌥F</DropdownMenuShortcut>
         </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger :class="itemClass">
+            <Copy class="text-ink-subtle" aria-hidden="true" />
+            Copy
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent class="w-60 rounded-lg border-hairline bg-floating p-1.5">
+            <DropdownMenuItem
+              v-for="kind in copyKinds"
+              :key="kind"
+              :class="itemClass"
+              @select="copy(kind)"
+            >
+              {{ COPY_LABELS[kind] }}
+              <DropdownMenuShortcut class="tracking-normal text-ink-subtle">
+                {{ copyShortcut(kind) }}
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuItem :class="itemClass" @select="makeCopy">
-          <Copy class="text-ink-subtle" aria-hidden="true" />
+          <CopyPlus class="text-ink-subtle" aria-hidden="true" />
           Make a copy…
         </DropdownMenuItem>
         <DropdownMenuSeparator class="bg-hairline" />
