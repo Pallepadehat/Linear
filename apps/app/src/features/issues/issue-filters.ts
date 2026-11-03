@@ -10,6 +10,8 @@ export const ANY = 'any'
 
 /** Estimate filter values: points, `null` = no estimate, `'any'` = has one. */
 export type EstimateFilterValue = number | typeof ANY | null
+/** In the URL and the API, `me` stands for the signed-in user. */
+export const ME = 'me'
 
 export type IssueFilters = {
   statusIds: string[]
@@ -20,6 +22,8 @@ export type IssueFilters = {
   projectIds: (string | null)[]
   labelIds: string[]
   estimates: EstimateFilterValue[]
+  /** User ids, or `me`. */
+  subscriberIds: string[]
   q: string
   sort: IssueSort
   direction: SortDirection
@@ -35,6 +39,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   projectIds: [],
   labelIds: [],
   estimates: [],
+  subscriberIds: [],
   q: '',
   sort: DEFAULT_SORT,
   direction: DEFAULT_DIRECTION,
@@ -76,6 +81,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     estimates: list(query.estimate).flatMap((v): EstimateFilterValue[] =>
       v === NONE ? [null] : v === ANY ? [ANY] : /^\d{1,3}$/.test(v) ? [Number(v)] : [],
     ),
+    subscriberIds: list(query.subscriber).filter((v) => v === ME || UUID.test(v)),
     q: first(query.q).trim(),
     sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
     direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_DIRECTION,
@@ -93,6 +99,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     project: join(filters.projectIds),
     label: join(filters.labelIds),
     estimate: join(filters.estimates),
+    subscriber: join(filters.subscriberIds),
     q: filters.q.trim() || undefined,
     sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
     dir: filters.direction === DEFAULT_DIRECTION ? undefined : filters.direction,
@@ -108,6 +115,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.projectIds.length > 0 ||
     filters.labelIds.length > 0 ||
     filters.estimates.length > 0 ||
+    filters.subscriberIds.length > 0 ||
     filters.q !== ''
   )
 }

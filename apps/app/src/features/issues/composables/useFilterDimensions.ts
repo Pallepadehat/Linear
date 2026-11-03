@@ -1,4 +1,4 @@
-import { CircleDashed, CircleUser, Signal, Tag, Box } from '@lucide/vue'
+import { Bell, CircleDashed, CircleUser, Signal, Tag, Box } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, h, type Component, type MaybeRefOrGetter, toValue } from 'vue'
 import EstimateIcon from '@/components/common/EstimateIcon.vue'
@@ -11,7 +11,13 @@ import { orpc } from '@/lib/orpc'
 import { estimateLabel, estimateValues } from '@/lib/estimates'
 import { PRIORITIES } from '@/lib/priorities'
 import { CATEGORY_ORDER } from '../group-issues'
-import { ANY, toggleValues, type EstimateFilterValue, type IssueFilters } from '../issue-filters'
+import {
+  ANY,
+  ME,
+  toggleValues,
+  type EstimateFilterValue,
+  type IssueFilters,
+} from '../issue-filters'
 
 export type FilterOption = {
   /** Unique within the dimension; also the menu item's text value. */
@@ -23,7 +29,7 @@ export type FilterOption = {
 }
 
 export type FilterDimension = {
-  key: 'status' | 'priority' | 'assignee' | 'project' | 'label' | 'estimate'
+  key: 'status' | 'priority' | 'assignee' | 'project' | 'label' | 'estimate' | 'subscriber'
   label: string
   icon: Component
   options: FilterOption[]
@@ -184,6 +190,17 @@ export function useFilterDimensions(
       })),
     ]
 
+    // "Me" first; it stays the viewer when the URL is shared.
+    const subscriberOptions = [
+      { key: ME, label: 'Me', icon: () => h(CircleUser), values: [ME] },
+      ...(members.value ?? []).map((m) => ({
+        key: m.userId,
+        label: m.name,
+        icon: () => h(UserAvatar, { name: m.name, src: m.avatarUrl, size: 'xs' }),
+        values: [m.userId],
+      })),
+    ]
+
     return [
       dimension(
         'status',
@@ -223,6 +240,14 @@ export function useFilterDimensions(
             ),
           ]),
       dimension('label', 'Labels', Tag, f.labelIds, (v) => update({ labelIds: v }), labelOptions),
+      dimension(
+        'subscriber',
+        'Subscribers',
+        Bell,
+        f.subscriberIds,
+        (v) => update({ subscriberIds: v }),
+        subscriberOptions,
+      ),
       ...(estimateTeams.length || f.estimates.length
         ? [
             dimension(

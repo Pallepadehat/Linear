@@ -39,6 +39,8 @@ export const issueSchema = z.object({
   projectId: z.uuid().nullable(),
   estimate: issueEstimateSchema.nullable(),
   labels: z.array(labelSchema),
+  /** Whether the signed-in user is subscribed (docs/domain.md → Subscribers). */
+  isSubscribed: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
   completedAt: z.date().nullable(),
@@ -86,6 +88,8 @@ export const sortDirectionSchema = z.enum(['asc', 'desc'])
 const filterIdsSchema = z.array(z.uuid()).max(100)
 /** `null` in the list matches issues with no value (unassigned / no project). */
 const nullableFilterIdsSchema = z.array(z.uuid().nullable()).max(100)
+/** `'me'` stands for the signed-in user, so a shared URL means the viewer. */
+const userFilterIdsSchema = z.array(z.union([z.uuid(), z.literal('me')])).max(100)
 
 /**
  * Filters combine with AND; values within one filter with OR (labels: any of).
@@ -111,6 +115,8 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
     .array(z.union([issueEstimateSchema, z.literal('any')]).nullable())
     .max(20)
     .optional(),
+  /** Any of these users is subscribed. */
+  subscriberIds: userFilterIdsSchema.optional(),
   /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
   q: z.string().trim().max(255).optional(),
   sort: issueSortSchema.default('createdAt'),
@@ -119,6 +125,16 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   cursor: z.string().min(1).nullish(),
   limit: z.number().int().min(1).max(100).default(50),
 })
+
+/** Subscribes `userId` (default: the signed-in user); any member may add or remove others. */
+export const issueSubscriptionInputSchema = workspaceScopedSchema.extend({
+  issueId: z.uuid(),
+  userId: z.uuid().optional(),
+})
+
+export const issueSubscriptionSchema = z.object({ subscribed: z.boolean() })
+
+export const issueSubscribersInputSchema = workspaceScopedSchema.extend({ issueId: z.uuid() })
 
 export const issuePageSchema = z.object({
   items: z.array(issueSchema),
@@ -131,5 +147,6 @@ export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>
 export type ListIssuesInput = z.input<typeof listIssuesInputSchema>
+export type IssueSubscriptionInput = z.input<typeof issueSubscriptionInputSchema>
 export type IssueSort = z.infer<typeof issueSortSchema>
 export type SortDirection = z.infer<typeof sortDirectionSchema>

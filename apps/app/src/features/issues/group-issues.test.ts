@@ -28,6 +28,7 @@ function issue(id: string, s: WorkflowStatus): Issue {
     projectId: null,
     estimate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: now,
     updatedAt: now,
     completedAt: null,

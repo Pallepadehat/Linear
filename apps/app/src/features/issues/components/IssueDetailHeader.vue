@@ -163,6 +163,8 @@ const itemClass = 'h-8 rounded-md text-[13px]'
         <TooltipContent>Previous issue <kbd class="ml-1 font-sans">K</kbd></TooltipContent>
       </Tooltip>
     </div>
+    <!-- Page-level toggles (the subscribe bell) sit just before the actions menu. -->
+    <slot />
     <DropdownMenu>
       <DropdownMenuTrigger as-child>
         <Button

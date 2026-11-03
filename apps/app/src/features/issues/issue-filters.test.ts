@@ -19,6 +19,7 @@ describe('issue filters in the URL', () => {
       projectIds: [null],
       labelIds: [B],
       estimates: [3, null, 'any' as const],
+      subscriberIds: ['me', A],
       q: 'login',
       sort: 'priority' as const,
       direction: 'asc' as const,
@@ -31,6 +32,7 @@ describe('issue filters in the URL', () => {
       project: 'none',
       label: B,
       estimate: '3,none,any',
+      subscriber: `me,${A}`,
       q: 'login',
       sort: 'priority',
       dir: 'asc',
@@ -49,12 +51,20 @@ describe('issue filters in the URL', () => {
         status: 'nope,' + A,
         priority: ['9', '2', '2'],
         assignee: 'me',
+        subscriber: 'you,me',
         sort: 'title',
         dir: 'sideways',
         estimate: 'x,1000,5,-1',
         q: '  spaced  ',
       }),
-    ).toEqual({ ...EMPTY_FILTERS, statusIds: [A], priorities: [2], estimates: [5], q: 'spaced' })
+    ).toEqual({
+      ...EMPTY_FILTERS,
+      statusIds: [A],
+      priorities: [2],
+      subscriberIds: ['me'],
+      estimates: [5],
+      q: 'spaced',
+    })
   })
 
   it('knows when a filter is active', () => {

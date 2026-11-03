@@ -1,5 +1,5 @@
 {
-  "id": "d98a9469-dae7-4e0b-a860-1729ed772679",
+  "id": "a537bd78-a9a9-4276-bc3f-335e0b624644",
   "prevId": "23408043-2460-49eb-86cf-9765bc02492b",
   "version": "7",
   "dialect": "postgresql",
@@ -565,21 +565,6 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
-        },
-        "estimate_scale": {
-          "name": "estimate_scale",
-          "type": "estimate_scale",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'off'"
-        },
-        "estimate_allow_zero": {
-          "name": "estimate_allow_zero",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1418,12 +1403,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "estimate": {
-          "name": "estimate",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "completed_at": {
           "name": "completed_at",
           "type": "timestamp with time zone",
@@ -1517,27 +1496,6 @@
             },
             {
               "expression": "priority",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "issues_workspace_id_estimate_index": {
-          "name": "issues_workspace_id_estimate_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "estimate",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1703,10 +1661,6 @@
         "issues_priority_range": {
           "name": "issues_priority_range",
           "value": "\"issues\".\"priority\" between 0 and 4"
-        },
-        "issues_estimate_range": {
-          "name": "issues_estimate_range",
-          "value": "\"issues\".\"estimate\" between 0 and 100"
         }
       },
       "isRLSEnabled": false
@@ -3102,6 +3056,128 @@
       },
       "isRLSEnabled": false
     },
+    "public.issue_subscriptions": {
+      "name": "issue_subscriptions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issue_id": {
+          "name": "issue_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "issue_subscriptions_user_id_workspace_id_index": {
+          "name": "issue_subscriptions_user_id_workspace_id_index",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "issue_subscriptions_workspace_id_workspaces_id_fk": {
+          "name": "issue_subscriptions_workspace_id_workspaces_id_fk",
+          "tableFrom": "issue_subscriptions",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "issue_subscriptions_issue_id_issues_id_fk": {
+          "name": "issue_subscriptions_issue_id_issues_id_fk",
+          "tableFrom": "issue_subscriptions",
+          "tableTo": "issues",
+          "columnsFrom": [
+            "issue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "issue_subscriptions_user_id_users_id_fk": {
+          "name": "issue_subscriptions_user_id_users_id_fk",
+          "tableFrom": "issue_subscriptions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "issue_subscriptions_issue_id_user_id_unique": {
+          "name": "issue_subscriptions_issue_id_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "issue_id",
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.issue_templates": {
       "name": "issue_templates",
       "schema": "",
@@ -3315,17 +3391,6 @@
     }
   },
   "enums": {
-    "public.estimate_scale": {
-      "name": "estimate_scale",
-      "schema": "public",
-      "values": [
-        "off",
-        "linear",
-        "fibonacci",
-        "exponential",
-        "tshirt"
-      ]
-    },
     "public.status_category": {
       "name": "status_category",
       "schema": "public",
@@ -3421,8 +3486,7 @@
         "priority",
         "assignee",
         "project",
-        "labels",
-        "estimate"
+        "labels"
       ]
     }
   },
