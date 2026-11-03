@@ -17,6 +17,7 @@ import { notificationsRouter } from '../modules/notifications/notifications.rout
 import { teamsRouter } from '../modules/teams/teams.router'
 import { templatesRouter } from '../modules/templates/templates.router'
 import { uploadsRouter } from '../modules/uploads/uploads.router'
+import { viewsRouter } from '../modules/views/views.router'
 import { workspacesRouter } from '../modules/workspaces/workspaces.router'
 import { os } from './base'
 
@@ -43,6 +44,7 @@ export const router = os.router({
   realtime: realtimeRouter,
   templates: templatesRouter,
   presence: presenceRouter,
+  views: viewsRouter,
 })
 
 export type Router = typeof router

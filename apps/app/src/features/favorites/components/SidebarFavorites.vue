@@ -9,6 +9,7 @@ import SidebarItem from '@/components/common/SidebarItem.vue'
 import SidebarSection from '@/components/common/SidebarSection.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import TeamIcon from '@/components/common/TeamIcon.vue'
+import ViewIcon from '@/features/views/components/ViewIcon.vue'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,8 @@ function linkTo(favorite: Favorite): RouteLocationRaw {
       return { name: 'project', params: { ...params, projectId: favorite.entityId } }
     case 'team':
       return { name: 'team-issues', params: { ...params, teamKey: favorite.key } }
+    case 'view':
+      return { name: 'view', params: { ...params, viewId: favorite.entityId } }
   }
 }
 const labelOf = (favorite: Favorite) =>
@@ -115,6 +118,11 @@ const menuFor = ref<string | null>(null)
             class="size-4"
           />
           <ProjectIcon v-else-if="favorite.entityType === 'project'" :src="favorite.iconUrl" />
+          <ViewIcon
+            v-else-if="favorite.entityType === 'view'"
+            :icon="favorite.icon"
+            :color="favorite.color"
+          />
           <TeamIcon v-else :name="favorite.name" />
         </template>
       </SidebarItem>

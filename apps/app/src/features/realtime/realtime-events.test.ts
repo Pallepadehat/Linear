@@ -423,6 +423,19 @@ describe('realtime event handler', () => {
     handle({ type: 'template.updated', templateId: crypto.randomUUID(), ...actor })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: orpc.templates.key() })
   })
+
+  it.each(['view.updated', 'view.deleted'] as const)(
+    'refetches views and favorites on %s',
+    (type) => {
+      const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+      handle({ type, viewId: crypto.randomUUID(), ...actor })
+      expect(invalidate.mock.calls).toEqual([
+        [{ queryKey: orpc.favorites.key() }],
+        [{ queryKey: orpc.views.key() }],
+      ])
+    },
+  )
 })
 
 describe('backoffDelay', () => {

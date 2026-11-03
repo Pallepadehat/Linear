@@ -12,6 +12,7 @@ import { issueFacetsOptions } from '../queries'
 
 const props = defineProps<{
   workspaceSlug: string
+  savedViewId?: string
   teamId?: string
   view: 'all' | 'active' | 'backlog'
   /** The filter menu's dimensions: names, icons and toggles for each value. */

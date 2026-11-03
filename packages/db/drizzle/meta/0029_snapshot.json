@@ -1,5 +1,5 @@
 {
-  "id": "b253a1e1-9abf-417b-b128-48d91df9449a",
+  "id": "b6e4b210-16fb-4c5c-b319-6bbe5f45d690",
   "prevId": "df5cac64-f81e-4e08-b2b5-87d62ac83922",
   "version": "7",
   "dialect": "postgresql",
@@ -5634,8 +5634,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.project_updates": {
-      "name": "project_updates",
+    "public.views": {
+      "name": "views",
       "schema": "",
       "columns": {
         "id": {
@@ -5650,30 +5650,56 @@
           "primaryKey": false,
           "notNull": true
         },
-        "project_id": {
-          "name": "project_id",
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "owner_id": {
+          "name": "owner_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "author_id": {
-          "name": "author_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "health": {
-          "name": "health",
-          "type": "project_health",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "body": {
-          "name": "body",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "filters": {
+          "name": "filters",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "display": {
+          "name": "display",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "shared": {
+          "name": "shared",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "created_at": {
           "name": "created_at",
@@ -5691,32 +5717,17 @@
         }
       },
       "indexes": {
-        "project_updates_project_id_created_at_index": {
-          "name": "project_updates_project_id_created_at_index",
+        "views_workspace_id_team_id_index": {
+          "name": "views_workspace_id_team_id_index",
           "columns": [
             {
-              "expression": "project_id",
+              "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "project_updates_workspace_id_index": {
-          "name": "project_updates_workspace_id_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
+              "expression": "team_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5729,9 +5740,9 @@
         }
       },
       "foreignKeys": {
-        "project_updates_workspace_id_workspaces_id_fk": {
-          "name": "project_updates_workspace_id_workspaces_id_fk",
-          "tableFrom": "project_updates",
+        "views_workspace_id_workspaces_id_fk": {
+          "name": "views_workspace_id_workspaces_id_fk",
+          "tableFrom": "views",
           "tableTo": "workspaces",
           "columnsFrom": [
             "workspace_id"
@@ -5742,12 +5753,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "project_updates_project_id_projects_id_fk": {
-          "name": "project_updates_project_id_projects_id_fk",
-          "tableFrom": "project_updates",
-          "tableTo": "projects",
+        "views_team_id_teams_id_fk": {
+          "name": "views_team_id_teams_id_fk",
+          "tableFrom": "views",
+          "tableTo": "teams",
           "columnsFrom": [
-            "project_id"
+            "team_id"
           ],
           "columnsTo": [
             "id"
@@ -5755,24 +5766,29 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "project_updates_author_id_users_id_fk": {
-          "name": "project_updates_author_id_users_id_fk",
-          "tableFrom": "project_updates",
+        "views_owner_id_users_id_fk": {
+          "name": "views_owner_id_users_id_fk",
+          "tableFrom": "views",
           "tableTo": "users",
           "columnsFrom": [
-            "author_id"
+            "owner_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "views_name_not_blank": {
+          "name": "views_name_not_blank",
+          "value": "length(trim(\"views\".\"name\")) > 0"
+        }
+      },
       "isRLSEnabled": false
     }
   },
@@ -5939,15 +5955,6 @@
         "status_changed",
         "pr_linked",
         "issue_created_in_team"
-      ]
-    },
-    "public.project_health": {
-      "name": "project_health",
-      "schema": "public",
-      "values": [
-        "on_track",
-        "at_risk",
-        "off_track"
       ]
     }
   },

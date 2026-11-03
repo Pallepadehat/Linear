@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
 import { statusCategorySchema } from './teams'
+import { viewColorSchema, viewIconSchema } from './views'
 
-/** `view` is reserved for custom views (M10-05); adding one is NOT_FOUND until views exist. */
 export const favoriteEntityTypeSchema = z.enum(['issue', 'project', 'view', 'team'])
 
 const base = { id: z.uuid(), entityId: z.uuid() }
@@ -28,6 +28,13 @@ export const favoriteSchema = z.discriminatedUnion('entityType', [
     entityType: z.literal('team'),
     name: z.string(),
     key: z.string(),
+  }),
+  z.object({
+    ...base,
+    entityType: z.literal('view'),
+    name: z.string(),
+    icon: viewIconSchema,
+    color: viewColorSchema,
   }),
 ])
 

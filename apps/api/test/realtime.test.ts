@@ -488,6 +488,41 @@ describe('realtime', () => {
     await eventually(() => expect(events).toEqual([event, event]))
   })
 
+  it('announces view changes by id only', async () => {
+    const { owner, member } = await workspaceWithIssue()
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    const view = await owner.client.views.create({
+      workspaceSlug: 'tip',
+      name: 'Bugs',
+      filters: { priorities: [1] },
+      display: {
+        layout: 'list',
+        grouping: 'status',
+        groupDirection: 'asc',
+        subGrouping: 'none',
+        ordering: 'createdAt',
+        orderDirection: 'desc',
+        orderCompletedByRecency: false,
+        completedIssues: 'all',
+        showSubIssues: true,
+        showEmptyGroups: false,
+        properties: ['id'],
+      },
+    })
+    await owner.client.views.update({ workspaceSlug: 'tip', id: view.id, name: 'Urgent' })
+    await owner.client.views.delete({ workspaceSlug: 'tip', id: view.id })
+
+    const event = { viewId: view.id, actorId: owner.userId }
+    await eventually(() =>
+      expect(events).toEqual([
+        { type: 'view.updated', ...event },
+        { type: 'view.updated', ...event },
+        { type: 'view.deleted', ...event },
+      ]),
+    )
+  })
+
   it('delivers automation from the worker: a merged PR moving an issue to Done', async () => {
     const { workspace, issue } = await arrange()
     const member = await signUp(app, 'Watcher')
