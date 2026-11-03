@@ -134,7 +134,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
     await assertWorkspaceMember(db, input.workspaceId, assigneeId)
   }
   if (input.projectId) await assertProject(db, input.workspaceId, input.projectId)
-  const labelIds = await resolveLabelIds(db, input.workspaceId, input.labelIds ?? [])
+  const labelIds = await resolveLabelIds(db, input.workspaceId, input.teamId, input.labelIds ?? [])
 
   return db.transaction(async (tx) => {
     // The row lock on the team serializes concurrent creates, so numbers are
@@ -335,7 +335,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     const labelIds =
       input.labelIds === undefined
         ? undefined
-        : await resolveLabelIds(tx, input.workspaceId, input.labelIds)
+        : await resolveLabelIds(tx, input.workspaceId, current.teamId, input.labelIds)
     const currentLabels = await tx
       .select({ labelId: issueLabels.labelId })
       .from(issueLabels)
@@ -443,13 +443,25 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
   }))
 }
 
-async function resolveLabelIds(db: DbOrTx, workspaceId: string, labelIds: string[]) {
+/** Workspace labels, or the issue team's own labels; anything else is BAD_REQUEST. */
+async function resolveLabelIds(
+  db: DbOrTx,
+  workspaceId: string,
+  teamId: string,
+  labelIds: string[],
+) {
   const unique = [...new Set(labelIds)]
   if (unique.length === 0) return unique
   const found = await db
     .select({ id: labels.id })
     .from(labels)
-    .where(and(eq(labels.workspaceId, workspaceId), inArray(labels.id, unique)))
+    .where(
+      and(
+        eq(labels.workspaceId, workspaceId),
+        or(isNull(labels.teamId), eq(labels.teamId, teamId)),
+        inArray(labels.id, unique),
+      ),
+    )
   if (found.length !== unique.length) throw new DomainError('BAD_REQUEST', 'Label not found')
   return unique
 }
