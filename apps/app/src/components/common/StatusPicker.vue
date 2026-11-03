@@ -5,7 +5,7 @@ import PickerItem from './PickerItem.vue'
 import PickerPopover from './PickerPopover.vue'
 import StatusIcon from './StatusIcon.vue'
 
-const props = defineProps<{ statuses: WorkflowStatus[] }>()
+const props = defineProps<{ statuses: WorkflowStatus[]; noHotkey?: boolean }>()
 const model = defineModel<string>({ required: true })
 const open = ref(false)
 
@@ -23,7 +23,7 @@ function choose(id: string) {
     v-model:open="open"
     label="Change status"
     placeholder="Change status..."
-    hotkey="S"
+    :hotkey="noHotkey ? undefined : 'S'"
     :current="model"
   >
     <template #trigger>

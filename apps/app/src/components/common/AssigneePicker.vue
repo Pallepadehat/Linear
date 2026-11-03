@@ -7,7 +7,7 @@ import UserAvatar from './UserAvatar.vue'
 
 export type AssigneeOption = { id: string; name: string; avatarUrl: string | null }
 
-const props = defineProps<{ users: AssigneeOption[] }>()
+const props = defineProps<{ users: AssigneeOption[]; noHotkey?: boolean }>()
 // null = unassigned
 const model = defineModel<string | null>({ required: true })
 const open = ref(false)
@@ -25,7 +25,7 @@ function choose(id: string | null) {
     v-model:open="open"
     label="Assign to"
     placeholder="Assign to..."
-    hotkey="A"
+    :hotkey="noHotkey ? undefined : 'A'"
     :current="model ?? 'unassigned'"
   >
     <template #trigger>
