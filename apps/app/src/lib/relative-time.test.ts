@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { timeAgo } from './relative-time'
+import { shortTimeAgo, timeAgo } from './relative-time'
 
 const now = new Date('2026-11-03T12:00:00Z')
 const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000)
@@ -14,5 +14,18 @@ describe('timeAgo', () => {
     [ago(400 * 24 * 3600), 'last year'],
   ])('%s → %s', (date, expected) => {
     expect(timeAgo(date, now)).toBe(expected)
+  })
+})
+
+describe('shortTimeAgo', () => {
+  it.each([
+    [ago(10), 'now'],
+    [ago(5 * 60), '5m'],
+    [ago(3 * 3600 + 59 * 60), '3h'],
+    [ago(2 * 24 * 3600), '2d'],
+    [ago(8 * 24 * 3600), '1w'],
+    [ago(400 * 24 * 3600), '1y'],
+  ])('%s → %s', (date, expected) => {
+    expect(shortTimeAgo(date, now)).toBe(expected)
   })
 })

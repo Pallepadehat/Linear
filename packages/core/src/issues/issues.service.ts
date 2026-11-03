@@ -1,5 +1,7 @@
 import {
   issueLabels,
+  issueLinks,
+  issuePullRequestLinks,
   issueRelations,
   issueSubscriptions,
   issues,
@@ -18,6 +20,7 @@ import {
   desc,
   eq,
   gt,
+  gte,
   ilike,
   inArray,
   isNotNull,
@@ -114,6 +117,8 @@ export type ListIssuesInput = {
   statusIds?: string[]
   /** The issue's status category is one of these. */
   statusCategories?: StatusCategory[]
+  /** Completed / canceled issues only if they finished at or after this time. */
+  completedAfter?: Date
   priorities?: number[]
   /** `null` matches unassigned issues. */
   assigneeIds?: (string | null)[]
@@ -133,6 +138,8 @@ export type ListIssuesInput = {
   today?: IsoDate
   /** Any of these users is subscribed. */
   subscriberIds?: string[]
+  /** `true`: has a web link or a linked PR; `false`: has neither. */
+  hasLinks?: boolean
   /** Who is asking; `isSubscribed` on each issue is for this user. */
   viewerId?: string
   q?: string
@@ -253,7 +260,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
     await setIssueLabels(tx, input.workspaceId, issue.id, labelIds)
     await subscribeUsers(tx, issue.id, [input.creatorId, assigneeId])
     await syncIssueAttachments(tx, input.workspaceId, issue.id, issue.description)
-    await recordActivity(tx, {
+    const [created] = await recordActivity(tx, {
       workspaceId: input.workspaceId,
       issueId: issue.id,
       actor: { type: 'user', id: input.creatorId },
@@ -267,7 +274,8 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         changes: [{ kind: 'sub_issue', from: null, to: `${teamDefaults.key}-${issue.number}` }],
       })
     }
-    return issue
+    /** The `created` activity entry, the source of the create's notifications. */
+    return { ...issue, createdActivityId: created!.id }
   })
 }
 
@@ -354,6 +362,13 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
   return { items: await withLabels(db, input.workspaceId, page), nextCursor }
 }
 
+/** Web links and linked PRs both count as links (docs/domain.md → Links). */
+function hasLinksFilter(hasLinks: boolean | undefined) {
+  if (hasLinks === undefined) return undefined
+  const any = sql`(exists (select 1 from ${issueLinks} where ${issueLinks.issueId} = ${issues.id}) or exists (select 1 from ${issuePullRequestLinks} where ${issuePullRequestLinks.issueId} = ${issues.id}))`
+  return hasLinks ? any : sql`not ${any}`
+}
+
 /** Expects `teams` and `workflowStatuses` joined on the issue. */
 export function listFilter(input: IssueFilterInput) {
   const identifier = input.q ? parseIdentifierQuery(input.q) : null
@@ -370,6 +385,7 @@ export function listFilter(input: IssueFilterInput) {
     input.statusCategories?.length
       ? inArray(workflowStatuses.category, input.statusCategories)
       : undefined,
+    completedAfterFilter(input.completedAfter),
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
@@ -384,6 +400,7 @@ export function listFilter(input: IssueFilterInput) {
       ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
       : undefined,
     dueFilter(input.due, input.today),
+    hasLinksFilter(input.hasLinks),
     input.subscriberIds?.length
       ? sql`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.workspaceId, input.workspaceId)} and ${inArray(issueSubscriptions.userId, input.subscriberIds)})`
       : undefined,
@@ -395,6 +412,22 @@ export function listFilter(input: IssueFilterInput) {
             : undefined,
         )
       : undefined,
+  )
+}
+
+/**
+ * Open issues always pass; finished ones only if they finished recently enough.
+ * Canceled issues have no `completedAt`, so their last update stands in for it.
+ */
+function completedAfterFilter(after: Date | undefined) {
+  if (!after) return undefined
+  return or(
+    notInArray(workflowStatuses.category, ['completed', 'canceled']),
+    // A raw `sql` operand has no column type to encode a Date with, so pass ISO text.
+    gte(
+      sql`coalesce(${issues.completedAt}, ${issues.updatedAt})`,
+      sql`${after.toISOString()}::timestamptz`,
+    ),
   )
 }
 
@@ -503,7 +536,7 @@ function rankOrder(rank: SQL<number>) {
 }
 
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
-  const parentChange = await db.transaction(async (tx) => {
+  const { parentChange, activity } = await db.transaction(async (tx) => {
     // Locking the row keeps `completedAt` consistent with concurrent status changes.
     const [current] = await tx
       .select()
@@ -613,7 +646,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       await setIssueLabels(tx, input.workspaceId, current.id, labelIds)
     }
     if (newAssigneeId) await subscribeUsers(tx, current.id, [newAssigneeId])
-    await recordActivity(tx, {
+    const recorded = await recordActivity(tx, {
       workspaceId: input.workspaceId,
       issueId: current.id,
       actor: input.actor,
@@ -622,7 +655,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     if (parentChange) {
       await recordParentChange(tx, input.workspaceId, input.actor, current, parentChange)
     }
-    return parentChange
+    return { parentChange, activity: recorded }
   })
   const issue = await getIssue(
     db,
@@ -632,6 +665,8 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
   )
   return {
     ...issue,
+    /** The issue's new activity entries (what actually changed), for notifications. */
+    activity,
     /** Old and new parent ids when the parent changed, so callers can notify both. */
     parentChange: parentChange
       ? { from: parentChange.from?.id ?? null, to: parentChange.to?.id ?? null }

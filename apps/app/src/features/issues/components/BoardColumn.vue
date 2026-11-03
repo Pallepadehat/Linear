@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import type { DisplayProperty, Issue, Label, WorkflowStatus } from '@linear/contract'
 import { Plus } from '@lucide/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref, useId, type ComponentPublicInstance } from 'vue'
 import type { AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import EstimateIcon from '@/components/common/EstimateIcon.vue'
-import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { pointsText, sumEstimates, type EstimateSettings } from '@/lib/estimates'
 import type { BoardColumn } from '../board-columns'
 import type { IssuePatch } from '../issue-cache'
 import { groupSelectionState } from '../selection'
 import BoardCard from './BoardCard.vue'
+import GroupIcon from './GroupIcon.vue'
 import SelectionCheckbox from './SelectionCheckbox.vue'
 
 const props = defineProps<{
@@ -24,8 +24,10 @@ const props = defineProps<{
   draggingId: string | null
   /** Whether the dragged card may be dropped here. */
   canDrop: boolean
-  /** Shows the `+` that creates an issue in this status. */
+  /** Shows the `+` that creates an issue in this column. */
   creatable: boolean
+  /** Display options → properties shown on the cards. */
+  properties?: readonly DisplayProperty[]
   /** The bulk selection (see `useIssueSelection`). */
   selectedIds: ReadonlySet<string>
 }>()
@@ -111,14 +113,14 @@ function onDrop(event: DragEvent) {
         class="-mx-1"
         :class="selectionState ? 'flex' : 'hidden group-hover/header:flex focus-visible:flex'"
         :checked="selectionState"
-        :label="`Select all issues in ${column.status.name}`"
+        :label="`Select all issues in ${column.label}`"
         @toggle="emit('selectAll')"
       />
-      <StatusIcon
+      <GroupIcon
         :class="column.issues.length && !selectionState ? 'group-hover/header:hidden' : undefined"
-        :category="column.status.category"
+        :icon="column.icon"
       />
-      <h2 :id="headingId" class="truncate font-medium text-ink">{{ column.status.name }}</h2>
+      <h2 :id="headingId" class="truncate font-medium text-ink">{{ column.label }}</h2>
       <span class="text-ink-subtle tabular-nums">{{ column.issues.length }}</span>
       <span
         v-if="estimateTotal > 0"
@@ -134,7 +136,7 @@ function onDrop(event: DragEvent) {
         variant="ghost"
         size="icon-xs"
         class="ml-auto"
-        :aria-label="`New issue in ${column.status.name}`"
+        :aria-label="`New issue in ${column.label}`"
         @click="emit('create')"
       >
         <Plus aria-hidden="true" />
@@ -163,6 +165,7 @@ function onDrop(event: DragEvent) {
             :labels="labels"
             :estimates="estimatesByTeam.get(issue.teamId)"
             :dragging="draggingId === issue.id"
+            :properties="properties"
             :selected="selectedIds.has(issue.id)"
             @update="(patch) => emit('update', issue, patch)"
             @dragstart="(event) => emit('dragstart', issue, event)"

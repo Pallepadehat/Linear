@@ -14,9 +14,11 @@ import {
   toBoardColumns,
   type BoardColumn as Column,
 } from '../board-columns'
+import { useDisplayOptions } from '../composables/useDisplayOptions'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { useIssueSelection } from '../composables/useIssueSelection'
 import { useIssueViewData } from '../composables/useIssueViewData'
+import { displayListInput, displayViewKey, visibleCategories } from '../display-options'
 import { viewStatusCategories } from '../issue-view'
 import BoardColumn from './BoardColumn.vue'
 import BulkActionBar from './BulkActionBar.vue'
@@ -34,16 +36,26 @@ const props = defineProps<{
 
 const ui = useUiStore()
 const { active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, queryKey, issues, users, labels, statusesByTeam, estimatesByTeam, updateIssue } =
-  useIssueViewData(
-    () => props.workspaceSlug,
-    () => ({
-      teamId: props.teamId,
-      projectId: props.projectId,
-      cycleId: props.cycleId,
-      statusCategories: viewStatusCategories(props.view),
-    }),
-  )
+const { options } = useDisplayOptions(() => displayViewKey(props))
+const {
+  query,
+  queryKey,
+  issues,
+  users,
+  labels,
+  projects,
+  statusesByTeam,
+  estimatesByTeam,
+  updateIssue,
+} = useIssueViewData(
+  () => props.workspaceSlug,
+  () => ({
+    teamId: props.teamId,
+    projectId: props.projectId,
+    cycleId: props.cycleId,
+    ...displayListInput(options.value, viewStatusCategories(props.view)),
+  }),
+)
 
 // Pages are newest-first across all statuses, so every column is only complete
 // once every page is in; keep loading in the background. Columns are virtualized.
@@ -52,11 +64,29 @@ watchEffect(() => {
     void query.fetchNextPage()
 })
 
-const columns = computed(() =>
-  toBoardColumns(issues.value, statusesByTeam.value, viewStatusCategories(props.view)),
-)
+const toColumns = (list: Issue[]) =>
+  toBoardColumns(
+    list,
+    {
+      statusesByTeam: statusesByTeam.value,
+      categories: visibleCategories(options.value, viewStatusCategories(props.view)),
+      users: users.value,
+      projects: projects.value,
+      labels: labels.value,
+    },
+    {
+      groupBy: options.value.grouping,
+      direction: options.value.groupDirection,
+      showEmpty: options.value.showEmptyGroups,
+      ordering: { completedByRecency: options.value.orderCompletedByRecency },
+    },
+  )
+const columns = computed(() => toColumns(issues.value))
 // Shift-click ranges run down each column, left to right.
-const boardIssues = computed(() => columns.value.flatMap((column) => column.issues))
+// An issue in several label columns counts once.
+const boardIssues = computed(() => [
+  ...new Map(columns.value.flatMap((column) => column.issues).map((i) => [i.id, i])).values(),
+])
 const {
   selectedIds,
   click: select,
@@ -74,8 +104,7 @@ const loading = computed(
 const router = useRouter()
 const nav = useIssueNavStore()
 function openIssue(issue: Issue) {
-  const statuses = statusesByTeam.value
-  const order = (list: Issue[]) => boardOrder(list, statuses)
+  const order = (list: Issue[]) => boardOrder(toColumns(list))
   nav.open(
     {
       queryKey: queryKey.value,
@@ -105,15 +134,26 @@ useEventListener(document, 'drop', endDrag)
 
 function dropTarget(column: Column) {
   const issue = dragging.value
-  return issue ? resolveDropTarget(issue, column.key, statusesByTeam.value.get(issue.teamId)) : null
+  return issue ? resolveDropTarget(issue, column, statusesByTeam.value.get(issue.teamId)) : null
 }
 
 function onDrop(column: Column) {
   const issue = dragging.value
   const target = dropTarget(column)
   endDrag()
-  if (issue && target?.type === 'move')
-    updateIssue.mutate({ issue, patch: { status: target.status } })
+  if (issue && target?.type === 'move') updateIssue.mutate({ issue, patch: target.patch })
+}
+
+// The column "+" creates an issue with the column's status, assignee or project.
+function createInColumn(column: Column) {
+  const base = { teamId: props.teamId, projectId: props.projectId, cycleId: props.cycleId }
+  const value = column.value
+  if (value.by === 'status') ui.openCreateIssue({ ...base, statusId: value.status.id })
+  else if (value.by === 'assignee')
+    ui.openCreateIssue({ ...base, assigneeId: value.assigneeId ?? undefined })
+  else if (value.by === 'project')
+    ui.openCreateIssue({ ...base, projectId: value.projectId ?? base.projectId })
+  else ui.openCreateIssue(base)
 }
 </script>
 
@@ -186,6 +226,7 @@ function onDrop(column: Column) {
         :dragging-id="dragging?.id ?? null"
         :can-drop="dropTarget(column)?.type === 'move'"
         :creatable="!!teamId"
+        :properties="options.properties"
         :selected-ids="selectedIds"
         @update="(issue, patch) => updateIssue.mutate({ issue, patch })"
         @dragstart="onDragStart"
@@ -194,7 +235,7 @@ function onDrop(column: Column) {
         @open="openIssue"
         @select="select"
         @select-all="toggleGroup(column.issues)"
-        @create="ui.openCreateIssue({ teamId, projectId, cycleId, statusId: column.status.id })"
+        @create="createInColumn(column)"
       />
     </div>
     <BulkActionBar

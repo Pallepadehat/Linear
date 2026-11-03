@@ -9,9 +9,11 @@ import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
 import { cyclesKey } from '@/features/cycles/queries'
 import { invalidateProjects } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
+import { notificationsKey } from '@/features/inbox/queries'
 import { templatesKey } from '@/features/templates/queries'
 import {
   issueDetailKeys,
+  filtersByLinks,
   issueFacetsKey,
   issueListKey,
   writeIssueToCaches,
@@ -29,6 +31,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('status') &&
       (!!input.statusIds?.length ||
         !!input.statusCategories?.length ||
+        !!input.completedAfter ||
         !!input.due?.includes('overdue'))) ||
     (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
@@ -37,6 +40,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
     (fields.has('subscribers') && !!input.subscriberIds?.length) ||
     (fields.has('title') && !!input.q) ||
+    ((fields.has('links') || fields.has('pullRequests')) && input.hasLinks !== undefined) ||
     // Gaining or losing a parent moves the issue in or out of lists that hide sub-issues.
     (fields.has('parent') && (input.showSubIssues === false || !!input.excludeSubtreeOf))
   )
@@ -126,6 +130,9 @@ export function createRealtimeEventHandler({
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
     if (fields.some((f) => FACET_FIELDS.includes(f))) invalidateSoon('facets')
+    // Counts filtered by "Has links" change when the issue gains or loses its last link.
+    if (fields.includes('links') || fields.includes('pullRequests'))
+      void queryClient.invalidateQueries({ queryKey: issueFacetsKey(), predicate: filtersByLinks })
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.
@@ -145,6 +152,10 @@ export function createRealtimeEventHandler({
     })
   }
 
+  function invalidateInbox() {
+    void queryClient.invalidateQueries({ queryKey: notificationsKey() })
+  }
+
   function invalidateIssue(issueId: string) {
     for (const queryKey of issueDetailKeys()) {
       void queryClient.invalidateQueries({
@@ -159,8 +170,12 @@ export function createRealtimeEventHandler({
       case 'issue.created':
         return invalidateSoon('lists', 'projects', 'cycles', 'facets')
       case 'issue.updated':
+        // Inbox rows show the issue's title and status.
+        if (event.fields.includes('title') || event.fields.includes('status')) invalidateInbox()
         return void onIssueUpdated(event.issueId, event.fields)
       case 'issue.deleted':
+        // Its notifications are deleted with it.
+        invalidateInbox()
         queryClient.setQueriesData<InfiniteData<IssuePage>>(
           { queryKey: orpc.issues.list.key({ type: 'infinite' }) },
           (data) => removeIssueFromPages(data, event.issueId),
@@ -186,6 +201,9 @@ export function createRealtimeEventHandler({
         return void queryClient.invalidateQueries({ queryKey: templatesKey() })
       case 'presence.changed':
         return void queryClient.invalidateQueries({ queryKey: orpc.presence.list.key() })
+      case 'notification.created':
+        // Only ever sent to the recipient: refresh the Inbox and the unread badge.
+        return invalidateInbox()
     }
   }
 }

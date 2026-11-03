@@ -11,7 +11,7 @@ const A = '0192f5a0-0000-7000-8000-000000000001'
 const B = '0192f5a0-0000-7000-8000-000000000002'
 
 describe('issue filters in the URL', () => {
-  it('round-trips every filter and sort', () => {
+  it('round-trips every filter', () => {
     const filters = {
       statusIds: [A, B],
       priorities: [1, 0],
@@ -24,9 +24,7 @@ describe('issue filters in the URL', () => {
       due: ['overdue' as const, 'noDueDate' as const],
       subscriberIds: ['me', A],
       q: 'login',
-      sort: 'priority' as const,
-      direction: 'asc' as const,
-      showSubIssues: false,
+      hasLinks: true,
     }
     const query = serializeIssueFilters(filters)
     expect(query).toEqual({
@@ -41,9 +39,7 @@ describe('issue filters in the URL', () => {
       due: 'overdue,noDueDate',
       subscriber: `me,${A}`,
       q: 'login',
-      sort: 'priority',
-      dir: 'asc',
-      subIssues: 'hide',
+      links: 'has',
     })
     expect(parseIssueFilters(query as Record<string, string>)).toEqual(filters)
   })
@@ -77,7 +73,6 @@ describe('issue filters in the URL', () => {
 
   it('knows when a filter is active', () => {
     expect(hasActiveFilters(EMPTY_FILTERS)).toBe(false)
-    expect(hasActiveFilters({ ...EMPTY_FILTERS, sort: 'priority' })).toBe(false)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, q: 'x' })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, cycleIds: [null] })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, milestoneIds: [null] })).toBe(true)

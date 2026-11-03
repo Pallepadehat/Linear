@@ -106,6 +106,7 @@ describe('optimistic bulk cache writes', () => {
       parent: null,
       children: [],
       relations: { blocks: [], blockedBy: [], related: [], duplicateOf: [], duplicates: [] },
+      links: [],
     })
   })
 

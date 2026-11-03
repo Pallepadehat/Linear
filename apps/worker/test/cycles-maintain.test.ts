@@ -26,6 +26,8 @@ const deps = {
   publish: async (workspaceId: string, event: RealtimeEvent) => {
     published.push({ workspaceId, event })
   },
+  publishToUser: async () => {},
+  notify: async () => {},
 }
 
 beforeEach(async () => {

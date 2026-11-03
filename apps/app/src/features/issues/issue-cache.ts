@@ -2,6 +2,7 @@ import type {
   BulkUpdateIssuesInput,
   Issue,
   IssueDetail,
+  IssueLink,
   IssuePage,
   Label,
   UpdateIssueInput,
@@ -184,6 +185,21 @@ export function toBulkUpdateInput(
 }
 
 /** The detail without the relation `relationId`, on whichever side it was listed. */
+/** The detail with `link` added, or replacing the link with its id. */
+export function upsertLink(detail: IssueDetail, link: IssueLink): IssueDetail {
+  const exists = detail.links.some((l) => l.id === link.id)
+  return {
+    ...detail,
+    links: exists
+      ? detail.links.map((l) => (l.id === link.id ? link : l))
+      : [...detail.links, link],
+  }
+}
+
+export function removeLink(detail: IssueDetail, linkId: string): IssueDetail {
+  return { ...detail, links: detail.links.filter((l) => l.id !== linkId) }
+}
+
 export function removeRelation(detail: IssueDetail, relationId: string): IssueDetail {
   const without = (list: IssueDetail['relations']['blocks']) =>
     list.filter((related) => related.relationId !== relationId)

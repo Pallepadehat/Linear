@@ -19,5 +19,23 @@ export function timeAgo(date: Date, now = new Date()): string {
   return 'just now'
 }
 
+const SHORT: Record<string, string> = {
+  year: 'y',
+  month: 'mo',
+  week: 'w',
+  day: 'd',
+  hour: 'h',
+  minute: 'm',
+}
+
+/** Compact age for dense rows: "now", "5m", "3h", "2d", "1w". */
+export function shortTimeAgo(date: Date, now = new Date()): string {
+  const seconds = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000))
+  for (const [unit, size] of UNITS) {
+    if (seconds >= size) return `${Math.floor(seconds / size)}${SHORT[unit]}`
+  }
+  return 'now'
+}
+
 /** Full date and time, for tooltips next to a relative time. */
 export const fullDate = (date: Date) => full.format(date)

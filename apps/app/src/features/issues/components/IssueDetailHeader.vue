@@ -10,6 +10,7 @@ import {
   GitCompareArrows,
   Hash,
   Link,
+  Link2,
   ListTree,
   Star,
   StarOff,
@@ -65,8 +66,9 @@ const props = defineProps<{
   teamKey?: string
 }>()
 // `setParent` opens the parent picker, which the page owns (it also answers ⇧⌘P);
-// `markAs` opens the relation picker.
+// `markAs` opens the relation picker, `addLink` the link dialog (also Ctrl L).
 const emit = defineEmits<{
+  addLink: []
   change: [patch: IssuePatch]
   setParent: []
   markAs: [kind: RelationKind]
@@ -126,6 +128,9 @@ watchEffect(
 
 // From the shortcut catalog, so the menu hint matches the binding.
 const deleteShortcut = shortcutKeys('issue-delete')
+  .flat()
+  .join(isMacPlatform() ? '' : ' ')
+const addLinkShortcut = shortcutKeys('issue-add-link')
   .flat()
   .join(isMacPlatform() ? '' : ' ')
 
@@ -338,6 +343,13 @@ const itemClass = 'h-8 rounded-md text-[13px]'
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem :class="itemClass" @select="emit('addLink')">
+          <Link2 class="text-ink-subtle" aria-hidden="true" />
+          Add link…
+          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">
+            {{ addLinkShortcut }}
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
         <DropdownMenuItem :class="itemClass" @select="toggleFavorite">
           <component :is="isFavorite ? StarOff : Star" class="text-ink-subtle" aria-hidden="true" />
           {{ isFavorite ? 'Remove from favorites' : 'Add to favorites' }}
