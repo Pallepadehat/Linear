@@ -33,6 +33,7 @@ const facets = {
     { value: 0, count: 1 },
   ],
   projects: [{ id: null, count: 5 }],
+  statuses: [],
 }
 const dimensions = [
   dimension('assignee', [

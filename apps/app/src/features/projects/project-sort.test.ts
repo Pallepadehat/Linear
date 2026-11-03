@@ -14,6 +14,7 @@ function project(name: string, overrides: Partial<Project> = {}): Project {
     id: `00000000-0000-7000-8000-${String(n).padStart(12, '0')}`,
     name,
     description: null,
+    summary: null,
     status: 'planned',
     iconUploadId: null,
     iconUrl: null,

@@ -241,7 +241,7 @@ describe('realtime event handler', () => {
       fetchIssue: async (id) => issue(id),
     })
     const facets = issueFacetsOptions('tip', { teamId: 'team' }).queryKey
-    queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [] })
+    queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [], statuses: [] })
     const stale = () => queryClient.getQueryState(facets)!.isInvalidated
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['description'], ...actor })
@@ -258,7 +258,7 @@ describe('realtime event handler', () => {
       { type: 'issue.created' as const, issueId: 'c', ...actor },
       { type: 'issue.deleted' as const, issueId: 'c', ...actor },
     ]) {
-      queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [] })
+      queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [], statuses: [] })
       handle(event)
       await vi.advanceTimersByTimeAsync(1_000)
       expect(stale()).toBe(true)
@@ -271,7 +271,7 @@ describe('realtime event handler', () => {
       workspaceSlug: 'tip',
       fetchIssue: async (id) => issue(id),
     })
-    const empty = { assignees: [], labels: [], priorities: [], projects: [] }
+    const empty = { assignees: [], labels: [], priorities: [], projects: [], statuses: [] }
     const byLinks = issueFacetsOptions('tip', {}, { ...EMPTY_FILTERS, hasLinks: true }).queryKey
     const plain = issueFacetsOptions('tip', {}).queryKey
     const stale = (key: typeof plain) => queryClient.getQueryState(key)!.isInvalidated
