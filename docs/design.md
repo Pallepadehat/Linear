@@ -265,11 +265,12 @@ The product app ships **dark and light themes**. Dark is the reference theme des
 | `{colors.hairline-tertiary}`   | #c8cad0   | Nested surfaces                              |
 | `{colors.ink}`                 | #0f1011   | Headlines, primary text                      |
 | `{colors.ink-muted}`           | #3c4149   | Secondary text                               |
-| `{colors.ink-subtle}`          | #6b6f76   | Tertiary text, meta                          |
+| `{colors.ink-subtle}`          | #686c73   | Tertiary text, meta (4.5:1 on `surface-2`)   |
 | `{colors.ink-tertiary}`        | #8a8f98   | Disabled, placeholders                       |
 | `{colors.primary}`             | #5e6ad2   | Same lavender in both themes                 |
 | `{colors.primary-hover}`       | #4c57c0   | Darker on light (dark theme lightens to #828fff) |
 | `{colors.primary-focus}`       | #5e69d1   | Focus ring, 2px at 50% opacity               |
+| `{colors.link}`               | #5e6ad2   | Text links (dark: #828fff for 4.5:1 on canvas) |
 | `{colors.on-primary}`          | #ffffff   |                                              |
 | `{colors.semantic-success}`    | #1f8a3a   | Slightly darker for contrast on light        |
 | `{colors.semantic-overlay}`    | rgba(15,16,17,0.4) | Modal scrim                         |
