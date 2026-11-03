@@ -25,12 +25,15 @@ import { todayIso } from '@/lib/due-dates'
 import { client, orpc } from '@/lib/orpc'
 import { patchCommentInPages, toggleReaction } from './comment-cache'
 import {
+  applyBulkChange,
   applyIssuePatch,
   patchIssue,
   patchIssueInPages,
   removeIssueFromPages,
   removeRelation,
+  toBulkUpdateInput,
   toUpdateIssueInput,
+  type BulkIssueChange,
   type IssuePatch,
 } from './issue-cache'
 import { EMPTY_FILTERS, type IssueFilters } from './issue-filters'
@@ -285,6 +288,119 @@ export function useDeleteIssue(workspaceSlug: MaybeRefOrGetter<string>) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: listKey }),
         invalidateProjects(queryClient),
+      ])
+    },
+  })
+}
+
+/**
+ * Writes `update` into every cached copy of each issue (list pages and details) and
+ * returns a function that puts all of those caches back as they were.
+ */
+export async function writeIssuesOptimistically(
+  queryClient: QueryClient,
+  ids: string[],
+  update: (issue: Issue) => Issue,
+) {
+  const keys = [issueInfiniteListKey(), ...issueDetailKeys()]
+  // A refetch landing after the patch would overwrite it with stale data.
+  await Promise.all(keys.map((queryKey) => queryClient.cancelQueries({ queryKey })))
+  const previous = keys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }))
+  for (const id of ids) writeIssueToCaches(queryClient, id, update)
+  return () => {
+    for (const [queryKey, data] of previous) queryClient.setQueryData(queryKey, data)
+  }
+}
+
+/** Removes the issues from every list page; the returned function puts them back. */
+export async function removeIssuesOptimistically(queryClient: QueryClient, ids: string[]) {
+  const queryKey = issueInfiniteListKey()
+  await queryClient.cancelQueries({ queryKey })
+  const previous = queryClient.getQueriesData<InfiniteData<IssuePage>>({ queryKey })
+  queryClient.setQueriesData<InfiniteData<IssuePage>>({ queryKey }, (data) =>
+    ids.reduce((pages, id) => removeIssueFromPages(pages, id), data),
+  )
+  return () => {
+    for (const [key, data] of previous) queryClient.setQueryData(key, data)
+  }
+}
+
+const issueCount = (count: number) => `${count} ${count === 1 ? 'issue' : 'issues'}`
+
+export type BulkUpdateVariables = { issues: Issue[]; change: BulkIssueChange }
+
+/**
+ * One change applied to many issues (the bulk action bar), shown at once in every
+ * list, board and detail cache and rolled back with a toast if the server refuses.
+ */
+export function useBulkUpdateIssues(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  const mutationKey = orpc.issues.bulkUpdate.mutationKey()
+  return useMutation({
+    mutationKey,
+    mutationFn: ({ issues, change }: BulkUpdateVariables) =>
+      client.issues.bulkUpdate(
+        toBulkUpdateInput(
+          toValue(workspaceSlug),
+          issues.map((issue) => issue.id),
+          change,
+        ),
+      ),
+    onMutate: async ({ issues, change }) => ({
+      rollback: await writeIssuesOptimistically(
+        queryClient,
+        issues.map((issue) => issue.id),
+        (issue) => applyBulkChange(issue, change),
+      ),
+    }),
+    onError: (error, { issues }, context) => {
+      context?.rollback()
+      toast.error(`Couldn't update ${issueCount(issues.length)}`, {
+        description: errorMessage(error),
+      })
+    },
+    onSuccess: ({ items }) => {
+      for (const item of items) writeIssueToCaches(queryClient, item.id, () => item)
+    },
+    onSettled: async () => {
+      if (queryClient.isMutating({ mutationKey }) > 1) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
+        ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+        queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
+        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        queryClient.invalidateQueries({ queryKey: cyclesKey() }),
+      ])
+    },
+  })
+}
+
+/** Deletes many issues, dropping them from every list at once; restored with a toast on error. */
+export function useBulkDeleteIssues(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      client.issues.bulkDelete({ workspaceSlug: toValue(workspaceSlug), ids }),
+    onMutate: async (ids) => ({ rollback: await removeIssuesOptimistically(queryClient, ids) }),
+    onError: (error, ids, context) => {
+      context?.rollback()
+      toast.error(`Couldn't delete ${issueCount(ids.length)}`, {
+        description: errorMessage(error),
+      })
+    },
+    onSuccess: ({ ids }) => {
+      const deleted = new Set(ids)
+      for (const queryKey of issueDetailKeys())
+        queryClient.removeQueries({
+          queryKey,
+          predicate: (query) => deleted.has((query.state.data as Issue | undefined)?.id ?? ''),
+        })
+      toast.success(`${issueCount(ids.length)} deleted`)
+    },
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
+        queryClient.invalidateQueries({ queryKey: projectsKey() }),
       ])
     },
   })

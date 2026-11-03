@@ -13,7 +13,13 @@ export type { AssigneeOption }
 // `users` are the members of the issue's team (every workspace member, see
 // domain.md → Assignee picker). Rows: No assignee (0), you (1), then the team
 // members by name (2–9). The hidden email lets the filter match it too.
-const props = defineProps<{ users: AssigneeOption[]; compact?: boolean; noHotkey?: boolean }>()
+// `triggerText` replaces the current value in the trigger (the bulk action bar).
+const props = defineProps<{
+  users: AssigneeOption[]
+  compact?: boolean
+  noHotkey?: boolean
+  triggerText?: string
+}>()
 // null = unassigned
 const model = defineModel<string | null>({ required: true })
 const open = ref(false)
@@ -39,10 +45,15 @@ function choose(id: string | null) {
     :align="compact ? 'end' : 'start'"
   >
     <template #trigger>
-      <UserAvatar v-if="current" :name="current.name" :src="current.avatarUrl" size="xs" />
+      <UserAvatar
+        v-if="current && !triggerText"
+        :name="current.name"
+        :src="current.avatarUrl"
+        size="xs"
+      />
       <UnassignedIcon v-else />
-      <span :class="{ 'text-ink-subtle': !current, 'sr-only': compact }">{{
-        current?.name ?? 'Unassigned'
+      <span :class="{ 'text-ink-subtle': !current || triggerText, 'sr-only': compact }">{{
+        triggerText ?? current?.name ?? 'Unassigned'
       }}</span>
     </template>
     <template #groups>
