@@ -14,6 +14,7 @@ import { assignableCycles } from '@/features/cycles/cycles'
 import type { EstimateSettings } from '@/lib/estimates'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
+import SelectionCheckbox from './SelectionCheckbox.vue'
 import SubIssueProgressRing from './SubIssueProgressRing.vue'
 
 const props = defineProps<{
@@ -36,7 +37,16 @@ const emit = defineEmits<{
   update: [patch: IssuePatch]
   /** The issue link was followed, so the list can hand the detail page its prev/next context. */
   open: []
+  /** Checkbox, shift- or ⌘/Ctrl-click: toggle or extend the bulk selection. */
+  select: [event: MouseEvent]
 }>()
+
+function onLinkClick(event: MouseEvent) {
+  if (event.shiftKey || event.metaKey || event.ctrlKey) {
+    event.preventDefault()
+    emit('select', event)
+  } else emit('open')
+}
 
 const cycleOptions = computed(() => assignableCycles(props.cycles ?? []))
 const issueCycle = computed(() => props.cycles?.find((c) => c.id === props.issue.cycleId) ?? null)
@@ -77,11 +87,18 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
   <div
     :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
     data-hotkey-scope
-    class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
+    class="group/row relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
     :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
     :data-focused="focused || undefined"
     :data-selected="selected || undefined"
   >
+    <SelectionCheckbox
+      class="absolute! top-1/2 left-0 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+      :class="{ 'opacity-100': selected }"
+      :checked="!!selected"
+      :label="`Select ${issue.identifier}`"
+      @toggle="emit('select', $event)"
+    />
     <PriorityPicker
       compact
       :model-value="toPriority(issue.priority)"
@@ -106,7 +123,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
     <RouterLink
       :to="{ name: 'issue', params: { identifier: issue.identifier } }"
       class="ml-1 min-w-0 flex-1 truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
-      @click="emit('open')"
+      @click="onLinkClick"
     >
       <span v-if="selected" class="sr-only">Selected,</span>
       {{ issue.title }}
