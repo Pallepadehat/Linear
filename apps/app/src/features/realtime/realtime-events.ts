@@ -20,7 +20,11 @@ const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project']
 function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssueField>) {
   return (
     input.sort === 'updatedAt' ||
-    (fields.has('status') && (!!input.statusIds?.length || !!input.statusCategories?.length)) ||
+    (fields.has('status') &&
+      (!!input.statusIds?.length ||
+        !!input.statusCategories?.length ||
+        !!input.due?.includes('overdue'))) ||
+    (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
     (fields.has('labels') && !!input.labelIds?.length) ||
     (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||

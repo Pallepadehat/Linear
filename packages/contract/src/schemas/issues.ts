@@ -11,6 +11,9 @@ export const issuePrioritySchema = z.number().int().min(0).max(4)
  * estimate. The server checks the value against the scale.
  */
 export const issueEstimateSchema = z.number().int().min(0).max(100)
+/** A calendar day, `YYYY-MM-DD`, with no time or timezone (docs/domain.md → Due dates). */
+export const isoDateSchema = z.iso.date({ message: 'Use a date like 2026-11-07' })
+export const issueDueDateSchema = isoDateSchema.nullable()
 
 export const issueTitleSchema = z.string().trim().min(1, { message: 'Required' }).max(255)
 export const issueDescriptionSchema = z.string().max(100_000).nullable()
@@ -38,6 +41,7 @@ export const issueSchema = z.object({
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
   estimate: issueEstimateSchema.nullable(),
+  dueDate: issueDueDateSchema,
   labels: z.array(labelSchema),
   /** Whether the signed-in user is subscribed (docs/domain.md → Subscribers). */
   isSubscribed: z.boolean(),
@@ -60,6 +64,7 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   projectId: z.uuid().nullable().optional(),
   estimate: issueEstimateSchema.nullable().optional(),
   labelIds: labelIdsSchema.optional(),
+  dueDate: issueDueDateSchema.optional(),
 })
 
 /** Omitted fields are left unchanged; `labelIds` replaces the whole set. */
@@ -73,6 +78,7 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
   projectId: z.uuid().nullable().optional(),
   estimate: issueEstimateSchema.nullable().optional(),
   labelIds: labelIdsSchema.optional(),
+  dueDate: issueDueDateSchema.optional(),
 })
 
 export const issueIdInputSchema = workspaceScopedSchema.extend({ id: z.uuid() })
@@ -81,9 +87,18 @@ export const getIssueByIdentifierInputSchema = workspaceScopedSchema.extend({
   identifier: issueIdentifierSchema,
 })
 
-export const issueSortSchema = z.enum(['createdAt', 'updatedAt', 'priority', 'estimate'])
-/** `desc` = newest / most urgent / largest first. No priority and no estimate always sort last. */
+export const issueSortSchema = z.enum(['createdAt', 'updatedAt', 'priority', 'estimate', 'dueDate'])
+/**
+ * `desc` = newest / most urgent / largest / latest due first. No priority, no
+ * estimate and no due date always sort last.
+ */
 export const sortDirectionSchema = z.enum(['asc', 'desc'])
+
+/**
+ * `overdue`: before today and not completed or canceled. `dueThisWeek`: today through
+ * Sunday. `noDueDate`: unset.
+ */
+export const issueDueFilterSchema = z.enum(['overdue', 'dueThisWeek', 'noDueDate'])
 
 const filterIdsSchema = z.array(z.uuid()).max(100)
 /** `null` in the list matches issues with no value (unassigned / no project). */
@@ -115,6 +130,10 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
     .array(z.union([issueEstimateSchema, z.literal('any')]).nullable())
     .max(20)
     .optional(),
+  /** Any of these due date buckets; `overdue` and `dueThisWeek` need `today`. */
+  due: z.array(issueDueFilterSchema).max(3).optional(),
+  /** The viewer's local date, so relative due filters never guess a timezone. */
+  today: isoDateSchema.optional(),
   /** Any of these users is subscribed. */
   subscriberIds: userFilterIdsSchema.optional(),
   /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
@@ -150,3 +169,4 @@ export type ListIssuesInput = z.input<typeof listIssuesInputSchema>
 export type IssueSubscriptionInput = z.input<typeof issueSubscriptionInputSchema>
 export type IssueSort = z.infer<typeof issueSortSchema>
 export type SortDirection = z.infer<typeof sortDirectionSchema>
+export type IssueDueFilter = z.infer<typeof issueDueFilterSchema>

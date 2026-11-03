@@ -1,4 +1,4 @@
-import type { IssueSort, SortDirection } from '@linear/contract'
+import type { IssueDueFilter, IssueSort, SortDirection } from '@linear/contract'
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 
 type QueryValue = LocationQuery[string] | undefined
@@ -22,6 +22,8 @@ export type IssueFilters = {
   projectIds: (string | null)[]
   labelIds: string[]
   estimates: EstimateFilterValue[]
+  /** Due date buckets, relative to the viewer's today (domain.md → Due dates). */
+  due: IssueDueFilter[]
   /** User ids, or `me`. */
   subscriberIds: string[]
   q: string
@@ -39,6 +41,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   projectIds: [],
   labelIds: [],
   estimates: [],
+  due: [],
   subscriberIds: [],
   q: '',
   sort: DEFAULT_SORT,
@@ -46,7 +49,8 @@ export const EMPTY_FILTERS: IssueFilters = {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const SORTS: readonly IssueSort[] = ['createdAt', 'updatedAt', 'priority', 'estimate']
+const SORTS: readonly IssueSort[] = ['createdAt', 'updatedAt', 'priority', 'estimate', 'dueDate']
+export const DUE_FILTERS: readonly IssueDueFilter[] = ['overdue', 'dueThisWeek', 'noDueDate']
 
 function first(value: QueryValue) {
   return (Array.isArray(value) ? value[0] : value) ?? ''
@@ -81,6 +85,9 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     estimates: list(query.estimate).flatMap((v): EstimateFilterValue[] =>
       v === NONE ? [null] : v === ANY ? [ANY] : /^\d{1,3}$/.test(v) ? [Number(v)] : [],
     ),
+    due: list(query.due).filter((v): v is IssueDueFilter =>
+      DUE_FILTERS.includes(v as IssueDueFilter),
+    ),
     subscriberIds: list(query.subscriber).filter((v) => v === ME || UUID.test(v)),
     q: first(query.q).trim(),
     sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
@@ -99,6 +106,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     project: join(filters.projectIds),
     label: join(filters.labelIds),
     estimate: join(filters.estimates),
+    due: join(filters.due),
     subscriber: join(filters.subscriberIds),
     q: filters.q.trim() || undefined,
     sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
@@ -115,6 +123,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.projectIds.length > 0 ||
     filters.labelIds.length > 0 ||
     filters.estimates.length > 0 ||
+    filters.due.length > 0 ||
     filters.subscriberIds.length > 0 ||
     filters.q !== ''
   )

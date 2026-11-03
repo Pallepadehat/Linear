@@ -16,6 +16,8 @@ export type IssuePatch = Partial<
     | 'projectId'
     | 'estimate'
     | 'labels'
+    | 'labels'
+    | 'dueDate'
   >
 >
 
@@ -94,5 +96,6 @@ export function toUpdateIssueInput(
     ...(patch.projectId !== undefined && { projectId: patch.projectId }),
     ...(patch.estimate !== undefined && { estimate: patch.estimate }),
     ...(patch.labels && { labelIds: patch.labels.map((label) => label.id) }),
+    ...(patch.dueDate !== undefined && { dueDate: patch.dueDate }),
   }
 }

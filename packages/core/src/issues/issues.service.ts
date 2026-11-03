@@ -13,6 +13,7 @@ import {
 import {
   and,
   asc,
+  between,
   desc,
   eq,
   gt,
@@ -21,6 +22,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  notInArray,
   or,
   sql,
   type AnyColumn,
@@ -34,6 +36,7 @@ import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
 import { assertValidEstimate } from './estimates'
+import { endOfWeek, isIsoDate, type IsoDate } from './due-dates'
 import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
 import {
   decodeListCursor,
@@ -59,6 +62,8 @@ export type CreateIssueInput = {
   /** Must be on the team's estimate scale; `null` = no estimate. */
   estimate?: number | null
   labelIds?: string[]
+  /** `YYYY-MM-DD`; null or omitted = no due date. */
+  dueDate?: IsoDate | null
 }
 
 /** Omitted fields are left unchanged; `labelIds` replaces the whole set. */
@@ -74,7 +79,10 @@ export type UpdateIssueInput = {
   projectId?: string | null
   estimate?: number | null
   labelIds?: string[]
+  dueDate?: IsoDate | null
 }
+
+export type DueFilter = 'overdue' | 'dueThisWeek' | 'noDueDate'
 
 export type ListIssuesInput = {
   workspaceId: string
@@ -94,6 +102,10 @@ export type ListIssuesInput = {
   labelIds?: string[]
   /** Estimate values; `null` matches no estimate, `'any'` any estimate. */
   estimates?: (number | 'any' | null)[]
+  /** Any of these buckets; `overdue` and `dueThisWeek` are relative to `today`. */
+  due?: DueFilter[]
+  /** The viewer's local day (docs/domain.md → Due dates). */
+  today?: IsoDate
   /** Any of these users is subscribed. */
   subscriberIds?: string[]
   /** Who is asking; `isSubscribed` on each issue is for this user. */
@@ -111,6 +123,12 @@ function normalizeTitle(title: string) {
   const trimmed = title.trim()
   if (trimmed.length === 0) throw new DomainError('BAD_REQUEST', 'Issue title is required')
   return trimmed
+}
+
+function assertDueDate(dueDate: string | null | undefined) {
+  if (dueDate && !isIsoDate(dueDate)) {
+    throw new DomainError('BAD_REQUEST', 'Due date must be a date like 2026-11-07')
+  }
 }
 
 function assertPriority(priority: number) {
@@ -137,6 +155,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
   assertPriority(priority)
   const estimate = input.estimate ?? null
   assertValidEstimate(teamDefaults, estimate)
+  assertDueDate(input.dueDate)
   const status = await resolveStatus(
     db,
     input.workspaceId,
@@ -180,6 +199,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
         estimate,
+        dueDate: input.dueDate ?? null,
         completedAt: nextCompletedAt(status.category, null),
       })
       .returning()
@@ -241,6 +261,12 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
   const sort = input.sort ?? 'createdAt'
   const direction = input.direction ?? 'desc'
   const cursor = input.cursor ? decodeListCursor(input.cursor, sort, direction) : null
+  if (input.today !== undefined && !isIsoDate(input.today)) {
+    throw new DomainError('BAD_REQUEST', 'today must be a date like 2026-11-07')
+  }
+  if (!input.today && input.due?.some((bucket) => bucket !== 'noDueDate')) {
+    throw new DomainError('BAD_REQUEST', 'Relative due date filters need today')
+  }
   const order = sortOrder(sort, direction)
 
   const rows = await selectIssueRows(db, input.workspaceId, {
@@ -279,6 +305,7 @@ function listFilter(input: ListIssuesInput) {
     input.labelIds?.length
       ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
       : undefined,
+    dueFilter(input.due, input.today),
     input.subscriberIds?.length
       ? sql`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.workspaceId, input.workspaceId)} and ${inArray(issueSubscriptions.userId, input.subscriberIds)})`
       : undefined,
@@ -290,6 +317,23 @@ function listFilter(input: ListIssuesInput) {
             : undefined,
         )
       : undefined,
+  )
+}
+
+/** OR of the due date buckets; `today` is checked by the caller when one needs it. */
+function dueFilter(buckets: DueFilter[] | undefined, today: IsoDate | undefined) {
+  if (!buckets?.length) return undefined
+  return or(
+    ...[...new Set(buckets)].map((bucket) => {
+      if (bucket === 'noDueDate') return isNull(issues.dueDate)
+      if (bucket === 'overdue') {
+        return and(
+          lt(issues.dueDate, today!),
+          notInArray(workflowStatuses.category, ['completed', 'canceled']),
+        )
+      }
+      return between(issues.dueDate, today!, endOfWeek(today!))
+    }),
   )
 }
 
@@ -331,6 +375,24 @@ function sortOrder(sort: IssueSort, direction: SortDirection) {
         ? sql<number>`case when ${issues.priority} = 0 then 5 else ${issues.priority} end`
         : sql<number>`case when ${issues.priority} = 0 then 5 else 5 - ${issues.priority} end`
     return rankOrder(rank)
+  }
+  if (sort === 'dueDate') {
+    // No due date becomes ±infinity, so it sorts last in both directions.
+    const key =
+      direction === 'asc'
+        ? sql`coalesce(${issues.dueDate}, 'infinity'::date)`
+        : sql`coalesce(${issues.dueDate}, '-infinity'::date)`
+    const dir = direction === 'desc' ? desc : asc
+    return {
+      orderBy: [dir(key), dir(issues.id)],
+      cursorValue: sql<string>`(${key})::text`,
+      after: (cursor: { value: string; id: string }) => {
+        const at = sql`${cursor.value}::date`
+        return direction === 'desc'
+          ? or(sql`${key} < ${at}`, and(sql`${key} = ${at}`, lt(issues.id, cursor.id)))
+          : or(sql`${key} > ${at}`, and(sql`${key} = ${at}`, gt(issues.id, cursor.id)))
+      },
+    }
   }
   const column = sort === 'createdAt' ? issues.createdAt : issues.updatedAt
   const dir = direction === 'desc' ? desc : asc
@@ -379,6 +441,10 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     if (input.priority !== undefined) {
       assertPriority(input.priority)
       changes.priority = input.priority
+    }
+    if (input.dueDate !== undefined) {
+      assertDueDate(input.dueDate)
+      changes.dueDate = input.dueDate
     }
     if (input.statusId !== undefined) {
       const status = await resolveStatus(

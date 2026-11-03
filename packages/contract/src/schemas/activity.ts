@@ -14,11 +14,13 @@ export const activityKindSchema = z.enum([
   'project',
   'labels',
   'estimate',
+  'due_date',
 ])
 
 /**
  * Per kind: `title` text, `status`/`assignee`/`project` ids, `priority` number,
- * `labels` sorted label ids, `estimate` number or null. `created` and `description` carry no values.
+ * `labels` sorted label ids, `estimate` number or null, `due_date` a `YYYY-MM-DD` day (null when
+ * unset). `created` and `description` carry no values.
  */
 export const activityValueSchema = z.union([z.string(), z.number(), z.array(z.string())]).nullable()
 

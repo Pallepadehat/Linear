@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm'
-import { check, index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import {
+  check,
+  date,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core'
 import { users } from './auth'
 import { id, timestamps } from './columns'
 import { projects } from './projects'
@@ -33,6 +43,8 @@ export const issues = pgTable(
     projectId: uuid().references(() => projects.id, { onDelete: 'set null' }),
     // Points on the team's estimate scale; null = no estimate (docs/domain.md → Estimates).
     estimate: integer(),
+    // A calendar day (YYYY-MM-DD), no time or timezone (docs/domain.md → Due dates).
+    dueDate: date({ mode: 'string' }),
     completedAt: timestamp({ withTimezone: true }),
     ...timestamps,
   },
@@ -47,6 +59,7 @@ export const issues = pgTable(
     index().on(t.workspaceId, t.estimate),
     index().on(t.workspaceId, t.createdAt, t.id),
     index().on(t.workspaceId, t.updatedAt, t.id),
+    index().on(t.workspaceId, t.dueDate, t.id),
     check('issues_number_positive', sql`${t.number} > 0`),
     check('issues_priority_range', sql`${t.priority} between 0 and 4`),
     check('issues_estimate_range', sql`${t.estimate} between 0 and 100`),

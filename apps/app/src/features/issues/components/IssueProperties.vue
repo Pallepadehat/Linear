@@ -3,6 +3,7 @@ import type { Issue, Label, LinkedPullRequest, WorkflowStatus } from '@linear/co
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import EstimatePicker from '@/components/common/EstimatePicker.vue'
+import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
@@ -50,6 +51,12 @@ const assigneeId = computed({
     if (id !== props.issue.assigneeId) emit('change', { assigneeId: id })
   },
 })
+const dueDate = computed({
+  get: () => props.issue.dueDate,
+  set: (value: string | null) => {
+    if (value !== props.issue.dueDate) emit('change', { dueDate: value })
+  },
+})
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
 // The issue's own labels stay pickable even if the workspace list hasn't loaded.
 const labelOptions = computed(() => {
@@ -89,6 +96,7 @@ const projectId = computed({
         :scale="estimates.scale"
         :allow-zero="estimates.allowZero"
       />
+      <DueDatePicker v-model="dueDate" :category="issue.status.category" />
     </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Labels</h2>

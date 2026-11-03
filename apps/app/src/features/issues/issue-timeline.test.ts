@@ -98,6 +98,8 @@ describe('describeActivity', () => {
     [activity('estimate', null, 3), 'set estimate to 3 points'],
     [activity('estimate', 3, 1), 'set estimate to 1 point'],
     [activity('estimate', 3, null), 'removed estimate'],
+    [activity('due_date', null, `${new Date().getFullYear()}-11-07`), 'set due date to Nov 7'],
+    [activity('due_date', '2026-11-07', null), 'removed due date'],
   ])('%#: %s', (entry, expected) => {
     expect(describeActivity(entry, names)).toBe(expected)
   })

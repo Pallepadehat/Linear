@@ -10,6 +10,7 @@ const current: IssueSnapshot = {
   projectId: null,
   estimate: null,
   labelIds: ['bug', 'ui'],
+  dueDate: null,
 }
 
 describe('diffIssue', () => {
@@ -54,6 +55,15 @@ describe('diffIssue', () => {
   it('compares labels as sorted sets', () => {
     expect(diffIssue(current, { labelIds: ['ui', 'feature'] })).toEqual([
       { kind: 'labels', from: ['bug', 'ui'], to: ['feature', 'ui'] },
+    ])
+  })
+
+  it('records due date changes as days, set and cleared', () => {
+    expect(diffIssue(current, { dueDate: '2026-11-07' })).toEqual([
+      { kind: 'due_date', from: null, to: '2026-11-07' },
+    ])
+    expect(diffIssue({ ...current, dueDate: '2026-11-07' }, { dueDate: null })).toEqual([
+      { kind: 'due_date', from: '2026-11-07', to: null },
     ])
   })
 })
