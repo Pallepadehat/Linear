@@ -196,6 +196,15 @@ describe('realtime event handler', () => {
     expect(listed().map((i) => i.id)).toEqual(['b'])
   })
 
+  it('refetches project queries, coalesced, on project events', async () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
+    handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(invalidate.mock.calls).toEqual([[{ queryKey: orpc.projects.key() }]])
+  })
+
   it("refetches only that issue's comments on a comment event", () => {
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
