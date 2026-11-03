@@ -78,7 +78,8 @@ describe('listFilter', () => {
     )
     expect(render({ updatedAfter: after }).sql).toBe('"issues"."updated_at" >= $1')
     expect(render({ completedBefore: before }).sql).toBe('"issues"."completed_at" < $1')
-    expect(render({ completedAfter: after, completedBefore: before }).params).toHaveLength(2)
+    expect(render({ completedSince: after }).sql).toBe('"issues"."completed_at" >= $1')
+    expect(render({ completedSince: after, completedBefore: before }).params).toHaveLength(2)
   })
 
   it('searches title and description, escaping LIKE wildcards', () => {

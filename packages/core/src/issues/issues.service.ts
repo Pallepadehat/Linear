@@ -137,6 +137,8 @@ export type ListIssuesInput = {
   createdBefore?: Date
   updatedAfter?: Date
   updatedBefore?: Date
+  /** Completion date bounds; both leave out open issues (unlike `completedAfter`). */
+  completedSince?: Date
   completedBefore?: Date
   /** Title or description contains (case-insensitive). */
   content?: string
@@ -419,6 +421,7 @@ export function listFilter(input: IssueFilterInput) {
     input.createdBefore ? lt(issues.createdAt, input.createdBefore) : undefined,
     input.updatedAfter ? gte(issues.updatedAt, input.updatedAfter) : undefined,
     input.updatedBefore ? lt(issues.updatedAt, input.updatedBefore) : undefined,
+    input.completedSince ? gte(issues.completedAt, input.completedSince) : undefined,
     input.completedBefore ? lt(issues.completedAt, input.completedBefore) : undefined,
     content
       ? or(

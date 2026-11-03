@@ -158,9 +158,11 @@ describe('issues.list filter operators', () => {
     // `…After` is inclusive.
     expect(await ids({ createdAfter: ago(7.5) })).toEqual(['TIP-5', 'TIP-4'])
     // Only completed issues have a completion date (TIP-4, 7.5 days ago).
-    expect(await ids({ completedAfter: ago(30) })).toEqual(['TIP-4'])
+    expect(await ids({ completedSince: ago(30) })).toEqual(['TIP-4'])
     expect(await ids({ completedBefore: new Date(now + DAY) })).toEqual(['TIP-4'])
-    expect(await ids({ completedAfter: ago(1) })).toEqual([])
+    expect(await ids({ completedSince: ago(1) })).toEqual([])
+    // The display option's `completedAfter` keeps open issues; `completedSince` doesn't.
+    expect(await ids({ completedAfter: ago(30) })).toHaveLength(5)
   })
 
   it('searches title and description content', async () => {

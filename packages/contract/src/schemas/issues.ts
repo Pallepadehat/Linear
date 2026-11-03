@@ -225,7 +225,11 @@ export const issueFiltersSchema = workspaceScopedSchema.extend({
   createdBefore: z.date().optional(),
   updatedAfter: z.date().optional(),
   updatedBefore: z.date().optional(),
-  /** Only completed issues have `completedAt`, so this bound leaves out open ones. */
+  /**
+   * Completion date bounds (Completed date filter). Only finished issues have one, so
+   * either bound leaves out open issues, unlike `completedAfter` above.
+   */
+  completedSince: z.date().optional(),
   completedBefore: z.date().optional(),
   /** Title or description contains (case-insensitive). */
   content: z.string().trim().max(255).optional(),
