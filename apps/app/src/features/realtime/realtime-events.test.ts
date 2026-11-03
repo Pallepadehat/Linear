@@ -245,7 +245,13 @@ describe('realtime event handler', () => {
       fetchIssue: async (id) => issue(id),
     })
     const facets = issueFacetsOptions('tip', { teamId: 'team' }).queryKey
-    queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [], statuses: [] })
+    queryClient.setQueryData(facets, {
+      assignees: [],
+      labels: [],
+      priorities: [],
+      projects: [],
+      statuses: [],
+    })
     const stale = () => queryClient.getQueryState(facets)!.isInvalidated
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['description'], ...actor })
@@ -262,7 +268,13 @@ describe('realtime event handler', () => {
       { type: 'issue.created' as const, issueId: 'c', ...actor },
       { type: 'issue.deleted' as const, issueId: 'c', ...actor },
     ]) {
-      queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [], statuses: [] })
+      queryClient.setQueryData(facets, {
+        assignees: [],
+        labels: [],
+        priorities: [],
+        projects: [],
+        statuses: [],
+      })
       handle(event)
       await vi.advanceTimersByTimeAsync(1_000)
       expect(stale()).toBe(true)

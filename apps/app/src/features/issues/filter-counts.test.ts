@@ -32,7 +32,12 @@ describe('statusGroupCounts', () => {
 
 describe('facetTotal and hiddenByFiltersText', () => {
   it('counts the hidden issues', () => {
-    expect(facetTotal([{ id: 'a', count: 2 }, { id: 'b', count: 3 }])).toBe(5)
+    expect(
+      facetTotal([
+        { id: 'a', count: 2 },
+        { id: 'b', count: 3 },
+      ]),
+    ).toBe(5)
     expect(facetTotal(undefined)).toBe(0)
     expect(hiddenByFiltersText(5, 4)).toBe('1 issue hidden by filters')
     expect(hiddenByFiltersText(5, 2)).toBe('3 issues hidden by filters')
