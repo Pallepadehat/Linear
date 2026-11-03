@@ -1,5 +1,5 @@
 {
-  "id": "80b9fb30-3485-42cf-9904-60a7c17080f5",
+  "id": "fbaf8e5c-2c75-4b86-9439-f9dce8bbff0d",
   "prevId": "070b48a3-a16e-4fb8-9741-ba511612a6e3",
   "version": "7",
   "dialect": "postgresql",
@@ -4683,8 +4683,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.notifications": {
-      "name": "notifications",
+    "public.issue_links": {
+      "name": "issue_links",
       "schema": "",
       "columns": {
         "id": {
@@ -4693,22 +4693,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "workspace_id": {
           "name": "workspace_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "notification_type",
-          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -4718,47 +4705,21 @@
           "primaryKey": false,
           "notNull": true
         },
-        "actor_type": {
-          "name": "actor_type",
-          "type": "activity_actor_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actor_id": {
-          "name": "actor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_key": {
-          "name": "source_key",
+        "url": {
+          "name": "url",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "payload": {
-          "name": "payload",
-          "type": "jsonb",
+        "title": {
+          "name": "title",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
+          "notNull": true
         },
-        "read_at": {
-          "name": "read_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "snoozed_until": {
-          "name": "snoozed_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
+        "created_by_id": {
+          "name": "created_by_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -4778,35 +4739,8 @@
         }
       },
       "indexes": {
-        "notifications_user_id_workspace_id_created_at_index": {
-          "name": "notifications_user_id_workspace_id_created_at_index",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notifications_issue_id_index": {
-          "name": "notifications_issue_id_index",
+        "issue_links_issue_id_index": {
+          "name": "issue_links_issue_id_index",
           "columns": [
             {
               "expression": "issue_id",
@@ -4819,25 +4753,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "issue_links_workspace_id_index": {
+          "name": "issue_links_workspace_id_index",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
-        "notifications_user_id_users_id_fk": {
-          "name": "notifications_user_id_users_id_fk",
-          "tableFrom": "notifications",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "notifications_workspace_id_workspaces_id_fk": {
-          "name": "notifications_workspace_id_workspaces_id_fk",
-          "tableFrom": "notifications",
+        "issue_links_workspace_id_workspaces_id_fk": {
+          "name": "issue_links_workspace_id_workspaces_id_fk",
+          "tableFrom": "issue_links",
           "tableTo": "workspaces",
           "columnsFrom": [
             "workspace_id"
@@ -4848,9 +4784,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "notifications_issue_id_issues_id_fk": {
-          "name": "notifications_issue_id_issues_id_fk",
-          "tableFrom": "notifications",
+        "issue_links_issue_id_issues_id_fk": {
+          "name": "issue_links_issue_id_issues_id_fk",
+          "tableFrom": "issue_links",
           "tableTo": "issues",
           "columnsFrom": [
             "issue_id"
@@ -4861,12 +4797,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "notifications_actor_id_users_id_fk": {
-          "name": "notifications_actor_id_users_id_fk",
-          "tableFrom": "notifications",
+        "issue_links_created_by_id_users_id_fk": {
+          "name": "issue_links_created_by_id_users_id_fk",
+          "tableFrom": "issue_links",
           "tableTo": "users",
           "columnsFrom": [
-            "actor_id"
+            "created_by_id"
           ],
           "columnsTo": [
             "id"
@@ -4876,16 +4812,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "notifications_user_id_source_key_unique": {
-          "name": "notifications_user_id_source_key_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "source_key"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -5004,7 +4931,8 @@
         "due_date",
         "parent",
         "sub_issue",
-        "relation"
+        "relation",
+        "link"
       ]
     },
     "public.issue_relation_type": {
@@ -5024,18 +4952,6 @@
         "project",
         "view",
         "team"
-      ]
-    },
-    "public.notification_type": {
-      "name": "notification_type",
-      "schema": "public",
-      "values": [
-        "assigned",
-        "mentioned",
-        "commented",
-        "status_changed",
-        "pr_linked",
-        "issue_created_in_team"
       ]
     }
   },

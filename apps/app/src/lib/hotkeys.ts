@@ -70,6 +70,13 @@ export const SHORTCUTS = {
   'issue-back': { keys: 'escape', label: 'Go back', scope: 'issue' },
   'issue-delete': { keys: 'mod+backspace', label: 'Delete issue', scope: 'issue' },
   'issue-set-parent': { keys: 'mod+shift+p', label: 'Set parent issue', scope: 'issue' },
+  // Ctrl L on every platform: ⌃L on macOS (⌘L is the address bar), Ctrl+L elsewhere.
+  'issue-add-link': {
+    keys: isMacPlatform() ? 'ctrl+l' : 'mod+l',
+    label: 'Add link',
+    scope: 'issue',
+    allowInInputs: true,
+  },
   // Copy actions match on key code in useIssueCopy (⌘⇧, gives "<", ⌥P gives "π" on
   // macOS); listed here for the sheet and the button / menu hints.
   'issue-copy-url': { keys: 'mod+shift+,', label: 'Copy issue URL', scope: 'issue' },

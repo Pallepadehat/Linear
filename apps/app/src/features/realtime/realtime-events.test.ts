@@ -69,6 +69,7 @@ beforeEach(() => {
     parent: null,
     children: [],
     relations: noRelations,
+    links: [],
   })
 })
 afterEach(() => vi.useRealTimers())
@@ -101,6 +102,7 @@ describe('realtime event handler', () => {
       parent: null,
       children: [],
       relations: { ...noRelations, blockedBy: [blocker] },
+      links: [],
     }))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
 
@@ -256,6 +258,26 @@ describe('realtime event handler', () => {
       handle(event)
       await vi.advanceTimersByTimeAsync(1_000)
       expect(stale()).toBe(true)
+    }
+  })
+
+  it('refetches Details panel counts filtered by "Has links" when links change', () => {
+    const handle = createRealtimeEventHandler({
+      queryClient,
+      workspaceSlug: 'tip',
+      fetchIssue: async (id) => issue(id),
+    })
+    const empty = { assignees: [], labels: [], priorities: [], projects: [] }
+    const byLinks = issueFacetsOptions('tip', {}, { ...EMPTY_FILTERS, hasLinks: true }).queryKey
+    const plain = issueFacetsOptions('tip', {}).queryKey
+    const stale = (key: typeof plain) => queryClient.getQueryState(key)!.isInvalidated
+
+    for (const fields of [['links'], ['pullRequests']] as const) {
+      queryClient.setQueryData(byLinks, empty)
+      queryClient.setQueryData(plain, empty)
+      handle({ type: 'issue.updated', issueId: 'a', fields: [...fields], ...actor })
+      expect(stale(byLinks)).toBe(true)
+      expect(stale(plain)).toBe(false)
     }
   })
 
