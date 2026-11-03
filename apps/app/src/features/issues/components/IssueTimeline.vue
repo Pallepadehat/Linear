@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { GitPullRequest } from '@lucide/vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { fullDate, timeAgo } from '@/lib/relative-time'
+import CommentThread from './CommentThread.vue'
 import {
   activityActor,
   describeActivity,
@@ -9,46 +12,53 @@ import {
   type TimelineEntry,
 } from '../issue-timeline'
 
-defineProps<{
+const props = defineProps<{
   entries: TimelineEntry[]
   names: ActivityNames
   avatarOf: (userId: string) => string | null
+  workspaceSlug: string
+  issueId: string
+  currentUserId: string | undefined
 }>()
+
+// `#comment-<id>` (Copy link) scrolls to that comment and highlights it briefly,
+// once it has loaded.
+const route = useRoute()
+const linkedId = computed(() => /^#comment-([\w-]+)$/.exec(route.hash)?.[1] ?? null)
+const highlightId = ref<string | null>(null)
+const commentIds = computed(() =>
+  props.entries.flatMap((e) =>
+    e.type === 'comment' ? [e.comment.id, ...e.comment.replies.map((r) => r.id)] : [],
+  ),
+)
+let timer: ReturnType<typeof setTimeout> | undefined
+watch(
+  [linkedId, () => commentIds.value.includes(linkedId.value ?? '')],
+  async ([id, loaded], previous) => {
+    if (!id || !loaded || (previous?.[0] === id && previous[1])) return
+    highlightId.value = id
+    await nextTick()
+    document
+      .getElementById(`comment-${id}`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    clearTimeout(timer)
+    timer = setTimeout(() => (highlightId.value = null), 2000)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <ol class="grid gap-3">
     <li v-for="entry in entries" :key="entry.key">
-      <article
+      <CommentThread
         v-if="entry.type === 'comment'"
-        class="rounded-lg border border-hairline bg-surface-1 px-4 py-3"
-      >
-        <header class="flex items-center gap-2 text-[13px]">
-          <UserAvatar
-            :name="entry.comment.author.name"
-            :src="entry.comment.author.avatarUrl"
-            size="sm"
-          />
-          <span class="font-medium text-ink">{{ entry.comment.author.name }}</span>
-          <time
-            :datetime="entry.at.toISOString()"
-            :title="fullDate(entry.at)"
-            class="text-xs text-ink-subtle"
-          >
-            {{ timeAgo(entry.at) }}
-          </time>
-          <span
-            v-if="entry.comment.updatedAt.getTime() !== entry.comment.createdAt.getTime()"
-            class="text-xs text-ink-subtle"
-            :title="fullDate(entry.comment.updatedAt)"
-          >
-            (edited)
-          </span>
-        </header>
-        <p class="mt-2 text-sm break-words whitespace-pre-wrap text-ink">
-          {{ entry.comment.body }}
-        </p>
-      </article>
+        :thread="entry.comment"
+        :workspace-slug="workspaceSlug"
+        :issue-id="issueId"
+        :current-user-id="currentUserId"
+        :highlight-id="highlightId"
+      />
       <p v-else class="flex items-center gap-2 pl-4 text-xs text-ink-subtle">
         <span class="flex size-4 shrink-0 items-center justify-center">
           <GitPullRequest

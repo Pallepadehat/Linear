@@ -1,4 +1,4 @@
-import type { Issue, IssuePage, ListIssuesInput } from '@linear/contract'
+import type { Comment, Issue, IssuePage, ListIssuesInput, ReactionEmoji } from '@linear/contract'
 import {
   keepPreviousData,
   useMutation,
@@ -11,6 +11,7 @@ import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
 import { projectsKey } from '@/features/projects/queries'
 import { client, orpc } from '@/lib/orpc'
+import { patchCommentInPages, toggleReaction } from './comment-cache'
 import {
   applyIssuePatch,
   patchIssue,
@@ -146,3 +147,87 @@ export const activityListOptions = (workspaceSlug: string, issueId: string) =>
     initialPageParam: null,
     getNextPageParam: (page) => page.nextCursor,
   })
+
+export type ToggleReactionVariables = { comment: Comment; emoji: ReactionEmoji; on: boolean }
+
+/**
+ * Adds or removes my reaction, shown at once and rolled back with a toast if the
+ * server rejects it.
+ */
+export function useToggleReaction(
+  workspaceSlug: MaybeRefOrGetter<string>,
+  issueId: MaybeRefOrGetter<string>,
+) {
+  const queryClient = useQueryClient()
+  const queryKey = () => commentListOptions(toValue(workspaceSlug), toValue(issueId)).queryKey
+  const mutationKey = orpc.comments.react.mutationKey()
+
+  return useMutation({
+    mutationKey,
+    mutationFn: ({ comment, emoji, on }: ToggleReactionVariables) => {
+      const input = { workspaceSlug: toValue(workspaceSlug), commentId: comment.id, emoji }
+      return on ? client.comments.react(input) : client.comments.unreact(input)
+    },
+    onMutate: async ({ comment, emoji, on }) => {
+      await queryClient.cancelQueries({ queryKey: queryKey() })
+      const previous = queryClient.getQueryData(queryKey())
+      queryClient.setQueryData(queryKey(), (data) =>
+        patchCommentInPages(data, comment.id, (c) => ({
+          ...c,
+          reactions: toggleReaction(c.reactions, emoji, on),
+        })),
+      )
+      return { previous }
+    },
+    onError: (error, _variables, context) => {
+      queryClient.setQueryData(queryKey(), context?.previous)
+      toast.error("Couldn't update the reaction", { description: errorMessage(error) })
+    },
+    onSettled: async () => {
+      // Quick successive toggles would flicker if the first settle refetched.
+      if (queryClient.isMutating({ mutationKey }) > 1) return
+      await queryClient.invalidateQueries({ queryKey: queryKey() })
+    },
+  })
+}
+
+/** Edit, delete and resolve: not optimistic, refetch the thread when they land. */
+export function useCommentActions(
+  workspaceSlug: MaybeRefOrGetter<string>,
+  issueId: MaybeRefOrGetter<string>,
+) {
+  const queryClient = useQueryClient()
+  const refetch = () =>
+    queryClient.invalidateQueries({
+      queryKey: commentListOptions(toValue(workspaceSlug), toValue(issueId)).queryKey,
+    })
+  const onError = (title: string) => (error: Error) =>
+    toast.error(title, { description: errorMessage(error) })
+
+  return {
+    update: useMutation(
+      orpc.comments.update.mutationOptions({
+        onSuccess: refetch,
+        onError: onError("Couldn't save the comment"),
+      }),
+    ),
+    remove: useMutation(
+      orpc.comments.delete.mutationOptions({
+        onSuccess: refetch,
+        onError: onError("Couldn't delete the comment"),
+      }),
+    ),
+    resolve: useMutation(
+      orpc.comments.resolveThread.mutationOptions({
+        onSuccess: refetch,
+        onError: onError("Couldn't resolve the thread"),
+      }),
+    ),
+    unresolve: useMutation(
+      orpc.comments.unresolveThread.mutationOptions({
+        onSuccess: refetch,
+        onError: onError("Couldn't reopen the thread"),
+      }),
+    ),
+  }
+}

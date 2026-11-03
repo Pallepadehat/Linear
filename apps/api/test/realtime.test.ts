@@ -92,6 +92,13 @@ describe('realtime', () => {
       issueId: issue.id,
       body: 'On it',
     })
+    await owner.client.comments.react({ workspaceSlug: 'tip', commentId: comment.id, emoji: '🚀' })
+    const reply = await owner.client.comments.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      parentId: comment.id,
+      body: 'Done',
+    })
 
     await eventually(() =>
       expect(events).toEqual([
@@ -105,6 +112,19 @@ describe('realtime', () => {
           type: 'comment.created',
           issueId: issue.id,
           commentId: comment.id,
+          actorId: owner.userId,
+        },
+        // A reaction is an update of its comment; a reply is a new comment (ids only).
+        {
+          type: 'comment.updated',
+          issueId: issue.id,
+          commentId: comment.id,
+          actorId: owner.userId,
+        },
+        {
+          type: 'comment.created',
+          issueId: issue.id,
+          commentId: reply.id,
           actorId: owner.userId,
         },
       ]),

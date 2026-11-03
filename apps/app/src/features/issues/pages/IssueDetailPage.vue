@@ -8,6 +8,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
@@ -80,6 +81,8 @@ const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.a
 watchEffect(() => {
   if (issue.value) ui.breadcrumb = [team.value?.name ?? 'Issues', issue.value.identifier]
 })
+
+const currentUser = useCurrentUser()
 
 // Comments and activity are paged; an issue's history is small, so load all of it.
 const issueId = computed(() => issue.value?.id ?? '')
@@ -232,7 +235,15 @@ onBeforeUnmount(commitDescription)
             aria-busy="true"
             aria-label="Loading activity"
           />
-          <IssueTimeline v-else :entries="timeline" :names="names" :avatar-of="avatarOf" />
+          <IssueTimeline
+            v-else
+            :entries="timeline"
+            :names="names"
+            :avatar-of="avatarOf"
+            :workspace-slug="slug"
+            :issue-id="issue.id"
+            :current-user-id="currentUser.data.value?.id"
+          />
           <CommentComposer :workspace-slug="slug" :issue-id="issue.id" />
         </section>
       </div>
