@@ -536,7 +536,7 @@ function rankOrder(rank: SQL<number>) {
 }
 
 export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
-  const { parentChange, activity } = await db.transaction(async (tx) => {
+  const { parentChange, activity, previousProjectId } = await db.transaction(async (tx) => {
     // Locking the row keeps `completedAt` consistent with concurrent status changes.
     const [current] = await tx
       .select()
@@ -655,7 +655,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     if (parentChange) {
       await recordParentChange(tx, input.workspaceId, input.actor, current, parentChange)
     }
-    return { parentChange, activity: recorded }
+    return { parentChange, activity: recorded, previousProjectId: current.projectId }
   })
   const issue = await getIssue(
     db,
@@ -671,6 +671,8 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     parentChange: parentChange
       ? { from: parentChange.from?.id ?? null, to: parentChange.to?.id ?? null }
       : null,
+    /** The project before the update, so callers can refresh its progress too. */
+    previousProjectId,
   }
 }
 
@@ -730,13 +732,14 @@ export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
     const [issue] = await tx
       .delete(issues)
       .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
-      .returning({ id: issues.id, parentId: issues.parentId })
+      .returning({ id: issues.id, parentId: issues.parentId, projectId: issues.projectId })
     if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
     await deleteFavoritesOf(tx, workspaceId, 'issue', [issue.id])
     const deletedUploadIds = await releaseAttachments(tx, workspaceId, attachmentIds)
     return {
       id: issue.id,
       parentId: issue.parentId,
+      projectId: issue.projectId,
       childIds: children.map((child) => child.id),
       deletedUploadIds,
     }
