@@ -3,6 +3,7 @@ import type {
   InferContractRouterInputs,
   InferContractRouterOutputs,
 } from '@orpc/contract'
+import { projectLabelsContract } from './routers/project-labels'
 import { projectsContract } from './routers/projects'
 import { realtimeContract } from './routers/realtime'
 import { activityContract } from './routers/activity'
@@ -23,6 +24,7 @@ export const contract = {
   labels: labelsContract,
   issues: issuesContract,
   projects: projectsContract,
+  projectLabels: projectLabelsContract,
   github: githubContract,
   activity: activityContract,
   comments: commentsContract,
