@@ -133,7 +133,7 @@ const onSubmit = handleSubmit(async ({ name }) => {
             <NativeSelect
               id="view-scope"
               v-model="scopeTeamId"
-              class="h-8 w-full rounded-md border-hairline bg-surface-1 text-[13px]"
+              class="h-8 w-56 rounded-md border-hairline bg-surface-1 py-0 pr-8 pl-2.5 text-[13px] text-ink shadow-none dark:bg-surface-1 dark:hover:bg-surface-2"
             >
               <NativeSelectOption value="">Workspace</NativeSelectOption>
               <NativeSelectOption v-for="team in teams ?? []" :key="team.id" :value="team.id">
