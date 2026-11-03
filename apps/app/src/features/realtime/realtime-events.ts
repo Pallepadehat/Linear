@@ -84,6 +84,11 @@ export function createRealtimeEventHandler({
   async function onIssueUpdated(issueId: string, fields: RealtimeIssueField[]) {
     void queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) })
     if (fields.includes('subscribers')) invalidateSubscribers(issueId)
+    if (fields.includes('pullRequests')) {
+      void queryClient.invalidateQueries({
+        queryKey: orpc.github.pullRequests.listForIssue.key({ input: { issueId } }),
+      })
+    }
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects')

@@ -28,6 +28,7 @@ const emit = defineEmits<{
   dragend: []
   drop: []
   create: []
+  open: [issue: Issue]
 }>()
 
 // Card height varies with the title (up to two lines) and labels; measured after render.
@@ -125,6 +126,7 @@ function onDrop(event: DragEvent) {
             @update="(patch) => emit('update', issue, patch)"
             @dragstart="(event) => emit('dragstart', issue, event)"
             @dragend="emit('dragend')"
+            @open="emit('open', issue)"
           />
         </div>
       </div>
