@@ -49,7 +49,7 @@ onMounted(async () => {
       <p v-if="error" class="text-ink-subtle">{{ error }}</p>
     </div>
     <p v-if="error">
-      <RouterLink to="/" class="font-medium text-primary hover:underline"
+      <RouterLink to="/" class="font-medium text-link hover:underline"
         >Back to your workspace</RouterLink
       >
     </p>
