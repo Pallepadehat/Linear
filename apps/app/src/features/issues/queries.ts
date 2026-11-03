@@ -38,7 +38,17 @@ const PAGE_SIZE = 50
 
 export type IssueListFilter = Pick<
   ListIssuesInput,
-  'teamId' | 'projectId' | 'cycleId' | 'assignee' | 'creator' | 'statusCategories'
+  | 'teamId'
+  | 'projectId'
+  | 'cycleId'
+  | 'assignee'
+  | 'creator'
+  | 'statusCategories'
+  // From the view's display options.
+  | 'completedAfter'
+  | 'sort'
+  | 'direction'
+  | 'showSubIssues'
 >
 
 /**

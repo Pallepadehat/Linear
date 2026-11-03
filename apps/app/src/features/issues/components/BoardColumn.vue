@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import type { DisplayProperty, Issue, Label, WorkflowStatus } from '@linear/contract'
 import { Plus } from '@lucide/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref, useId, type ComponentPublicInstance } from 'vue'
 import type { AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import EstimateIcon from '@/components/common/EstimateIcon.vue'
-import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { pointsText, sumEstimates, type EstimateSettings } from '@/lib/estimates'
 import type { BoardColumn } from '../board-columns'
 import type { IssuePatch } from '../issue-cache'
 import BoardCard from './BoardCard.vue'
+import GroupIcon from './GroupIcon.vue'
 
 const props = defineProps<{
   column: BoardColumn
@@ -22,8 +22,10 @@ const props = defineProps<{
   draggingId: string | null
   /** Whether the dragged card may be dropped here. */
   canDrop: boolean
-  /** Shows the `+` that creates an issue in this status. */
+  /** Shows the `+` that creates an issue in this column. */
   creatable: boolean
+  /** Display options → properties shown on the cards. */
+  properties?: readonly DisplayProperty[]
 }>()
 const emit = defineEmits<{
   update: [issue: Issue, patch: IssuePatch]
@@ -94,8 +96,8 @@ function onDrop(event: DragEvent) {
     @drop="onDrop"
   >
     <header class="flex h-10 shrink-0 items-center gap-2 pr-1.5 pl-3">
-      <StatusIcon :category="column.status.category" />
-      <h2 :id="headingId" class="truncate font-medium text-ink">{{ column.status.name }}</h2>
+      <GroupIcon :icon="column.icon" />
+      <h2 :id="headingId" class="truncate font-medium text-ink">{{ column.label }}</h2>
       <span class="text-ink-subtle tabular-nums">{{ column.issues.length }}</span>
       <span
         v-if="estimateTotal > 0"
@@ -111,7 +113,7 @@ function onDrop(event: DragEvent) {
         variant="ghost"
         size="icon-xs"
         class="ml-auto"
-        :aria-label="`New issue in ${column.status.name}`"
+        :aria-label="`New issue in ${column.label}`"
         @click="emit('create')"
       >
         <Plus aria-hidden="true" />
@@ -140,6 +142,7 @@ function onDrop(event: DragEvent) {
             :labels="labels"
             :estimates="estimatesByTeam.get(issue.teamId)"
             :dragging="draggingId === issue.id"
+            :properties="properties"
             @update="(patch) => emit('update', issue, patch)"
             @dragstart="(event) => emit('dragstart', issue, event)"
             @dragend="emit('dragend')"

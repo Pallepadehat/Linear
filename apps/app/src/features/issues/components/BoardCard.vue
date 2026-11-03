@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import type { DisplayProperty, Issue, Label, WorkflowStatus } from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import EstimatePicker from '@/components/common/EstimatePicker.vue'
@@ -20,6 +20,8 @@ const props = defineProps<{
   /** The issue team's estimate scale; no chip while unknown or off. */
   estimates?: EstimateSettings
   dragging?: boolean
+  /** Display options → properties; all are shown when not given. */
+  properties?: readonly DisplayProperty[]
 }>()
 const emit = defineEmits<{
   update: [patch: IssuePatch]
@@ -28,6 +30,9 @@ const emit = defineEmits<{
   /** The issue link was followed, so the board can hand the detail page its prev/next context. */
   open: []
 }>()
+
+const shows = (property: DisplayProperty) =>
+  !props.properties || props.properties.includes(property)
 
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
 const labelOptions = computed(() => (props.labels.length ? props.labels : props.issue.labels))
@@ -64,9 +69,10 @@ function setLabels(labels: Label[]) {
   >
     <div class="flex h-6 items-center gap-2">
       <span class="min-w-0 flex-1 truncate font-mono text-xs text-ink-subtle">
-        {{ issue.identifier }}
+        <template v-if="shows('id')">{{ issue.identifier }}</template>
       </span>
       <AssigneePicker
+        v-if="shows('assignee')"
         compact
         :users="users"
         :model-value="issue.assigneeId"
@@ -83,8 +89,9 @@ function setLabels(labels: Label[]) {
       {{ issue.title }}
     </RouterLink>
     <div class="-ml-1.5 flex flex-wrap items-center gap-0.5">
+      <template v-if="!shows('status')" />
       <StatusPicker
-        v-if="statuses.length"
+        v-else-if="statuses.length"
         compact
         :statuses="statuses"
         :model-value="issue.status.id"
@@ -97,12 +104,13 @@ function setLabels(labels: Label[]) {
         <span class="sr-only">Status: {{ issue.status.name }}</span>
       </template>
       <PriorityPicker
+        v-if="shows('priority')"
         compact
         :model-value="toPriority(issue.priority)"
         @update:model-value="setPriority"
       />
       <EstimatePicker
-        v-if="estimates && estimates.scale !== 'off'"
+        v-if="shows('estimate') && estimates && estimates.scale !== 'off'"
         compact
         :scale="estimates.scale"
         :allow-zero="estimates.allowZero"
@@ -110,7 +118,7 @@ function setLabels(labels: Label[]) {
         @update:model-value="setEstimate"
       />
       <LabelPicker
-        v-if="issue.labels.length"
+        v-if="shows('labels') && issue.labels.length"
         compact
         :labels="labelOptions"
         :team-id="issue.teamId"

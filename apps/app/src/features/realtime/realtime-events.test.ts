@@ -162,13 +162,15 @@ describe('realtime event handler', () => {
     const keyFor = (filters: Partial<IssueFilters>) =>
       issueListOptions('tip', {}, { ...EMPTY_FILTERS, ...filters }).queryKey
     const byStatus = keyFor({ statusIds: [todo.id] })
-    const byPriority = keyFor({ sort: 'priority' })
+    const byPriority = issueListOptions('tip', { sort: 'priority' }).queryKey
     const byTitle = keyFor({ q: 'login' })
     // An Active / Backlog tab: a status change can move the issue between tabs.
     const activeTab = issueListOptions('tip', {
       statusCategories: ['started', 'unstarted'],
     }).queryKey
-    for (const key of [byStatus, byPriority, byTitle, activeTab]) {
+    // "Completed issues: Past week": finishing an issue changes whether it's listed.
+    const recentDone = issueListOptions('tip', { completedAfter: new Date(0) }).queryKey
+    for (const key of [byStatus, byPriority, byTitle, activeTab, recentDone]) {
       queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
         pages: [{ items: [issue('a')], nextCursor: null }],
         pageParams: [null],
@@ -184,7 +186,8 @@ describe('realtime event handler', () => {
       stale(byPriority),
       stale(byTitle),
       stale(activeTab),
-    ]).toEqual([false, true, false, false, true])
+      stale(recentDone),
+    ]).toEqual([false, true, false, false, true, true])
 
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
@@ -199,7 +202,7 @@ describe('realtime event handler', () => {
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byEstimate)]).toEqual([false, true])
     const overdue = keyFor({ due: ['overdue'] })
-    const byDueDate = keyFor({ sort: 'dueDate' })
+    const byDueDate = issueListOptions('tip', { sort: 'dueDate' }).queryKey
     for (const key of [overdue, byDueDate]) {
       queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
         pages: [{ items: [issue('a')], nextCursor: null }],
