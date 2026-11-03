@@ -14,7 +14,7 @@ const { filterState } = useCommand()
       auto-focus
       :placeholder="placeholder"
       :aria-label="placeholder"
-      class="h-full w-full bg-transparent text-sm text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
+      class="h-full w-full bg-transparent text-[13px] text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
     />
     <kbd
       v-if="hotkey"

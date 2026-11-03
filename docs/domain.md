@@ -55,7 +55,7 @@ Each team gets these defaults on creation:
 
 - Logic (automation, filters, `completedAt`) uses **categories**, never status names.
 - Entering `completed` sets `completedAt`; leaving it clears `completedAt`.
-- New issues default to `Todo` unless another status is given. If the team has no status named `Todo`, the first `unstarted` status (by order) is used.
+- New issues default to `Backlog` unless another status is given. If the team has no status named `Backlog`, the first `backlog` status (by order) is used, then the first `unstarted` one. The create dialog preselects the same status (`features/issues/default-status.ts`). Per-team defaults are planned in LIN-49.
 
 ## Priorities
 
@@ -157,9 +157,11 @@ Only `pull_request` events are handled in the MVP; others are stored and marked 
 | `avatar`           | user       | png, jpeg, webp                  | 2 MB  |
 | `workspace_icon`   | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
 | `project_icon`     | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
-| `attachment` (P1)  | workspace  | images, pdf, txt, zip            | 25 MB |
+| `attachment`       | workspace  | png, jpeg, webp, gif, pdf, txt, zip | 25 MB |
 
-SVG icons are rejected until server-side sanitization exists; until then icons accept png, jpeg, webp only.
+SVG icons are rejected until server-side sanitization exists; until then icons accept png, jpeg, webp only. SVG and HTML are never accepted as attachments.
+
+Attachments: any workspace member may upload one. They are embedded in markdown as `attachment:<uploadId>` (images as `![name](attachment:…)`, other files as `[name](attachment:…)`), never as a URL: every read resolves a fresh presigned GET through `uploads.getUrl`, which checks workspace membership. Attachments get no image variants (the original is served). Linking attachments to their issue and deleting them with it (PRD §7 Uploads) is tracked in LIN-50; until then an attachment outlives a deleted issue or an abandoned draft.
 
 Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processing enqueued) → `deleted` (object removal enqueued). Pending uploads older than 24 h are deleted by the maintenance job. Image variants: `original`, `256` (avatars/icons also `64`).
 
@@ -170,6 +172,8 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Status, assignee, labels and project are validated against the issue's team / workspace: a status from another team, a non-member assignee, or a label or project outside the workspace is `BAD_REQUEST`. An issue id from another workspace is `NOT_FOUND`.
 - Projects default to `planned`; team links are optional and restricted to the same workspace. Updates replace team links only when `teamIds` is supplied. Icons must be ready `project_icon` uploads in the same workspace. Project progress counts all linked issues, with only the `completed` status category in the numerator (canceled issues remain in the total). Deleting a project clears issue project references.
 - `issues.list` returns newest first, optionally filtered by team, as `{ items, nextCursor }`. The cursor is the last issue's id: UUIDv7 ids are time-ordered, so issues created later never shift the pages after a cursor. Page size defaults to 50 (max 100).
+- Descriptions are stored as **markdown** (CommonMark + GFM task lists) with Linear's extensions: `+++ Title … +++` collapsible sections, `$$ … $$` LaTeX blocks, ```` ```mermaid ```` diagrams and `attachment:` references (see Uploads). The editor reads and writes markdown; an empty editor saves no description (`null`). An issue can't be submitted while attachments are still uploading.
+- The issue list groups loaded issues by status, keyed by category + name so the workspace-wide list merges each team's `Todo` into one group. Groups are ordered `started`, `unstarted`, `backlog`, `completed`, `canceled`, then by status position; issues keep the newest-first order within a group. Group counts show loaded issues until every page is fetched (the next page loads on scroll).
 
 ## Activity
 

@@ -4,16 +4,29 @@ import { workspaceSlugSchema } from './common'
 const MB = 1024 * 1024
 
 /**
- * Accepted types and sizes per kind (docs/domain.md → Uploads). SVG icons are
- * not accepted until server-side sanitization exists; attachments are P1.
+ * Accepted types and sizes per kind (docs/domain.md → Uploads). SVG is never
+ * accepted until server-side sanitization exists.
  */
 export const UPLOAD_RULES = {
   avatar: { contentTypes: ['image/png', 'image/jpeg', 'image/webp'], maxBytes: 2 * MB },
   workspace_icon: { contentTypes: ['image/png', 'image/jpeg', 'image/webp'], maxBytes: 1 * MB },
   project_icon: { contentTypes: ['image/png', 'image/jpeg', 'image/webp'], maxBytes: 1 * MB },
+  // Files embedded in issue descriptions (and later comments).
+  attachment: {
+    contentTypes: [
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/gif',
+      'application/pdf',
+      'text/plain',
+      'application/zip',
+    ],
+    maxBytes: 25 * MB,
+  },
 } as const
 
-export const uploadKindSchema = z.enum(['avatar', 'workspace_icon', 'project_icon'])
+export const uploadKindSchema = z.enum(['avatar', 'workspace_icon', 'project_icon', 'attachment'])
 export type UploadKind = z.infer<typeof uploadKindSchema>
 
 export const createPresignedUploadInputSchema = z

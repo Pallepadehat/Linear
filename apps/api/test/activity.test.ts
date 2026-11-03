@@ -58,7 +58,7 @@ describe('activity.list', () => {
         actorType: 'user',
         actorId: member.userId,
         kind: 'status',
-        from: status('Todo').id,
+        from: status('Backlog').id,
         to: status('In Progress').id,
       }),
       expect.objectContaining({
@@ -86,7 +86,7 @@ describe('activity.list', () => {
       id: issue.id,
       title: '  Fix login ',
       description: null,
-      statusId: status('Todo').id,
+      statusId: status('Backlog').id,
       priority: 0,
       assigneeId: null,
       labelIds: [bug.id, bug.id],

@@ -156,7 +156,7 @@ describe('github-webhook job', () => {
         kind: 'status',
         actorId: null,
         pullRequestId: pr!.id,
-        from: await statusId('Todo'),
+        from: await statusId('Backlog'),
         to: await statusId('In Progress'),
       }),
     ])
@@ -223,7 +223,7 @@ describe('github-webhook job', () => {
 
     expect(await deliveryStatus(deliveryId)).toBe('processed')
     expect(await linksOf(theirs.id)).toEqual([])
-    expect((await issueState(theirs.id)).status).toBe('Todo')
+    expect((await issueState(theirs.id)).status).toBe('Backlog')
   })
 
   it('ignores repositories that are not connected and actions it does not handle', async () => {
@@ -237,7 +237,7 @@ describe('github-webhook job', () => {
     expect(await deliveryStatus(labeled)).toBe('ignored')
     expect(await deliveryStatus(malformed)).toBe('failed')
     expect(await linksOf(issue.id)).toEqual([])
-    expect((await issueState(issue.id)).status).toBe('Todo')
+    expect((await issueState(issue.id)).status).toBe('Backlog')
   })
 
   it('keeps a merged PR merged and its links frozen after late events', async () => {
@@ -261,14 +261,14 @@ describe('github-webhook job', () => {
     await deliver(payload(githubRepoId, 'closed', { ...pr, merged: true }))
 
     expect(await linksOf(issue.id)).toEqual([expect.objectContaining({ type: 'reference' })])
-    expect((await issueState(issue.id)).status).toBe('Todo')
+    expect((await issueState(issue.id)).status).toBe('Backlog')
   })
 
   it('recomputes links on edit: removes stale ones, upgrades a reference to closing', async () => {
     const { issue, githubRepoId } = await arrange()
     const base = { branch: 'cleanup', title: 'Cleanup' }
     await deliver(payload(githubRepoId, 'opened', { ...base, body: 'see TIP-200' }))
-    expect((await issueState(issue.id)).status).toBe('Todo')
+    expect((await issueState(issue.id)).status).toBe('Backlog')
 
     await deliver(payload(githubRepoId, 'edited', { ...base, body: 'Fixes TIP-200' }))
     expect(await linksOf(issue.id)).toEqual([expect.objectContaining({ type: 'closing' })])

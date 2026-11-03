@@ -20,7 +20,7 @@ onUnmounted(() => {
 <template>
   <CommandItem
     :value="value"
-    class="h-8 gap-2.5 rounded-md px-2.5 text-sm text-ink data-[highlighted]:bg-floating-hover data-[highlighted]:text-ink"
+    class="h-8 gap-2.5 rounded-md px-2.5 text-[13px] text-ink data-[highlighted]:bg-floating-hover data-[highlighted]:text-ink"
     @select="emit('select')"
   >
     <slot />

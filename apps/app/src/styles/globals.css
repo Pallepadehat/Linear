@@ -37,6 +37,11 @@
   --floating-hover: #f0f0f2;
   --overlay: rgb(15 16 17 / 0.4);
   --floating-shadow: 0 4px 16px rgb(15 16 17 / 0.08);
+  /* Inset app shell (design.md → App shell): the sidebar sits on the base, content on a raised panel. */
+  --app-base: #f3f3f5;
+  --panel: #fcfcfd;
+  --panel-shadow: 0 1px 2px rgb(15 16 17 / 0.04);
+  --group-band: #f1f1f3;
 }
 
 .dark {
@@ -67,6 +72,10 @@
   --overlay: rgb(0 0 0 / 0.6);
   /* Dark relies on the surface ladder, not shadows. */
   --floating-shadow: none;
+  --app-base: #010102;
+  --panel: #0f1011;
+  --panel-shadow: none;
+  --group-band: #18191b;
 }
 
 /* shadcn-vue variables mapped onto the design tokens so generated components theme automatically. */
@@ -129,6 +138,9 @@
   --color-floating-hover: var(--floating-hover);
   --color-priority-urgent: var(--priority-urgent);
   --color-overlay: var(--overlay);
+  --color-app-base: var(--app-base);
+  --color-panel: var(--panel);
+  --color-group-band: var(--group-band);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -166,6 +178,7 @@
   --radius-2xl: 24px;
 
   --shadow-floating: var(--floating-shadow);
+  --shadow-panel: var(--panel-shadow);
 }
 
 @layer base {
@@ -180,11 +193,154 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.5;
   }
   :focus-visible {
     outline: 2px solid color-mix(in srgb, var(--primary-focus) 50%, transparent);
     outline-offset: 2px;
+  }
+}
+
+/* Markdown editor content (components/common/editor). Tokens only, so both themes work. */
+@layer components {
+  .markdown-body {
+    @apply text-[14px] leading-relaxed text-ink caret-primary;
+  }
+  .markdown-body > * + * {
+    @apply mt-2;
+  }
+  .markdown-body h1 {
+    @apply mt-3.5 text-[17px] font-semibold tracking-tight;
+  }
+  .markdown-body h2 {
+    @apply mt-3.5 text-[17px] font-semibold tracking-tight;
+  }
+  .markdown-body h3 {
+    @apply mt-3 text-[15px] font-semibold;
+  }
+  .markdown-body > :first-child {
+    @apply mt-0;
+  }
+  .markdown-body ul {
+    @apply list-disc pl-6;
+  }
+  .markdown-body ol {
+    @apply list-decimal pl-6;
+  }
+  .markdown-body li > p {
+    @apply my-0.5;
+  }
+  .markdown-body li::marker {
+    @apply text-ink-subtle;
+  }
+  .markdown-body ul[data-type='taskList'] {
+    @apply list-none pl-0.5;
+  }
+  .markdown-body ul[data-type='taskList'] li {
+    @apply flex items-start gap-2;
+  }
+  .markdown-body ul[data-type='taskList'] li > label {
+    @apply mt-[4px] flex shrink-0 select-none;
+  }
+  .markdown-body ul[data-type='taskList'] li > div {
+    @apply min-w-0 flex-1;
+  }
+  .markdown-body ul[data-type='taskList'] input[type='checkbox'] {
+    @apply size-3.5 cursor-pointer appearance-none rounded-xs border border-hairline-tertiary bg-transparent;
+  }
+  .markdown-body ul[data-type='taskList'] input[type='checkbox']:checked {
+    @apply border-primary bg-primary;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 8.5 6.5 11 12 5' stroke='white' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .markdown-body li[data-checked='true'] > div {
+    @apply text-ink-subtle line-through;
+  }
+  .markdown-body blockquote {
+    @apply border-l-2 border-hairline-strong pl-3 text-ink-muted;
+  }
+  .markdown-body code {
+    @apply rounded-xs border border-hairline bg-surface-2 px-1 py-px font-mono text-[0.85em];
+  }
+  .markdown-body pre {
+    @apply overflow-x-auto rounded-md border border-hairline bg-surface-1 px-3.5 py-3 font-mono text-[13px] leading-normal;
+  }
+  .markdown-body pre code {
+    @apply border-0 bg-transparent p-0 text-inherit;
+  }
+  .markdown-body a {
+    @apply cursor-pointer text-primary underline decoration-primary/40 underline-offset-2;
+  }
+  .markdown-body hr {
+    @apply my-4 border-hairline;
+  }
+  .markdown-body strong {
+    @apply font-semibold;
+  }
+  .markdown-body p.is-editor-empty:first-child::before {
+    @apply pointer-events-none float-left h-0 text-ink-tertiary;
+    content: attr(data-placeholder);
+  }
+  /* Collapsible section (+++): chevron toggle, summary line, indented content. */
+  .markdown-body [data-type='details'] {
+    @apply flex items-start gap-1;
+  }
+  .markdown-body [data-type='details'] > button {
+    @apply mt-[3px] flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-xs text-ink-subtle hover:bg-surface-2 hover:text-ink;
+  }
+  .markdown-body [data-type='details'] > button::before {
+    content: '';
+    @apply size-3 bg-current transition-transform;
+    mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 4l4 4-4 4' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+  .markdown-body [data-type='details'][open] > button::before {
+    @apply rotate-90;
+  }
+  .markdown-body [data-type='details'] > div {
+    @apply min-w-0 flex-1;
+  }
+  .markdown-body [data-type='details'] summary {
+    @apply list-none font-medium;
+  }
+  .markdown-body [data-type='details'] summary::-webkit-details-marker {
+    display: none;
+  }
+  /* Visibility follows the section's `open` attribute (kept in sync in collapsible.ts),
+     not Tiptap's toggled `hidden` attribute, which can go stale. */
+  .markdown-body [data-type='details'] > div > [data-type='detailsContent'] {
+    display: none;
+  }
+  .markdown-body [data-type='details'][open] > div > [data-type='detailsContent'] {
+    display: block;
+  }
+  .markdown-body [data-type='detailsContent'] > * + * {
+    @apply mt-2;
+  }
+  .markdown-body .is-empty::before {
+    @apply pointer-events-none float-left h-0 text-ink-tertiary;
+    content: attr(data-placeholder);
+  }
+
+  /* Uploaded files: a chip with a paperclip, opened through a presigned URL. */
+  .markdown-body a[href^='attachment:'] {
+    @apply inline-flex items-center gap-1 rounded-md border border-hairline bg-surface-1 px-1.5 py-px align-baseline text-[13px] text-ink no-underline hover:bg-surface-2;
+  }
+  .markdown-body a[href^='attachment:']::before {
+    content: '';
+    @apply size-3.5 shrink-0 bg-ink-subtle;
+    mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+  .markdown-body a[href^='attachment:pending-'] {
+    @apply animate-pulse text-ink-subtle;
+  }
+
+  .markdown-body .katex {
+    @apply text-[1.05em];
+  }
+
+  .markdown-body ::selection {
+    background: color-mix(in srgb, var(--primary-color) 25%, transparent);
   }
 }

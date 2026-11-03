@@ -148,6 +148,38 @@ describe('upload read access', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })
   })
 
+  it('uploads attachments for members without image processing, readable only in the workspace', async () => {
+    const owner = await signUp(app, 'Owner')
+    const member = await signUp(app, 'Member')
+    const stranger = await signUp(app, 'Stranger')
+    const { workspace } = await owner.client.workspaces.create({ name: 'Tip', slug: 'tip' })
+    await addMember(db, workspace.id, member.userId)
+    const pdf = {
+      kind: 'attachment' as const,
+      contentType: 'application/pdf',
+      size: 5000,
+      workspaceSlug: 'tip',
+    }
+
+    const { uploadId } = await member.client.uploads.createPresignedUpload(pdf)
+    const [row] = await db.select().from(uploads).where(eq(uploads.id, uploadId))
+    expect(row!.objectKey).toBe(`workspaces/${workspace.id}/attachment/${uploadId}/original.pdf`)
+    await putObject(uploadId, pdf.size)
+    await expect(member.client.uploads.confirm({ uploadId })).resolves.toMatchObject({
+      kind: 'attachment',
+      status: 'ready',
+    })
+    expect(await queues.media.getJobs(['waiting', 'delayed', 'active'])).toHaveLength(0)
+
+    await expect(owner.client.uploads.getUrl({ uploadId })).resolves.toHaveProperty('url')
+    await expect(stranger.client.uploads.getUrl({ uploadId })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+    await expect(stranger.client.uploads.createPresignedUpload(pdf)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+  })
+
   it('only lets owners upload a workspace icon', async () => {
     const owner = await signUp(app, 'Owner')
     const member = await signUp(app, 'Member')

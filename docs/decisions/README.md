@@ -11,5 +11,6 @@
 | 0007 | [Vue 3 + shadcn-vue with token-based light/dark theming](0007-vue-shadcn-theming.md) | Accepted |
 | 0008 | [RustFS as the local S3 server](0008-rustfs-local-object-storage.md) | Accepted |
 | 0009 | [Verify GitHub installations with OAuth during install](0009-github-install-oauth-verification.md) | Accepted |
+| 0010 | [Tiptap for markdown issue descriptions](0010-tiptap-markdown-editor.md) | Accepted |
 
 New ADR: copy `0000-template.md` to the next number and add a row here.
