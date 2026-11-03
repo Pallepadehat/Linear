@@ -11,6 +11,7 @@ import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { notificationsKey } from '@/features/inbox/queries'
 import { templatesKey } from '@/features/templates/queries'
+import { viewsKey } from '@/features/views/queries'
 import {
   issueDetailKeys,
   filtersByLinks,
@@ -197,6 +198,11 @@ export function createRealtimeEventHandler({
         })
       case 'template.updated':
         return void queryClient.invalidateQueries({ queryKey: templatesKey() })
+      case 'view.updated':
+      case 'view.deleted':
+        // View lists and pages refetch; favorites show the view's name and icon.
+        void queryClient.invalidateQueries({ queryKey: orpc.favorites.key() })
+        return void queryClient.invalidateQueries({ queryKey: viewsKey() })
       case 'presence.changed':
         return void queryClient.invalidateQueries({ queryKey: orpc.presence.list.key() })
       case 'notification.created':

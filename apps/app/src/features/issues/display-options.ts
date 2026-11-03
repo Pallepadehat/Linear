@@ -29,19 +29,21 @@ export const DEFAULT_DISPLAY_OPTIONS: DisplayOptions = {
 }
 
 /**
- * Which view a set of options belongs to: `team:<id>`, `project:<id>`,
- * `cycle:<id>`, `my` (My issues) or `all` (the workspace's All issues).
+ * Which view a set of options belongs to: `view:<id>` (a saved view's unsaved draft),
+ * `team:<id>`, `project:<id>`, `cycle:<id>`, `my` (My issues) or `all` (All issues).
  */
 export type DisplayViewKey =
-  `team:${string}` | `project:${string}` | `cycle:${string}` | 'my' | 'all'
+  `view:${string}` | `team:${string}` | `project:${string}` | `cycle:${string}` | 'my' | 'all'
 
 export function displayViewKey(scope: {
+  savedViewId?: string
   teamId?: string
   projectId?: string
   cycleId?: string
   assignee?: 'me'
   creator?: 'me'
 }): DisplayViewKey {
+  if (scope.savedViewId) return `view:${scope.savedViewId}`
   if (scope.cycleId) return `cycle:${scope.cycleId}`
   if (scope.projectId) return `project:${scope.projectId}`
   if (scope.teamId) return `team:${scope.teamId}`

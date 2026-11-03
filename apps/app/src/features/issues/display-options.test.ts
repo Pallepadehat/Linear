@@ -19,6 +19,8 @@ describe('displayViewKey', () => {
     expect(displayViewKey({ assignee: 'me' })).toBe('my')
     expect(displayViewKey({ creator: 'me' })).toBe('my')
     expect(displayViewKey({})).toBe('all')
+    // A saved view keeps its own draft, even on a team.
+    expect(displayViewKey({ savedViewId: 'v', teamId: 't' })).toBe('view:v')
   })
 })
 
