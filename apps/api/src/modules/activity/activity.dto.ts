@@ -1,7 +1,7 @@
 import type { Activity } from '@linear/contract'
-import type { ActivityRecord } from '@linear/core'
+import type { ActivityEntry } from '@linear/core'
 
-export function toActivityDto(record: ActivityRecord): Activity {
+export function toActivityDto(record: ActivityEntry): Activity {
   return {
     id: record.id,
     issueId: record.issueId,
@@ -11,6 +11,7 @@ export function toActivityDto(record: ActivityRecord): Activity {
     kind: record.kind,
     from: record.from,
     to: record.to,
+    mentionedIn: record.mentionedIn,
     createdAt: record.createdAt,
   }
 }
