@@ -78,6 +78,13 @@
       "when": 1793702130806,
       "tag": "0010_issue_list_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793704891651,
+      "tag": "0011_project_properties",
+      "breakpoints": true
     }
   ]
 }
