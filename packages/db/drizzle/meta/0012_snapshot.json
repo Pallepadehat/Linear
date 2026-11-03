@@ -1,5 +1,5 @@
 {
-  "id": "88d23d94-451c-4817-b0fd-eb43df391396",
+  "id": "23408043-2460-49eb-86cf-9765bc02492b",
   "prevId": "1a174180-1831-4bf7-9f0c-9208f686d208",
   "version": "7",
   "dialect": "postgresql",
@@ -1403,12 +1403,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "due_date": {
-          "name": "due_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
         "completed_at": {
           "name": "completed_at",
           "type": "timestamp with time zone",
@@ -1550,33 +1544,6 @@
             },
             {
               "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "issues_workspace_id_due_date_id_index": {
-          "name": "issues_workspace_id_due_date_id_index",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "due_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2428,6 +2395,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -2455,7 +2428,30 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "labels_workspace_id_name_unique": {
+          "name": "labels_workspace_id_name_unique",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"labels\".\"team_id\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "labels_workspace_id_workspaces_id_fk": {
           "name": "labels_workspace_id_workspaces_id_fk",
@@ -2469,15 +2465,28 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "labels_team_id_teams_id_fk": {
+          "name": "labels_team_id_teams_id_fk",
+          "tableFrom": "labels",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "labels_workspace_id_name_unique": {
-          "name": "labels_workspace_id_name_unique",
+        "labels_team_id_name_unique": {
+          "name": "labels_team_id_name_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "workspace_id",
+            "team_id",
             "name"
           ]
         }
@@ -3355,8 +3364,7 @@
         "priority",
         "assignee",
         "project",
-        "labels",
-        "due_date"
+        "labels"
       ]
     }
   },

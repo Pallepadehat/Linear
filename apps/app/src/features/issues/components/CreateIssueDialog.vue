@@ -10,6 +10,7 @@ import AssigneePicker from '@/components/common/AssigneePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
+import { labelsForTeam } from '@/features/labels/label-options'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
@@ -193,6 +194,16 @@ const labelIds = computed({
     setFieldValue('labelIds', ids, false)
   },
 })
+// Another team's labels can't go on this issue, so a team change drops them.
+watch(
+  () => values.teamId,
+  (id) => {
+    if (!id || !labels.value) return
+    const allowed = new Set(labelsForTeam(labels.value, id).map((l) => l.id))
+    const kept = labelIds.value.filter((labelId) => allowed.has(labelId))
+    if (kept.length !== labelIds.value.length) labelIds.value = kept
+  },
+)
 
 // The requested team, else the team page being viewed, else the first team.
 function initialTeamId() {
@@ -413,7 +424,12 @@ function onKeydown(event: KeyboardEvent) {
           <StatusPicker v-model="statusId" :statuses="statuses" />
           <PriorityPicker v-model="priority" />
           <AssigneePicker v-model="assigneeId" :users="assignees" />
-          <LabelPicker v-model="labelIds" :labels="labels ?? []" />
+          <LabelPicker
+            v-if="values.teamId"
+            v-model="labelIds"
+            :labels="labels ?? []"
+            :team-id="values.teamId"
+          />
           <ProjectPicker v-model="projectId" :projects="projects ?? []" />
           <DueDatePicker v-model="dueDate" />
         </div>
