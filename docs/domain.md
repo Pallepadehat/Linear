@@ -217,7 +217,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 
 - Every issue change is logged in `activity_log`, in the same transaction as the change: `created` on create, then one entry per field whose value actually changed. Setting a field to the value it already had (including the same label set in another order, or a title that trims to the current one) writes nothing.
 - Actor is `user` (with `actorId`) for changes made through the API, `github` (no `actorId`, with `pullRequestId` of the triggering PR) for automation. A deleted user's entries keep `actorType: user` with `actorId` null.
-- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` number; `labels` sorted label-id arrays. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
+- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` number; `labels` sorted label-id arrays; `relation` `[role, otherIssueId, otherIdentifier]` in `to` when added and in `from` when removed, role read from this issue's side (`blocks`, `blocked_by`, `related`, `duplicate_of`, `duplicated_by`; the identifier is kept as it was at the time). Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
 - `activity.list` returns one issue's entries **oldest first** as `{ items, nextCursor }`, cursor = last entry id (UUIDv7), page size 50 (max 100). An issue outside the workspace is `NOT_FOUND`.
 
 ## Comments
@@ -227,11 +227,28 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - An edited comment keeps `createdAt` and gets a new `updatedAt`; saving the same body is a no-op. Edits and deletes are not written to `activity_log`.
 - `comments.list` returns one issue's comments **oldest first** as `{ items, nextCursor }`, cursor = last comment id (UUIDv7), page size 50 (max 100). Each comment carries its author's `id`, `name` and `avatarUrl`. An issue or comment outside the workspace is `NOT_FOUND`.
 
+## Relations
+
+Issues in the same workspace can be related (`issue_relations`). Types and stored direction:
+
+| Type        | Stored as                                    | Read from the issue's side                      |
+| ----------- | -------------------------------------------- | ----------------------------------------------- |
+| `blocks`    | `issueId` blocks `relatedIssueId`            | `blocks` (source) / `blockedBy` (target)        |
+| `related`   | once, either way round                       | `related` on both                               |
+| `duplicate` | `issueId` is a duplicate of `relatedIssueId` | `duplicateOf` (source) / `duplicates` (target)  |
+
+- A pair of issues has at most one relation of each type, **in either direction**: repeating it, or creating the reverse (B blocks A when A blocks B, B related to A, B duplicate of A), is `CONFLICT`. Different types between the same pair are allowed. Enforced by the unique constraint plus a unique index on `(least, greatest, type)`.
+- An issue cannot relate to itself (`BAD_REQUEST`; also a DB check). Both issues must be in the workspace, otherwise `NOT_FOUND`. Relations are deleted with either issue (cascade).
+- **Duplicate rule:** marking an issue as a duplicate moves it, in the same transaction, to its team's first `canceled`-category status (lowest position) and logs that status change. An issue already `completed` or `canceled`, or a team without a canceled status, keeps its status. Removing the relation does not restore the old status.
+- `issues.get` / `getByIdentifier` return `relations` (`blocks`, `blockedBy`, `related`, `duplicateOf`, `duplicates`), each an issue summary (id, identifier, title, status) plus `relationId`, oldest relation first. Every issue DTO (list rows included) has `blockedByCount` / `blockingCount`: `blocks` relations whose **other** issue is still open (not `completed` or `canceled`).
+- Creating or removing a relation writes a `relation` activity entry on **both** issues (see Activity) and publishes `issue.updated` with `fields: ['relations']` for both (plus `status` for a duplicate that was canceled). A status change of a blocker does not republish its blocked issues; their counts refresh on the next list fetch.
+- Any member may create and remove relations. The "Mark as" menu sits in the issue's properties sidebar until the detail header "…" menu exists (M7-07).
+
 ## Realtime events
 
 Open clients learn about changes as they happen (ADR 0011). Events are hints, not data: they carry IDs and the client refetches what it shows.
 
-- **Events:** `issue.created`, `issue.updated` (with `fields`: any of `title`, `description`, `status`, `priority`, `assignee`, `project`, `labels`, `pullRequests`), `issue.deleted`, `comment.created`, `comment.updated`, `comment.deleted`. Each has `issueId` and `actorId` (the user, or `null` for GitHub automation); comment events add `commentId`. Schemas: `packages/contract` (client DTO) and `packages/queue` (Redis bus, same shape plus the internal `originId`).
+- **Events:** `issue.created`, `issue.updated` (with `fields`: any of `title`, `description`, `status`, `priority`, `assignee`, `project`, `labels`, `pullRequests`, `relations`), `issue.deleted`, `comment.created`, `comment.updated`, `comment.deleted`. Each has `issueId` and `actorId` (the user, or `null` for GitHub automation); comment events add `commentId`. Schemas: `packages/contract` (client DTO) and `packages/queue` (Redis bus, same shape plus the internal `originId`).
 - **Who publishes:** the API after a successful `issues.create`/`update`/`delete` and `comments.create`/`update`/`delete`; the worker after a `pull_request` delivery commits, one `issue.updated` per issue whose links or status it changed (`fields` = `pullRequests`, plus `status` when automation moved it). Skipped redeliveries publish nothing. `issue.updated.fields` lists the fields the request set, even if a value didn't change.
 - **Channel:** Redis pub/sub `workspace:<workspaceId>`. Every API instance subscribes to a workspace's channel while one of its sockets watches that workspace.
 - **Who receives:** only sockets subscribed through `realtime.subscribe`, which requires a session and workspace membership (`requireWorkspace`; non-members get `NOT_FOUND` and no events). The upgrade at `/rpc/ws` is rejected with `401` without a session and `403` for a foreign `Origin`. Membership is checked when subscribing; there is no member removal yet, so it isn't rechecked mid-stream.
