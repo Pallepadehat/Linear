@@ -9,6 +9,8 @@ import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useCurrentUser } from '@/features/auth/composables/useSession'
+import IssueViewers from '@/features/presence/components/IssueViewers.vue'
+import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
@@ -89,6 +91,9 @@ watchEffect(() => {
 })
 
 const currentUser = useCurrentUser()
+
+// Teammates see that you're on this issue (presence heartbeats).
+useViewingIssue(() => issue.value?.id)
 
 // Comments and activity are paged; an issue's history is small, so load all of it.
 const issueId = computed(() => issue.value?.id ?? '')
@@ -203,7 +208,10 @@ onBeforeUnmount(commitDescription)
   >
     <article class="min-w-0 lg:overflow-y-auto">
       <div class="mx-auto grid max-w-3xl gap-2 px-8 pt-8 pb-12">
-        <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
+        <div class="flex items-center justify-between gap-2">
+          <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
+          <IssueViewers :issue-id="issue.id" />
+        </div>
         <label for="issue-title" class="sr-only">Issue title</label>
         <textarea
           id="issue-title"

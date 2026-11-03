@@ -5,8 +5,9 @@ import { RPCHandler as WsRPCHandler } from '@orpc/server/ws'
 import type { InitialContext } from '../orpc/context'
 import { router } from '../orpc/router'
 import { toFetchHeaders } from '../lib/headers'
+import { createRealtimeConnection } from '../modules/realtime/connection'
 
-type Deps = Omit<InitialContext, 'headers' | 'logger'>
+type Deps = Omit<InitialContext, 'headers' | 'logger' | 'connection'>
 
 // Proxies (nginx: 60 s) close idle connections; a ping keeps a quiet socket open.
 const PING_INTERVAL_MS = 25_000
@@ -53,9 +54,16 @@ export async function registerORPC(app: FastifyInstance, deps: Deps, appUrl: str
       },
       (socket, request) => {
         const headers = toFetchHeaders(request.headers)
-        void wsHandler.upgrade(socket, { context: { ...deps, headers, logger: request.log } })
+        const { connection, close } = createRealtimeConnection()
+        void wsHandler.upgrade(socket, {
+          context: { ...deps, headers, logger: request.log, connection },
+        })
         const ping = setInterval(() => socket.ping(), PING_INTERVAL_MS)
-        socket.on('close', () => clearInterval(ping))
+        socket.on('close', () => {
+          clearInterval(ping)
+          // A closed tab goes offline right away instead of after the presence TTL.
+          void close()
+        })
       },
     )
   })
