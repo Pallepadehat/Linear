@@ -36,6 +36,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
         !!input.statusCategories?.length ||
         // Completing or reopening sets or clears `completedAt`.
         !!input.completedAfter ||
+        !!input.completedSince ||
         !!input.completedBefore ||
         !!input.due?.includes('overdue'))) ||
     (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||

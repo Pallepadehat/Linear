@@ -385,7 +385,7 @@ export function toListInput(
     createdBefore: created.before,
     updatedAfter: updated.after,
     updatedBefore: updated.before,
-    completedAfter: completed.after,
+    completedSince: completed.after,
     completedBefore: completed.before,
     content: filters.content.trim() || undefined,
     hasPullRequests: filters.hasPullRequests ?? undefined,

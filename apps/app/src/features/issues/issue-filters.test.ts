@@ -296,6 +296,10 @@ describe('toListInput', () => {
     })
     // "No due date" needs no today.
     expect(toListInput({ ...EMPTY_FILTERS, due: ['noDueDate'] }, now)).not.toHaveProperty('today')
+    // "Completed after" is `completedSince`; `completedAfter` belongs to display options.
+    expect(
+      toListInput({ ...EMPTY_FILTERS, completed: { kind: 'after', date: '2026-10-01' } }, now),
+    ).toEqual({ completedSince: new Date(2026, 9, 1) })
     // "No links" is sent as `false`; no filter leaves the field out.
     expect(toListInput({ ...EMPTY_FILTERS, hasLinks: false }, now)).toMatchObject({
       hasLinks: false,
