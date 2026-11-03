@@ -323,6 +323,7 @@ describe('realtime event handler', () => {
     expect(invalidate.mock.calls).toEqual([
       [{ queryKey: orpc.projects.key() }],
       [{ queryKey: orpc.milestones.key() }],
+      [{ queryKey: orpc.projectLinks.key() }],
     ])
   })
 
