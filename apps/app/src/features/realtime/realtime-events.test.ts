@@ -248,6 +248,26 @@ describe('realtime event handler', () => {
     }
   })
 
+  it('refetches Details panel counts filtered by "Has links" when links change', () => {
+    const handle = createRealtimeEventHandler({
+      queryClient,
+      workspaceSlug: 'tip',
+      fetchIssue: async (id) => issue(id),
+    })
+    const empty = { assignees: [], labels: [], priorities: [], projects: [] }
+    const byLinks = issueFacetsOptions('tip', {}, { ...EMPTY_FILTERS, hasLinks: true }).queryKey
+    const plain = issueFacetsOptions('tip', {}).queryKey
+    const stale = (key: typeof plain) => queryClient.getQueryState(key)!.isInvalidated
+
+    for (const fields of [['links'], ['pullRequests']] as const) {
+      queryClient.setQueryData(byLinks, empty)
+      queryClient.setQueryData(plain, empty)
+      handle({ type: 'issue.updated', issueId: 'a', fields: [...fields], ...actor })
+      expect(stale(byLinks)).toBe(true)
+      expect(stale(plain)).toBe(false)
+    }
+  })
+
   it("leaves caches alone while this tab's own edit is in flight", async () => {
     const fetchIssue = vi.fn(async (id: string) => issue(id, { status: inProgress }))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })

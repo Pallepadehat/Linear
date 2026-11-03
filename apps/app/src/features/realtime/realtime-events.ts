@@ -12,6 +12,7 @@ import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { templatesKey } from '@/features/templates/queries'
 import {
   issueDetailKeys,
+  filtersByLinks,
   issueFacetsKey,
   issueListKey,
   writeIssueToCaches,
@@ -125,6 +126,9 @@ export function createRealtimeEventHandler({
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
     if (fields.some((f) => FACET_FIELDS.includes(f))) invalidateSoon('facets')
+    // Counts filtered by "Has links" change when the issue gains or loses its last link.
+    if (fields.includes('links') || fields.includes('pullRequests'))
+      void queryClient.invalidateQueries({ queryKey: issueFacetsKey(), predicate: filtersByLinks })
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.

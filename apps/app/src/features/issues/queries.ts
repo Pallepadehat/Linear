@@ -16,6 +16,7 @@ import {
   useMutation,
   useQueryClient,
   type InfiniteData,
+  type Query,
   type QueryClient,
 } from '@tanstack/vue-query'
 import { toValue, type MaybeRefOrGetter } from 'vue'
@@ -603,16 +604,17 @@ async function snapshotIssueDetails(queryClient: QueryClient) {
   return detailKeys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }))
 }
 
-/** Activity shows "added link"; lists filtered by "Has links" may gain or lose the issue. */
+/** Lists and Details panel counts that filter by `hasLinks` (they change with an issue's links). */
+export const filtersByLinks = (query: Query) =>
+  (query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input?.hasLinks !==
+  undefined
+
+/** Activity shows "added link"; views filtered by "Has links" may gain or lose the issue. */
 function invalidateLinkViews(queryClient: QueryClient, issueId: string) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) }),
-    queryClient.invalidateQueries({
-      queryKey: issueListKey(),
-      predicate: (query) =>
-        (query.queryKey[1] as { input?: ListIssuesInput } | undefined)?.input?.hasLinks !==
-        undefined,
-    }),
+    queryClient.invalidateQueries({ queryKey: issueListKey(), predicate: filtersByLinks }),
+    queryClient.invalidateQueries({ queryKey: issueFacetsKey(), predicate: filtersByLinks }),
   ])
 }
 
