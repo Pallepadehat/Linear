@@ -3,6 +3,8 @@ import { z } from 'zod'
 import {
   createIssueInputSchema,
   getIssueByIdentifierInputSchema,
+  issueFacetsInputSchema,
+  issueFacetsSchema,
   issueIdInputSchema,
   issuePageSchema,
   issueSchema,
@@ -18,4 +20,6 @@ export const issuesContract = {
   delete: oc.input(issueIdInputSchema).output(z.object({ id: z.uuid() })),
   // Unbounded, so cursor-paginated (see AGENTS.md → API).
   list: oc.input(listIssuesInputSchema).output(issuePageSchema),
+  /** Counts per assignee / label / priority / project for the list's filters (Details panel). */
+  facets: oc.input(issueFacetsInputSchema).output(issueFacetsSchema),
 }

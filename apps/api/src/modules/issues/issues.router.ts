@@ -2,6 +2,7 @@ import {
   createIssue,
   deleteIssue,
   getIssue,
+  getIssueFacets,
   getIssueByIdentifier,
   listIssues,
   updateIssue,
@@ -83,5 +84,17 @@ export const issuesRouter = {
         creatorId: creator === 'me' ? context.user.id : undefined,
       })
       return { items: page.items.map(toIssueDto), nextCursor: page.nextCursor }
+    }),
+
+  facets: authed.issues.facets
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const { workspaceSlug: _, assignee, creator, ...filters } = input
+      return getIssueFacets(context.db, {
+        ...filters,
+        workspaceId: context.workspace.id,
+        assigneeId: assignee === 'me' ? context.user.id : undefined,
+        creatorId: creator === 'me' ? context.user.id : undefined,
+      })
     }),
 }

@@ -111,11 +111,31 @@ export const issuePageSchema = z.object({
   nextCursor: z.string().nullable(),
 })
 
+/** The list's filters and scope without paging or sort: what the Details panel counts. */
+export const issueFacetsInputSchema = listIssuesInputSchema.omit({
+  sort: true,
+  direction: true,
+  cursor: true,
+  limit: true,
+})
+
+const facetCountSchema = z.number().int().nonnegative()
+
+/** Issue counts per value; `id: null` = no assignee / no project. Sorted by count, descending. */
+export const issueFacetsSchema = z.object({
+  assignees: z.array(z.object({ id: z.uuid().nullable(), count: facetCountSchema })),
+  labels: z.array(z.object({ id: z.uuid(), count: facetCountSchema })),
+  priorities: z.array(z.object({ value: issuePrioritySchema, count: facetCountSchema })),
+  projects: z.array(z.object({ id: z.uuid().nullable(), count: facetCountSchema })),
+})
+
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
 export type Issue = z.infer<typeof issueSchema>
 export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>
 export type ListIssuesInput = z.input<typeof listIssuesInputSchema>
+export type IssueFacetsInput = z.input<typeof issueFacetsInputSchema>
+export type IssueFacets = z.infer<typeof issueFacetsSchema>
 export type IssueSort = z.infer<typeof issueSortSchema>
 export type SortDirection = z.infer<typeof sortDirectionSchema>
