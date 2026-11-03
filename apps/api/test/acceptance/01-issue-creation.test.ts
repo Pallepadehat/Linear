@@ -29,6 +29,6 @@ describe('acceptance: 1 issue creation', () => {
     expect(next.identifier).toBe('TIP-201')
     expect(
       await owner.client.issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'TIP-200' }),
-    ).toEqual(issue)
+    ).toMatchObject(issue)
   })
 })

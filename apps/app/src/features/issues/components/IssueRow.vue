@@ -79,8 +79,8 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       :title="`Blocked by ${issue.blockedByCount} ${issue.blockedByCount === 1 ? 'issue' : 'issues'}`"
     >
       <Ban class="size-3.5" aria-hidden="true" />
+      <span class="sr-only">Blocked by</span>
       {{ issue.blockedByCount }}
-      <span class="sr-only">blocking {{ issue.blockedByCount === 1 ? 'issue' : 'issues' }}</span>
     </span>
     <span
       v-if="issue.blockingCount"
@@ -88,8 +88,8 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       :title="`Blocking ${issue.blockingCount} ${issue.blockingCount === 1 ? 'issue' : 'issues'}`"
     >
       <OctagonAlert class="size-3.5" aria-hidden="true" />
+      <span class="sr-only">Blocking</span>
       {{ issue.blockingCount }}
-      <span class="sr-only">blocked {{ issue.blockingCount === 1 ? 'issue' : 'issues' }}</span>
     </span>
     <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
       <LabelPicker
