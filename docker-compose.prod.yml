@@ -131,7 +131,13 @@ services:
       storage-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ['CMD', 'bun', '-e', "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -144,6 +150,19 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+
+  # Tool, not a service: sends signed demo PR webhooks (README → "Demo without GitHub").
+  #   docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm github-demo connect
+  github-demo:
+    <<: *server
+    profiles: [tools]
+    restart: 'no'
+    depends_on: [api]
+    environment:
+      <<: *server-env
+      WEBHOOK_URL: http://api:3000/webhooks/github
+    entrypoint: ['bun', 'packages/db/src/demo-github.ts']
+    command: []
 
   app:
     image: ${IMAGE_REGISTRY:-ghcr.io/pallepadehat}/linear-app:${IMAGE_TAG:-prod}
