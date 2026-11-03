@@ -298,8 +298,20 @@ describe('realtime event handler', () => {
 
     // Description and PR changes count only where the counts are filtered on them.
     const filtered = issueFacetsOptions('tip', {}, { ...EMPTY_FILTERS, content: 'login' }).queryKey
-    queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [] })
-    queryClient.setQueryData(filtered, { assignees: [], labels: [], priorities: [], projects: [] })
+    queryClient.setQueryData(facets, {
+      assignees: [],
+      labels: [],
+      priorities: [],
+      projects: [],
+      statuses: [],
+    })
+    queryClient.setQueryData(filtered, {
+      assignees: [],
+      labels: [],
+      priorities: [],
+      projects: [],
+      statuses: [],
+    })
     handle({ type: 'issue.updated', issueId: 'a', fields: ['description'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect(queryClient.getQueryState(filtered)!.isInvalidated).toBe(true)
