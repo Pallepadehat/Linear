@@ -35,6 +35,8 @@ export type IssuePatch = Partial<
 /** The issue as it will look after the patch; `completedAt` follows the category (domain.md). */
 export function applyIssuePatch(issue: Issue, patch: IssuePatch, now = new Date()): Issue {
   const next: Issue = { ...issue, ...patch, updatedAt: now }
+  // The row resolves the new project from the projects list; the stale summary must go.
+  if (patch.projectId !== undefined && patch.projectId !== issue.project?.id) next.project = null
   if (patch.status) {
     const wasCompleted = issue.status.category === 'completed'
     const isCompleted = patch.status.category === 'completed'

@@ -48,6 +48,9 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     completedAt: null,
     blockedByCount: 0,
     blockingCount: 0,
+    project: null,
+    pullRequests: [],
+    linkCount: 0,
     parentId: null,
     subIssueProgress: null,
     ...overrides,
@@ -80,6 +83,14 @@ describe('applyIssuePatch', () => {
   it('clears completedAt when leaving completed', () => {
     const completed = issue('a', { status: done, completedAt: now })
     expect(applyIssuePatch(completed, { status: canceled }, now).completedAt).toBeNull()
+  })
+
+  it('drops the project summary when the project changes', () => {
+    const launch = { id: crypto.randomUUID(), name: 'Launch', iconUploadId: null }
+    const inLaunch = issue('a', { projectId: launch.id, project: launch })
+    expect(applyIssuePatch(inLaunch, { projectId: launch.id }, now).project).toEqual(launch)
+    expect(applyIssuePatch(inLaunch, { projectId: crypto.randomUUID() }, now).project).toBeNull()
+    expect(applyIssuePatch(inLaunch, { projectId: null }, now).project).toBeNull()
   })
 
   it('leaves completedAt alone when the status is unchanged', () => {
