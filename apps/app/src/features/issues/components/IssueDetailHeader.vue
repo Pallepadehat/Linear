@@ -54,7 +54,10 @@ const listRoute = computed<RouteLocationRaw>(
   () =>
     nav.sourceRoute.value ??
     (props.teamKey
-      ? { name: 'team', params: { workspaceSlug: props.workspaceSlug, teamKey: props.teamKey } }
+      ? {
+          name: 'team-issues',
+          params: { workspaceSlug: props.workspaceSlug, teamKey: props.teamKey },
+        }
       : { name: 'issues', params: { workspaceSlug: props.workspaceSlug } }),
 )
 
