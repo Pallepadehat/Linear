@@ -3,9 +3,9 @@ import { onKeyStroke } from '@vueuse/core'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { isTypingTarget } from '@/lib/keyboard'
 import { usePresence } from '@/features/presence/usePresence'
 import { useRealtime } from '@/features/realtime/useRealtime'
+import { isPlainShortcut } from '@/lib/keyboard'
 import { useUiStore } from '@/stores/ui'
 import AppSidebar from './AppSidebar.vue'
 import { PANEL_HEADER_ACTIONS } from './panel-header'
@@ -35,8 +35,7 @@ watch(
 
 // `C` opens the create issue dialog, like Linear; ignored while typing.
 onKeyStroke('c', (event) => {
-  if (event.metaKey || event.ctrlKey || event.altKey || ui.createIssueOpen) return
-  if (isTypingTarget(event.target)) return
+  if (ui.createIssueOpen || !isPlainShortcut(event)) return
   event.preventDefault()
   ui.openCreateIssue()
 })

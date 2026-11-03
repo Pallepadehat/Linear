@@ -16,6 +16,7 @@ import {
 } from '../board-columns'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { useIssueViewData } from '../composables/useIssueViewData'
+import { viewStatusCategories } from '../issue-view'
 import BoardColumn from './BoardColumn.vue'
 import IssueFilterBar from './IssueFilterBar.vue'
 
@@ -24,13 +25,19 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  /** The view tab (team and All issues pages); My issues and project lists have none. */
+  view?: 'all' | 'active' | 'backlog'
 }>()
 
 const ui = useUiStore()
 const { active: filtered, clear: clearFilters } = useIssueFilters()
 const { query, queryKey, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
   () => props.workspaceSlug,
-  () => ({ teamId: props.teamId, projectId: props.projectId }),
+  () => ({
+    teamId: props.teamId,
+    projectId: props.projectId,
+    statusCategories: viewStatusCategories(props.view),
+  }),
 )
 
 // Pages are newest-first across all statuses, so every column is only complete
@@ -40,7 +47,9 @@ watchEffect(() => {
     void query.fetchNextPage()
 })
 
-const columns = computed(() => toBoardColumns(issues.value, statusesByTeam.value))
+const columns = computed(() =>
+  toBoardColumns(issues.value, statusesByTeam.value, viewStatusCategories(props.view)),
+)
 // A team board waits for its statuses so empty columns don't pop in afterwards.
 const loading = computed(
   () => query.isPending.value || (!!props.teamId && !statusesByTeam.value.has(props.teamId)),
@@ -95,7 +104,12 @@ function onDrop(column: Column) {
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <IssueFilterBar :workspace-slug="workspaceSlug" :team-id="teamId" :project-id="projectId" />
+    <IssueFilterBar
+      :workspace-slug="workspaceSlug"
+      :team-id="teamId"
+      :project-id="projectId"
+      :hide-filter-menu="!!view"
+    />
     <div
       v-if="loading"
       class="flex min-h-0 flex-1 gap-3 overflow-hidden p-3"

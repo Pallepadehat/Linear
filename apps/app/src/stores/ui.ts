@@ -1,17 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
+import type { IssuePrefill } from '@/features/issues/prefill'
 
 export type CreateIssueDefaults = {
   teamId?: string
   statusId?: string
   projectId?: string
   assigneeId?: string
-  /** Prefilled content, e.g. from an issue's "Make a copy…". */
-  title?: string
-  description?: string
-  priority?: number
-  labelIds?: string[]
 }
 
 /**
@@ -26,9 +22,15 @@ export const useUiStore = defineStore('ui', () => {
   const createIssueOpen = ref(false)
   /** Preselected in the create issue dialog, e.g. from a team or project page or a group's `+`. */
   const createIssueDefaults = ref<CreateIssueDefaults>({})
+  /** Fills the dialog like a template does, e.g. "Make a copy…" with `issuePrefill(issue)`. */
+  const createIssuePrefill = ref<IssuePrefill | null>(null)
 
-  function openCreateIssue(defaults: CreateIssueDefaults = {}) {
+  function openCreateIssue(
+    defaults: CreateIssueDefaults = {},
+    prefill: IssuePrefill | null = null,
+  ) {
     createIssueDefaults.value = defaults
+    createIssuePrefill.value = prefill
     createIssueOpen.value = true
   }
 
@@ -41,11 +43,16 @@ export const useUiStore = defineStore('ui', () => {
    */
   const searchFocusRequested = ref(false)
 
+  /** The issue list's Details panel (⌘I); the toolbar toggles it, the panel itself lands in M7-05. */
+  const issueDetailsOpen = ref(false)
+
   return {
     createIssueOpen,
     createIssueDefaults,
+    createIssuePrefill,
     openCreateIssue,
     breadcrumb,
     searchFocusRequested,
+    issueDetailsOpen,
   }
 })

@@ -33,6 +33,7 @@ import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import { useIssueNav } from '../composables/useIssueNav'
 import type { IssuePatch } from '../issue-cache'
+import { issuePrefill } from '../prefill'
 import { issueListKey } from '../queries'
 
 const props = defineProps<{
@@ -91,14 +92,9 @@ const removable = computed(() => {
   return items
 })
 
+// Like a template: the issue's title, description and properties (prefill.ts).
 function makeCopy() {
-  ui.openCreateIssue({
-    teamId: props.issue.teamId,
-    title: props.issue.title,
-    description: props.issue.description ?? undefined,
-    priority: props.issue.priority,
-    labelIds: props.issue.labels.map((label) => label.id),
-  })
+  ui.openCreateIssue({ teamId: props.issue.teamId }, issuePrefill(props.issue))
 }
 
 const confirmingDelete = ref(false)
