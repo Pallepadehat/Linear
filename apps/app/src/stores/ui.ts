@@ -28,11 +28,15 @@ export const useUiStore = defineStore('ui', () => {
    */
   const searchFocusRequested = ref(false)
 
+  /** The issue list's Details panel (⌘I); the toolbar toggles it, the panel itself lands in M7-05. */
+  const issueDetailsOpen = ref(false)
+
   return {
     createIssueOpen,
     createIssueDefaults,
     openCreateIssue,
     breadcrumb,
     searchFocusRequested,
+    issueDetailsOpen,
   }
 })
