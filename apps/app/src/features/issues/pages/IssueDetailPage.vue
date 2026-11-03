@@ -16,6 +16,7 @@ import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
 import { useViewingIssue } from '@/features/presence/usePresence'
 import { projectListOptions } from '@/features/projects/queries'
+import { estimateLabel } from '@/lib/estimates'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
@@ -97,8 +98,13 @@ const names = computed<ActivityNames>(() => {
     user: byId(users.value),
     project: byId(projects.value),
     label: byId(labels.value),
+    estimate:
+      team.value?.estimateScale === 'tshirt' ? (v) => estimateLabel(v, 'tshirt') : undefined,
   }
 })
+const estimates = computed(() =>
+  team.value ? { scale: team.value.estimateScale, allowZero: team.value.estimateAllowZero } : null,
+)
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
 
 // The open issue is the command menu's context; Esc goes back (⌘⌫ is in the header).
@@ -407,6 +413,7 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :estimates="estimates"
       :pull-requests="pullRequests"
       :subscribers="subscribers ?? []"
       @change="save"

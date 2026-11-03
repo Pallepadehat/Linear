@@ -1,3 +1,4 @@
+import type { ProjectStatus } from '@linear/contract'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
@@ -40,6 +41,8 @@ export const useUiStore = defineStore('ui', () => {
   /** Breadcrumb a page puts in the panel header; null falls back to the route title. */
   const breadcrumb = ref<Crumb[] | null>(null)
 
+  /** Projects table filter: the statuses shown (empty = all). */
+  const projectStatusFilter = ref<ProjectStatus[]>([])
   const createProjectOpen = ref(false)
 
   /** ⌘K command menu and the `?` keyboard shortcuts sheet. */
@@ -64,6 +67,7 @@ export const useUiStore = defineStore('ui', () => {
     createIssuePrefill,
     openCreateIssue,
     breadcrumb,
+    projectStatusFilter,
     createProjectOpen,
     commandMenuOpen,
     shortcutsOpen,

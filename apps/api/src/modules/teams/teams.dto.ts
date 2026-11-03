@@ -19,5 +19,7 @@ export function toTeamWithStatusesDto(
     defaultStatusId: pickDefaultStatus(own, row.defaultStatusId)?.id ?? null,
     defaultPriority: row.defaultPriority,
     defaultAssigneeId: row.defaultAssigneeId,
+    estimateScale: row.estimateScale,
+    estimateAllowZero: row.estimateAllowZero,
   }
 }

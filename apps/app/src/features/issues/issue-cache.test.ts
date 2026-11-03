@@ -36,6 +36,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    estimate: null,
     dueDate: null,
     labels: [],
     isSubscribed: false,
@@ -158,6 +159,19 @@ describe('toUpdateIssueInput', () => {
     expect(
       toUpdateIssueInput('tip', 'a', { title: 'New', description: null, projectId: null }),
     ).toEqual({ workspaceSlug: 'tip', id: 'a', title: 'New', description: null, projectId: null })
+  })
+
+  it('sends estimates, including clearing one', () => {
+    expect(toUpdateIssueInput('tip', 'a', { estimate: 3 })).toEqual({
+      workspaceSlug: 'tip',
+      id: 'a',
+      estimate: 3,
+    })
+    expect(toUpdateIssueInput('tip', 'a', { estimate: null })).toEqual({
+      workspaceSlug: 'tip',
+      id: 'a',
+      estimate: null,
+    })
   })
 })
 

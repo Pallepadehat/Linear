@@ -32,6 +32,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    estimate: null,
     dueDate: null,
     labels: [],
     isSubscribed: false,
@@ -174,6 +175,14 @@ describe('realtime event handler', () => {
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byPriority), stale(byTitle)]).toEqual([false, true, true])
 
+    const byEstimate = keyFor({ estimates: [null] })
+    queryClient.setQueryData<InfiniteData<IssuePage>>(byEstimate, {
+      pages: [{ items: [issue('a')], nextCursor: null }],
+      pageParams: [null],
+    })
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['estimate'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), stale(byEstimate)]).toEqual([false, true])
     const overdue = keyFor({ due: ['overdue'] })
     const byDueDate = keyFor({ sort: 'dueDate' })
     for (const key of [overdue, byDueDate]) {
@@ -214,6 +223,15 @@ describe('realtime event handler', () => {
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
     handle({ type: 'issue.deleted', issueId: 'a', ...actor })
     expect(listed().map((i) => i.id)).toEqual(['b'])
+  })
+
+  it('refetches project queries, coalesced, on project events', async () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
+    handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(invalidate.mock.calls).toEqual([[{ queryKey: orpc.projects.key() }]])
   })
 
   it("refetches only that issue's comments on a comment event", () => {

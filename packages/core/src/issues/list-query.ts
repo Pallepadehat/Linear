@@ -1,6 +1,6 @@
 import { DomainError } from '../errors'
 
-export const ISSUE_SORTS = ['createdAt', 'updatedAt', 'priority', 'dueDate'] as const
+export const ISSUE_SORTS = ['createdAt', 'updatedAt', 'priority', 'estimate', 'dueDate'] as const
 export type IssueSort = (typeof ISSUE_SORTS)[number]
 export type SortDirection = 'asc' | 'desc'
 
@@ -41,10 +41,12 @@ export function decodeListCursor(
   const valid =
     sort === 'priority'
       ? /^[1-5]$/.test(value)
-      : sort === 'dueDate'
-        ? // No due date sorts as ±infinity so it stays last in both directions.
-          /^(-?infinity|\d{4}-\d{2}-\d{2})$/.test(value)
-        : /^-?\d{1,20}$/.test(value)
+      : sort === 'estimate'
+        ? /^-?\d{1,3}$/.test(value)
+        : sort === 'dueDate'
+          ? // No due date sorts as ±infinity so it stays last in both directions.
+            /^(-?infinity|\d{4}-\d{2}-\d{2})$/.test(value)
+          : /^-?\d{1,20}$/.test(value)
   if (!valid) throw invalid
   return { value, id }
 }

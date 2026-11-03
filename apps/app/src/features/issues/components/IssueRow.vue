@@ -3,11 +3,13 @@ import type { Issue, Label, WorkflowStatus } from '@linear/contract'
 import { Ban, OctagonAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import type { EstimateSettings } from '@/lib/estimates'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
 import SubIssueProgressRing from './SubIssueProgressRing.vue'
@@ -18,6 +20,8 @@ const props = defineProps<{
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
   labels: Label[]
+  /** The issue team's estimate scale; no chip while unknown or off. */
+  estimates?: EstimateSettings
   /** Nesting level when shown under its parent (each level indents the row). */
   depth?: number
   /** Keyboard focus (J/K) and selection (X); see `useIssueListKeyboard`. */
@@ -40,6 +44,9 @@ function setStatus(id: string) {
 }
 function setPriority(priority: number) {
   if (priority !== props.issue.priority) emit('update', { priority })
+}
+function setEstimate(estimate: number | null) {
+  if (estimate !== props.issue.estimate) emit('update', { estimate })
 }
 function setAssignee(assigneeId: string | null) {
   if (assigneeId !== props.issue.assigneeId) emit('update', { assigneeId })
@@ -129,6 +136,14 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
         @update:labels="setLabels"
       />
     </span>
+    <EstimatePicker
+      v-if="estimates && estimates.scale !== 'off'"
+      compact
+      :scale="estimates.scale"
+      :allow-zero="estimates.allowZero"
+      :model-value="issue.estimate"
+      @update:model-value="setEstimate"
+    />
     <DueDatePicker
       row
       :category="issue.status.category"
