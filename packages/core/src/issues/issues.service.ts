@@ -13,13 +13,9 @@ import { recordActivity, type ActivityActor } from '../activity/activity.service
 import { diffIssue } from '../activity/diff'
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
+import { pickDefaultStatus } from '../teams/default-status'
 import { nextCompletedAt } from './completed-at'
-
-/** 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (docs/domain.md → Priorities). */
-export const ISSUE_PRIORITIES = [0, 1, 2, 3, 4] as const
-export type IssuePriority = (typeof ISSUE_PRIORITIES)[number]
-
-const DEFAULT_STATUS_NAME = 'Backlog'
+import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
 
 export type CreateIssueInput = {
   workspaceId: string
@@ -27,9 +23,10 @@ export type CreateIssueInput = {
   creatorId: string
   title: string
   description?: string | null
-  /** Defaults to the team's `Backlog` status (domain.md → Statuses). */
+  /** Omitted status, priority and assignee use the team's issue defaults (domain.md). */
   statusId?: string
   priority?: number
+  /** `null` leaves the issue unassigned even when the team has a default assignee. */
   assigneeId?: string | null
   projectId?: string | null
   labelIds?: string[]
@@ -75,11 +72,34 @@ function assertPriority(priority: number) {
 
 export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
   const title = normalizeTitle(input.title)
-  const priority = input.priority ?? 0
-  assertPriority(priority)
+  const [teamDefaults] = await db
+    .select({
+      statusId: teams.defaultStatusId,
+      priority: teams.defaultPriority,
+      assigneeId: teams.defaultAssigneeId,
+    })
+    .from(teams)
+    .where(and(eq(teams.id, input.teamId), eq(teams.workspaceId, input.workspaceId)))
+  if (!teamDefaults) throw new DomainError('NOT_FOUND', 'Team not found')
 
-  const status = await resolveStatus(db, input.workspaceId, input.teamId, input.statusId)
-  if (input.assigneeId) await assertWorkspaceMember(db, input.workspaceId, input.assigneeId)
+  const priority = input.priority ?? teamDefaults.priority
+  assertPriority(priority)
+  const status = await resolveStatus(
+    db,
+    input.workspaceId,
+    input.teamId,
+    input.statusId ?? null,
+    teamDefaults.statusId,
+  )
+  let assigneeId = input.assigneeId ?? null
+  if (input.assigneeId === undefined && teamDefaults.assigneeId) {
+    // A default assignee who has since left the workspace is skipped, not an error.
+    assigneeId = (await isWorkspaceMember(db, input.workspaceId, teamDefaults.assigneeId))
+      ? teamDefaults.assigneeId
+      : null
+  } else if (assigneeId) {
+    await assertWorkspaceMember(db, input.workspaceId, assigneeId)
+  }
   if (input.projectId) await assertProject(db, input.workspaceId, input.projectId)
   const labelIds = await resolveLabelIds(db, input.workspaceId, input.labelIds ?? [])
 
@@ -103,7 +123,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         description: input.description ?? null,
         statusId: status.id,
         priority,
-        assigneeId: input.assigneeId ?? null,
+        assigneeId,
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
         completedAt: nextCompletedAt(status.category, null),
@@ -186,7 +206,13 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       changes.priority = input.priority
     }
     if (input.statusId !== undefined) {
-      const status = await resolveStatus(tx, input.workspaceId, current.teamId, input.statusId)
+      const status = await resolveStatus(
+        tx,
+        input.workspaceId,
+        current.teamId,
+        input.statusId,
+        null,
+      )
       changes.statusId = status.id
       changes.completedAt = nextCompletedAt(status.category, current.completedAt)
     }
@@ -312,7 +338,8 @@ async function resolveStatus(
   db: DbOrTx,
   workspaceId: string,
   teamId: string,
-  statusId: string | undefined,
+  statusId: string | null,
+  defaultStatusId: string | null,
 ) {
   const scope = and(
     eq(workflowStatuses.workspaceId, workspaceId),
@@ -328,24 +355,22 @@ async function resolveStatus(
     return status
   }
 
-  // Prefer `Backlog` by name; if it was renamed, the first `backlog` status, then the first `unstarted` one.
-  const candidates = await db
-    .select()
-    .from(workflowStatuses)
-    .where(and(scope, inArray(workflowStatuses.category, ['backlog', 'unstarted'])))
-    .orderBy(asc(workflowStatuses.position))
-  const status =
-    candidates.find((s) => s.name === DEFAULT_STATUS_NAME) ??
-    candidates.find((s) => s.category === 'backlog') ??
-    candidates[0]
-  if (!status) throw new DomainError('NOT_FOUND', 'Team not found')
+  const statuses = await db.select().from(workflowStatuses).where(scope)
+  const status = pickDefaultStatus(statuses, defaultStatusId)
+  if (!status) throw new DomainError('BAD_REQUEST', 'Team has no status for new issues')
   return status
 }
 
-async function assertWorkspaceMember(db: DbOrTx, workspaceId: string, userId: string) {
+async function isWorkspaceMember(db: DbOrTx, workspaceId: string, userId: string) {
   const [member] = await db
     .select({ id: workspaceMembers.id })
     .from(workspaceMembers)
     .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)))
-  if (!member) throw new DomainError('BAD_REQUEST', 'Assignee is not a member of this workspace')
+  return Boolean(member)
+}
+
+async function assertWorkspaceMember(db: DbOrTx, workspaceId: string, userId: string) {
+  if (!(await isWorkspaceMember(db, workspaceId, userId))) {
+    throw new DomainError('BAD_REQUEST', 'Assignee is not a member of this workspace')
+  }
 }
