@@ -4,6 +4,7 @@ import {
   createProjectLabel,
   deleteProject,
   getProject,
+  getProjectProgress,
   listProjectActivity,
   listProjectLabels,
   listProjects,
@@ -30,6 +31,7 @@ async function toDto(db: DbOrTx, storage: Storage, row: ProjectRow): Promise<Pro
     id: row.id,
     name: row.name,
     description: row.description,
+    summary: row.summary,
     status: row.status,
     iconUploadId: row.iconUploadId,
     iconUrl: await imageUrl(db, storage, row.iconUploadId),
@@ -68,6 +70,11 @@ export const projectsRouter = {
         context.storage,
         await getProject(context.db, context.workspace.id, input.id),
       ),
+    ),
+  progress: authed.projects.progress
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(({ context, input }) =>
+      getProjectProgress(context.db, context.workspace.id, input.projectId),
     ),
   create: authed.projects.create
     .use(inWorkspace, (input) => input.workspaceSlug)

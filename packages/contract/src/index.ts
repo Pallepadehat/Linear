@@ -6,7 +6,7 @@ import type {
 import { projectLabelsContract } from './routers/project-labels'
 import { projectsContract } from './routers/projects'
 import { issueRelationsContract } from './routers/relations'
-import { issueLinksContract } from './routers/links'
+import { issueLinksContract, projectLinksContract } from './routers/links'
 import { presenceContract } from './routers/presence'
 import { realtimeContract } from './routers/realtime'
 import { activityContract } from './routers/activity'
@@ -34,6 +34,7 @@ export const contract = {
   issues: issuesContract,
   issueRelations: issueRelationsContract,
   issueLinks: issueLinksContract,
+  projectLinks: projectLinksContract,
   projects: projectsContract,
   milestones: milestonesContract,
   cycles: cyclesContract,

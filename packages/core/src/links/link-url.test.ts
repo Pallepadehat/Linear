@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DomainError } from '../errors'
-import { linkHostname, parseWebUrl, resolveLinkTitle } from './link-url'
+import { linkHostname, nextLinkTitle, parseWebUrl, resolveLinkTitle } from './link-url'
 
 describe('linkHostname', () => {
   it('drops a leading www.', () => {
@@ -26,5 +26,24 @@ describe('resolveLinkTitle', () => {
 describe('parseWebUrl', () => {
   it.each(['javascript:alert(1)', 'ftp://example.com', 'not a url'])('rejects %s', (url) => {
     expect(() => parseWebUrl(url)).toThrow(DomainError)
+  })
+})
+
+describe('nextLinkTitle', () => {
+  const current = { url: 'https://www.figma.com/file/1', title: 'figma.com' }
+
+  it('uses an explicit title, or the hostname when it is blank', () => {
+    expect(nextLinkTitle(current, current.url, ' Mockups ')).toBe('Mockups')
+    expect(nextLinkTitle(current, 'https://notion.so/x', '')).toBe('notion.so')
+  })
+
+  it('moves a hostname title to the new URL', () => {
+    expect(nextLinkTitle(current, 'https://notion.so/x', undefined)).toBe('notion.so')
+  })
+
+  it('keeps a custom title when only the URL changes', () => {
+    expect(nextLinkTitle({ ...current, title: 'Mockups' }, 'https://notion.so/x', undefined)).toBe(
+      'Mockups',
+    )
   })
 })

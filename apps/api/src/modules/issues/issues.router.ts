@@ -19,7 +19,9 @@ import { enqueue } from '@linear/queue'
 import { imageUrl } from '../../lib/upload-urls'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
+import { announceMentions } from '../notifications/mentions'
 import { issueUpdateEvents, notify } from '../notifications/notify'
+import { changesProgress, snapshotProjectsProgress } from '../projects/progress-snapshots'
 import { changedIssueFields, publishChange } from '../realtime/publish'
 import { toIssueDetailDto, toIssueDto } from './issues.dto'
 
@@ -79,6 +81,10 @@ export const issuesRouter = {
         { ...source, event: 'issue_created_in_team' },
         ...(issue.assigneeId ? [{ ...source, event: 'assigned' as const }] : []),
       ])
+      await announceMentions(context, issue.id, issue.mentions, {
+        activityId: issue.createdActivityId,
+      })
+      await snapshotProjectsProgress(context, [issue.projectId])
       return toIssueDto(await getIssue(context.db, context.workspace.id, issue.id, context.user.id))
     }),
 
@@ -134,17 +140,26 @@ export const issuesRouter = {
           : []
       await publishSubIssuesChanged(context, parents)
       await notify(context, issueUpdateEvents(issue.id, issue.activity, issue.assigneeId))
+      const described = issue.activity.find((entry) => entry.kind === 'description')
+      await announceMentions(
+        context,
+        issue.id,
+        issue.mentions,
+        described ? { activityId: described.id } : null,
+      )
       // Each project whose feed got an entry (issue removed / added, milestone completed).
       for (const projectId of issue.feedProjectIds) {
         await publishChange(context, { type: 'project.updated', projectId })
       }
+      if (changesProgress(fields))
+        await snapshotProjectsProgress(context, [issue.projectChange?.from, issue.projectId])
       return toIssueDto(issue)
     }),
 
   delete: authed.issues.delete
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { id, parentId, childIds, deletedUploadIds } = await deleteIssue(
+      const { id, parentId, projectId, childIds, deletedUploadIds } = await deleteIssue(
         context.db,
         context.workspace.id,
         input.id,
@@ -162,6 +177,7 @@ export const issuesRouter = {
           fields: ['parent'],
         })
       }
+      await snapshotProjectsProgress(context, [projectId])
       return { id }
     }),
 
@@ -200,13 +216,18 @@ export const issuesRouter = {
       for (const projectId of new Set(updated.flatMap((issue) => issue.feedProjectIds))) {
         await publishChange(context, { type: 'project.updated', projectId })
       }
+      if (changesProgress(fields))
+        await snapshotProjectsProgress(
+          context,
+          updated.flatMap((issue) => [issue.projectChange?.from, issue.projectId]),
+        )
       return { items: updated.map(toIssueDto) }
     }),
 
   bulkDelete: authed.issues.bulkDelete
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { ids, parentIds, childIds, deletedUploadIds } = await bulkDeleteIssues(
+      const { ids, parentIds, childIds, projectIds, deletedUploadIds } = await bulkDeleteIssues(
         context.db,
         context.workspace.id,
         input.ids,
@@ -223,6 +244,7 @@ export const issuesRouter = {
           fields: ['parent'],
         })
       }
+      await snapshotProjectsProgress(context, projectIds)
       return { ids }
     }),
 

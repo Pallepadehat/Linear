@@ -1,7 +1,9 @@
-import type { IssueLink } from '@linear/contract'
-import type { IssueLinkRecord } from '@linear/core'
+import type { IssueLink, ProjectLink } from '@linear/contract'
+import type { IssueLinkRecord, ProjectLinkRecord } from '@linear/core'
 
-export function toIssueLinkDto(record: IssueLinkRecord): IssueLink {
+type LinkRecord = Pick<IssueLinkRecord, 'id' | 'url' | 'title' | 'hostname' | 'createdAt'>
+
+export function toIssueLinkDto(record: LinkRecord): IssueLink {
   return {
     id: record.id,
     url: record.url,
@@ -9,4 +11,8 @@ export function toIssueLinkDto(record: IssueLinkRecord): IssueLink {
     hostname: record.hostname,
     createdAt: record.createdAt,
   }
+}
+
+export function toProjectLinkDto(record: ProjectLinkRecord): ProjectLink {
+  return { ...toIssueLinkDto(record), projectId: record.projectId }
 }

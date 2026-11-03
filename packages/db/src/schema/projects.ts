@@ -32,6 +32,8 @@ export const projects = pgTable(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     name: text().notNull(),
     description: text(),
+    // One-line summary under the name on the project page (M9-03).
+    summary: text(),
     status: projectStatus().notNull().default('planned'),
     iconUploadId: uuid().references(() => uploads.id, { onDelete: 'set null' }),
     // 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (same scale as issues).
@@ -162,5 +164,36 @@ export const projectMilestones = pgTable(
     unique('project_milestones_project_id_name_unique').on(t.projectId, t.name),
     index().on(t.workspaceId),
     index().on(t.projectId, t.sortOrder),
+  ],
+)
+
+/**
+ * One row per project per UTC day: its issue counts at the last snapshot that day
+ * (docs/domain.md → Project progress). Written only by the `project-progress-snapshot`
+ * job, which upserts on `(projectId, date)`.
+ */
+export const projectProgressSnapshots = pgTable(
+  'project_progress_snapshots',
+  {
+    id: id(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    date: date({ mode: 'string' }).notNull(),
+    scope: integer().notNull(),
+    started: integer().notNull(),
+    completed: integer().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    unique('project_progress_snapshots_project_id_date_unique').on(t.projectId, t.date),
+    index().on(t.workspaceId),
+    check(
+      'project_progress_snapshots_counts',
+      sql`${t.started} >= 0 and ${t.completed} >= 0 and ${t.started} + ${t.completed} <= ${t.scope}`,
+    ),
   ],
 )

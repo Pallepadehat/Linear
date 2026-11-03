@@ -4,6 +4,7 @@ import {
   activityActor,
   buildTimeline,
   describeActivity,
+  mentionSource,
   type ActivityNames,
 } from './issue-timeline'
 
@@ -24,6 +25,7 @@ function activity(
     kind,
     from,
     to,
+    mentionedIn: null,
     createdAt: at,
   }
 }
@@ -125,5 +127,29 @@ describe('describeActivity', () => {
     expect(describeActivity(activity('estimate', null, 3), { ...names, estimate: () => 'M' })).toBe(
       'set estimate to M',
     )
+  })
+})
+
+describe('mentioned_in', () => {
+  const sourceId = crypto.randomUUID()
+  const commentId = crypto.randomUUID()
+
+  it('reads "mentioned this issue in", with the resolved source', () => {
+    const entry = {
+      ...activity('mentioned_in', null, [sourceId, 'TIP-34', commentId]),
+      mentionedIn: { issueId: sourceId, identifier: 'TIP-34', title: 'Fix login', commentId },
+    }
+    expect(describeActivity(entry, {} as ActivityNames)).toBe('mentioned this issue in')
+    expect(mentionSource(entry)).toEqual(entry.mentionedIn)
+  })
+
+  it('falls back to the stored identifier', () => {
+    expect(mentionSource(activity('mentioned_in', null, [sourceId, 'TIP-34']))).toEqual({
+      issueId: sourceId,
+      identifier: 'TIP-34',
+      title: null,
+      commentId: null,
+    })
+    expect(mentionSource(activity('title', null, 'x'))).toBeNull()
   })
 })

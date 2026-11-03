@@ -1,7 +1,14 @@
+import { createHash } from 'node:crypto'
 import { Queue, type JobsOptions } from 'bullmq'
 import type { Redis } from 'ioredis'
 import { QUEUE_NAMES, type QueueKey } from './names'
-import { notificationSourceKey, parseJobPayload, type JobName, type JobPayload } from './payloads'
+import {
+  notificationSourceKey,
+  parseJobPayload,
+  projectProgressSnapshotKey,
+  type JobName,
+  type JobPayload,
+} from './payloads'
 
 export const defaultJobOptions: JobsOptions = {
   attempts: 5,
@@ -42,14 +49,50 @@ export function enqueue<Q extends QueueKey, N extends JobName<Q>>(
 }
 
 /**
- * Enqueues a `notify` job under a job id derived from its source, so an event that is
- * enqueued twice (a retried request or delivery) runs once.
+ * The job id of a `notify` job: its source key, so an event that is enqueued twice (a
+ * retried request or delivery) runs once. Mentions also hash who was mentioned: editing
+ * a comment can mention more people under the same source (the comment), and that job
+ * must not be dropped as a duplicate of the first.
  */
+export function notifyJobId(payload: JobPayload<'notifications', 'notify'>) {
+  const key = notificationSourceKey(payload)
+  if (payload.event !== 'mentioned') return key
+  const users = [...(payload.userIds ?? [])].sort().join(',')
+  return `${key}-${createHash('sha256').update(users).digest('hex').slice(0, 16)}`
+}
+
 export function enqueueNotification(
   queues: Queues,
   payload: JobPayload<'notifications', 'notify'>,
 ) {
-  return enqueue(queues, 'notifications', 'notify', payload, {
-    jobId: notificationSourceKey(payload),
-  })
+  return enqueue(queues, 'notifications', 'notify', payload, { jobId: notifyJobId(payload) })
+}
+
+/** How long an on-demand progress snapshot waits, so a burst of issue edits runs it once. */
+export const PROJECT_PROGRESS_DEBOUNCE_MS = 10_000
+
+/**
+ * Queues a snapshot of each project's progress after its issues changed. While one is
+ * pending for a project and day, more changes join it (BullMQ deduplication); it reads
+ * the counts when it runs, so it includes them. Once it has run, the next change queues
+ * a new one.
+ */
+export async function enqueueProjectProgressSnapshots(
+  queues: Queues,
+  projectIds: Iterable<string | null | undefined>,
+  now = new Date(),
+) {
+  for (const projectId of new Set(projectIds)) {
+    if (!projectId) continue
+    await enqueue(
+      queues,
+      'maintenance',
+      'project-progress-snapshot',
+      { projectId },
+      {
+        delay: PROJECT_PROGRESS_DEBOUNCE_MS,
+        deduplication: { id: projectProgressSnapshotKey(projectId, now) },
+      },
+    )
+  }
 }

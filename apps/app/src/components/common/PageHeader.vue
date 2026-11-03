@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useUiStore, type Crumb } from '@/stores/ui'
 import IconButton from './IconButton.vue'
+import ProjectIcon from './ProjectIcon.vue'
 
 /**
  * The 44px header on top of the content panel: breadcrumb (or a custom `title` slot), an optional
@@ -42,6 +43,7 @@ const { slug } = useCurrentWorkspace()
               aria-hidden="true"
               >{{ crumb.teamInitial }}</span
             >
+            <ProjectIcon v-if="crumb.projectIcon" :src="crumb.projectIcon.src" />
             <span v-if="crumb.identifier" class="shrink-0 font-mono text-xs text-ink-subtle">
               {{ crumb.identifier }}
             </span>

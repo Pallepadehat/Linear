@@ -2,6 +2,7 @@
 import type { Issue } from '@linear/contract'
 import { ChevronDown, Layers, ListFilter, Plus } from '@lucide/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
+import { useQuery } from '@tanstack/vue-query'
 import { computed, nextTick, ref, watch, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -29,6 +30,9 @@ import {
 import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
 import { useIssueSelection } from '../composables/useIssueSelection'
 import { useIssueViewData } from '../composables/useIssueViewData'
+import { facetTotal, hiddenByFiltersText, statusGroupCounts } from '../filter-counts'
+import { EMPTY_FILTERS } from '../issue-filters'
+import { issueFacetsOptions, type IssueListFilter } from '../queries'
 import { viewStatusCategories } from '../issue-view'
 import GroupIcon from './GroupIcon.vue'
 import BulkActionBar from './BulkActionBar.vue'
@@ -48,6 +52,11 @@ const props = defineProps<{
   creator?: 'me'
   /** The view tab (team and All issues pages); My issues and project lists have none. */
   view?: 'all' | 'active' | 'backlog'
+  /**
+   * While filtered, status groups read "shown / total" and a footer counts the issues the
+   * filters hide (project pages; from `issues.facets` with and without the filters).
+   */
+  filterCounts?: boolean
 }>()
 // Replaces the default "No issues yet" state, e.g. for My Issues tabs.
 defineSlots<{ empty?: () => unknown }>()
@@ -61,6 +70,14 @@ const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
 const viewKey = computed(() => displayViewKey(props))
 const { options } = useDisplayOptions(viewKey)
+const listFilter = computed<IssueListFilter>(() => ({
+  teamId: props.teamId,
+  projectId: props.projectId,
+  cycleId: props.cycleId,
+  assignee: props.assignee,
+  creator: props.creator,
+  ...displayListInput(options.value, viewStatusCategories(props.view)),
+}))
 const {
   query,
   queryKey,
@@ -74,16 +91,44 @@ const {
   updateIssue,
 } = useIssueViewData(
   () => props.workspaceSlug,
-  () => ({
-    teamId: props.teamId,
-    projectId: props.projectId,
-    cycleId: props.cycleId,
-    assignee: props.assignee,
-    creator: props.creator,
-    ...displayListInput(options.value, viewStatusCategories(props.view)),
-  }),
+  () => listFilter.value,
 )
 const properties = computed(() => options.value.properties)
+
+// Filtered vs. unfiltered counts, only fetched while a filter is on.
+const countsEnabled = computed(() => Boolean(props.filterCounts && filtered.value))
+const { data: shownFacets } = useQuery(
+  computed(() => ({
+    ...issueFacetsOptions(props.workspaceSlug, listFilter.value, filters.value),
+    enabled: countsEnabled.value,
+  })),
+)
+const { data: allFacets } = useQuery(
+  computed(() => ({
+    ...issueFacetsOptions(props.workspaceSlug, listFilter.value, EMPTY_FILTERS),
+    enabled: countsEnabled.value,
+  })),
+)
+const allStatuses = computed(() => [...statusesByTeam.value.values()].flat())
+const shownByGroup = computed(() =>
+  statusGroupCounts(shownFacets.value?.statuses, allStatuses.value),
+)
+const totalByGroup = computed(() => statusGroupCounts(allFacets.value?.statuses, allStatuses.value))
+/** "1 / 2" on a top-level status group while filtered; otherwise the loaded count. */
+function groupCount(target: IssueGroup, depth: number) {
+  const total = totalByGroup.value.get(target.key)
+  if (!countsEnabled.value || depth || target.value.by !== 'status' || total === undefined)
+    return String(target.issues.length)
+  return `${shownByGroup.value.get(target.key) ?? target.issues.length} / ${total}`
+}
+const hiddenText = computed(() =>
+  countsEnabled.value && shownFacets.value && allFacets.value
+    ? hiddenByFiltersText(
+        facetTotal(allFacets.value.statuses),
+        facetTotal(shownFacets.value.statuses),
+      )
+    : null,
+)
 const viewEmpty = computed(() =>
   props.view === 'active'
     ? { title: 'No active issues', description: 'Issues in Todo or In Progress show up here.' }
@@ -324,7 +369,9 @@ watchEffect(() => {
               />
               <GroupIcon :icon="row.group.icon" />
               <span class="truncate font-medium text-ink">{{ row.group.label }}</span>
-              <span class="text-ink-subtle tabular-nums">{{ row.group.issues.length }}</span>
+              <span class="text-ink-subtle tabular-nums">{{
+                groupCount(row.group, row.depth)
+              }}</span>
               <span
                 v-if="groupEstimate(row.group) > 0"
                 class="ml-1 flex items-center gap-1 text-xs text-ink-subtle tabular-nums"
@@ -369,6 +416,21 @@ watchEffect(() => {
         </div>
       </div>
     </div>
+    <p
+      v-if="hiddenText"
+      class="flex h-9 shrink-0 items-center gap-1.5 border-t border-hairline px-4 text-[13px] text-ink-subtle"
+      role="status"
+    >
+      {{ hiddenText }}
+      <span aria-hidden="true">·</span>
+      <button
+        type="button"
+        class="rounded-md px-1 text-ink-muted outline-hidden hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
+        @click="clearFilters"
+      >
+        Clear filters
+      </button>
+    </p>
     <BulkActionBar
       :workspace-slug="workspaceSlug"
       :issues="issues"

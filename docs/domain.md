@@ -4,20 +4,20 @@ Exact rules behind PRD FR-02 – FR-14. If code and this doc disagree, one of th
 
 ## Glossary
 
-| Term              | Meaning                                                                                      |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| Workspace         | Tenant boundary. Owns teams, projects, labels, members, GitHub installations, uploads.       |
-| Member            | A user in a workspace with role `owner` or `member`.                                         |
-| Team              | Group inside a workspace that owns issues and has a unique **key** (e.g. `TIP`).             |
-| Issue             | Unit of work. Belongs to exactly one team (and therefore one workspace).                     |
-| Identifier        | Human-readable issue ID: `{teamKey}-{number}`, e.g. `TIP-200`.                               |
-| Workflow status   | A team's status (Backlog, Todo, …). Each status has a **category**.                          |
-| Project           | Optional grouping of issues across a workspace.                                              |
-| Installation      | A GitHub App installation connected to one workspace.                                        |
-| Connected repo    | A GitHub repository from an installation, enabled for a workspace.                           |
-| PR link           | Relationship between an issue and a pull request, of type `closing` or `reference`.          |
-| Delivery          | One GitHub webhook delivery, identified by the `X-GitHub-Delivery` header.                   |
-| Upload            | A file in MinIO with a DB record (`pending` → `ready` → `deleted`).                          |
+| Term            | Meaning                                                                                |
+| --------------- | -------------------------------------------------------------------------------------- |
+| Workspace       | Tenant boundary. Owns teams, projects, labels, members, GitHub installations, uploads. |
+| Member          | A user in a workspace with role `owner` or `member`.                                   |
+| Team            | Group inside a workspace that owns issues and has a unique **key** (e.g. `TIP`).       |
+| Issue           | Unit of work. Belongs to exactly one team (and therefore one workspace).               |
+| Identifier      | Human-readable issue ID: `{teamKey}-{number}`, e.g. `TIP-200`.                         |
+| Workflow status | A team's status (Backlog, Todo, …). Each status has a **category**.                    |
+| Project         | Optional grouping of issues across a workspace.                                        |
+| Installation    | A GitHub App installation connected to one workspace.                                  |
+| Connected repo  | A GitHub repository from an installation, enabled for a workspace.                     |
+| PR link         | Relationship between an issue and a pull request, of type `closing` or `reference`.    |
+| Delivery        | One GitHub webhook delivery, identified by the `X-GitHub-Delivery` header.             |
+| Upload          | A file in MinIO with a DB record (`pending` → `ready` → `deleted`).                    |
 
 ## Roles
 
@@ -65,11 +65,11 @@ Each team gets these defaults on creation:
 
 Each team stores the defaults used when an issue is created without that field (team settings page → Issue defaults; `teams.update`, owner-only):
 
-| Field             | Column                | On team creation |
-| ----------------- | --------------------- | ---------------- |
-| Status            | `default_status_id`   | `Backlog`        |
-| Priority          | `default_priority`    | `0` No priority  |
-| Assignee          | `default_assignee_id` | none             |
+| Field    | Column                | On team creation |
+| -------- | --------------------- | ---------------- |
+| Status   | `default_status_id`   | `Backlog`        |
+| Priority | `default_priority`    | `0` No priority  |
+| Assignee | `default_assignee_id` | none             |
 
 - The default status must belong to the same team (composite FK `teams_default_status_fk`). While it is someone's default, a status can't be deleted.
 - Fallback rule when no default status is stored: `Backlog` by name, else the first `backlog` status (by order), else the first `unstarted` one (`pickDefaultStatus` in `packages/core/src/teams`). Migration 0009 backfilled existing teams with this rule. `teams.get` returns the resolved status, so the app never needs the rule.
@@ -86,7 +86,7 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 - Each team picks an estimate scale (`teams.estimate_scale`, owner-only like other team settings): `off` (default, estimates hidden), `linear` 1–5, `fibonacci` 1, 2, 3, 5, 8, `exponential` 1, 2, 4, 8, 16, `tshirt` XS, S, M, L, XL stored as 1, 2, 3, 5, 8 so they sum like points.
 - `teams.estimate_allow_zero` (default off) adds `0` to any scale; Fibonacci's 0 follows the same flag. A t-shirt `0` is shown as the raw number "0".
 - `issues.estimate` is a nullable integer (`null` = no estimate, DB check 0–100). Create and update accept a value only if it is on the issue team's current scale (`BAD_REQUEST` otherwise, and for any value while the scale is `off`); `null` (clear) is always allowed.
-- Changing the scale or the zero flag keeps existing estimates; the UI shows a value that is no longer on the scale as its raw number. Only a *changed* estimate is validated, so editing other fields of such an issue still works.
+- Changing the scale or the zero flag keeps existing estimates; the UI shows a value that is no longer on the scale as its raw number. Only a _changed_ estimate is validated, so editing other fields of such an issue still works.
 - `issues.list` filter `estimates`: specific values, `null` = no estimate, `'any'` = has an estimate (OR'd). Sort `estimate`: `desc` largest first, `asc` smallest first, no estimate last in both directions, newest first within a value.
 - Activity kind `estimate` with numeric `from`/`to` (null when unset); the timeline reads "set estimate to 3 points" / "removed estimate" (t-shirt teams name the size).
 - Group headers and board columns show the sum of their issues' estimates, counting only issues whose team uses estimates; hidden when the sum is 0.
@@ -115,20 +115,20 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 
 ### Detection sources and link types
 
-| Source                      | Example                          | Link type   |
-| --------------------------- | -------------------------------- | ----------- |
-| Branch name                 | `tip-200-fix-login`, `feat/tip-200` | `closing` |
-| PR title                    | `TIP-200 Fix login validation`   | `closing`   |
-| Body: `fixes`, `closes`, `resolves` (+ `fix`, `close`, `resolve`, `fixed`, `closed`, `resolved`) | `Fixes TIP-200` | `closing` |
-| Body: `refs`, `ref`, `related to`, `part of` | `Refs TIP-200`     | `reference` |
-| Body: bare identifier       | `see TIP-200`                    | `reference` |
+| Source                                                                                           | Example                             | Link type   |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------- | ----------- |
+| Branch name                                                                                      | `tip-200-fix-login`, `feat/tip-200` | `closing`   |
+| PR title                                                                                         | `TIP-200 Fix login validation`      | `closing`   |
+| Body: `fixes`, `closes`, `resolves` (+ `fix`, `close`, `resolve`, `fixed`, `closed`, `resolved`) | `Fixes TIP-200`                     | `closing`   |
+| Body: `refs`, `ref`, `related to`, `part of`                                                     | `Refs TIP-200`                      | `reference` |
+| Body: bare identifier                                                                            | `see TIP-200`                       | `reference` |
 
 - Matching is case-insensitive. Pattern: `\b([A-Za-z][A-Za-z0-9]{1,9})-(\d+)\b`.
 - Branch matching uses each `/`-separated segment: `^([a-z][a-z0-9]{1,9})-(\d+)(?:-|$)`.
 - If the same issue is detected as both `closing` and `reference`, `closing` wins.
 - A body keyword applies only to the identifier directly after it (optionally followed by `:`), e.g. `Fixes TIP-1, TIP-2` closes `TIP-1` and references `TIP-2`. Keywords inside other words (`prefixes`, `unclosed`) don't count.
 - Numbers are normalized (`TIP-0200` = `TIP-200`); `0` is never a valid issue number.
-- The parser (`parsePrIdentifiers` in `packages/core/src/github`) returns candidates only. Branch segments must *start* with the identifier, so `fix-utf-8` is ignored, but text like `utf-8` in a title still yields a `UTF-8` candidate; the team-key lookup below discards it.
+- The parser (`parsePrIdentifiers` in `packages/core/src/github`) returns candidates only. Branch segments must _start_ with the identifier, so `fix-utf-8` is ignored, but text like `utf-8` in a title still yields a `UTF-8` candidate; the team-key lookup below discards it.
 - A candidate is linked only if the team key exists **in the workspace that owns the repository** and the issue number exists. Everything else is ignored silently.
 - On `edited` / `synchronize`, links are recomputed: new ones added, ones that no longer appear removed (unless the PR is already merged — merged links are frozen).
 - Unique: one link per `(issueId, pullRequestId)`.
@@ -155,13 +155,13 @@ Stored state is one of `open`, `draft`, `closed`, `merged`. `merged` is terminal
 
 Automation only moves issues **forward** and never touches `completed` or `canceled` issues. Every automated change writes an `ActivityLog` entry with actor `github` and the PR reference.
 
-| Trigger                                    | Condition on issue                       | Result                         | PRD rule |
-| ------------------------------------------ | ---------------------------------------- | ------------------------------ | -------- |
-| Closing link created on an `open`/`draft` PR | Category `backlog` or `unstarted`      | → first `started` status (In Progress) | A |
-| PR merged                                  | Category not `completed`/`canceled` and **all required PRs merged** | → first `completed` status (Done) | B, C |
-| PR closed without merge                    | any                                      | No status change               | E |
-| Reference link created / PR merged         | any                                      | No status change               | D |
-| User changes status manually               | any                                      | Manual value wins; automation never reverts it | F |
+| Trigger                                      | Condition on issue                                                  | Result                                         | PRD rule |
+| -------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------- | -------- |
+| Closing link created on an `open`/`draft` PR | Category `backlog` or `unstarted`                                   | → first `started` status (In Progress)         | A        |
+| PR merged                                    | Category not `completed`/`canceled` and **all required PRs merged** | → first `completed` status (Done)              | B, C     |
+| PR closed without merge                      | any                                                                 | No status change                               | E        |
+| Reference link created / PR merged           | any                                                                 | No status change                               | D        |
+| User changes status manually                 | any                                                                 | Manual value wins; automation never reverts it | F        |
 
 **Required PRs** for an issue = its `closing` links whose PR is not `closed` (closed-without-merge PRs stop being required). The issue completes when the required set is non-empty and every PR in it is `merged`.
 
@@ -200,12 +200,12 @@ Only `pull_request` events are handled in the MVP; others are stored and marked 
 
 ## Uploads
 
-| Kind               | Owner      | Formats                          | Max   |
-| ------------------ | ---------- | -------------------------------- | ----- |
-| `avatar`           | user       | png, jpeg, webp                  | 2 MB  |
-| `workspace_icon`   | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
-| `project_icon`     | workspace  | png, jpeg, webp, svg (sanitized) | 1 MB  |
-| `attachment`       | workspace  | png, jpeg, webp, gif, pdf, txt, zip | 25 MB |
+| Kind             | Owner     | Formats                             | Max   |
+| ---------------- | --------- | ----------------------------------- | ----- |
+| `avatar`         | user      | png, jpeg, webp                     | 2 MB  |
+| `workspace_icon` | workspace | png, jpeg, webp, svg (sanitized)    | 1 MB  |
+| `project_icon`   | workspace | png, jpeg, webp, svg (sanitized)    | 1 MB  |
+| `attachment`     | workspace | png, jpeg, webp, gif, pdf, txt, zip | 25 MB |
 
 SVG icons are rejected until server-side sanitization exists; until then icons accept png, jpeg, webp only. SVG and HTML are never accepted as attachments.
 
@@ -248,7 +248,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - API semantics: `…Not` lists leave out issues with any of the values; on nullable properties (assignee, project) an excluded value keeps issues without one ("assignee is not Ada" includes unassigned), and `null` in the list excludes those. `labelMode: 'all'` needs every listed label. Date bounds: `createdAfter` / `updatedAfter` / `completedSince` inclusive, `…Before` exclusive; only completed issues have `completedAt`, so the Completed date filter leaves out open issues. It is `completedSince`, not `completedAfter`: that one belongs to the **Completed issues** display option and keeps open issues; when both are set they combine by AND. "Before/after a day" means the viewer's local midnight of that day, and "past …" windows are computed on the client from its clock (rounded to the minute), so the server never guesses a timezone. `creatorIds` / `creatorIdsNot` take `me` like subscribers. Ids from another workspace match nothing.
 - URL (the filters own exactly these keys; clearing a filter drops its key, other params such as `?view=` stay): the operator lives in the key: `?status=` (is), `?status-not=`, `?label-all=`, `?label-not=` (also `priority-`, `assignee-`, `project-`, `creator-`); if both `?x=` and `?x-not=` are present, `?x=` wins. `?creator=<ids|me>`, `?created=past-day|past-week|past-month|past-3months|before-YYYY-MM-DD|after-YYYY-MM-DD` (likewise `updated`, `completed`), `?content=…`, `?pr=yes|no`, `?links=has|none`. Malformed values are dropped.
 - The view toolbar (under the page header) holds the tabs on the left and round icon buttons on the right: Filter (`F`, opens the filter menu; ignored while typing), Display options (see below) and Details (`⌘ I`, opens the Details panel above). Filter chips and search stay in the filter bar below it; pages without the toolbar (My issues, project, cycle) show the Display options button at the end of the filter bar.
-- Descriptions are stored as **markdown** (CommonMark + GFM task lists) with Linear's extensions: `+++ Title … +++` collapsible sections, `$$ … $$` LaTeX blocks, ```` ```mermaid ```` diagrams and `attachment:` references (see Uploads). The editor reads and writes markdown; an empty editor saves no description (`null`). An issue can't be submitted while attachments are still uploading.
+- Descriptions are stored as **markdown** (CommonMark + GFM task lists) with Linear's extensions: `+++ Title … +++` collapsible sections, `$$ … $$` LaTeX blocks, ` ```mermaid ` diagrams and `attachment:` references (see Uploads). The editor reads and writes markdown; an empty editor saves no description (`null`). An issue can't be submitted while attachments are still uploading.
 - The issue list groups loaded issues by the view's grouping (default Status). Status groups are keyed by category + name so the workspace-wide list merges each team's `Todo` into one group, and are ordered `started`, `unstarted`, `backlog`, `completed`, `canceled`, then by status position; issues keep the list's sort order within a group. Group counts show loaded issues until every page is fetched (the next page loads on scroll).
 - **Display options** (sliders button, `IssueDisplayOptions`): one set per view, keyed `team:<id>`, `project:<id>`, `cycle:<id>`, `my` or `all`, kept in the Pinia preferences store (`issue-display-options` in localStorage; parsed field by field on read, so a stale value only resets that field). "Reset" drops the view's entry. The shape is `displayOptionsSchema` in `packages/contract` (saved views, M10-05, reuse it). Defaults: List, grouped by Status ascending, no sub-grouping, ordered by Created newest first, completed issues All, sub-issues shown, empty groups hidden, every property on except Updated.
   - **Layout** List | Board (team and All issues pages; My issues, project and cycle pages stay list-only).
@@ -282,7 +282,6 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Realtime: every milestone create, update, reorder and delete publishes `project.updated` for its project; a delete also publishes `issue.updated` (`milestone`) for each issue that lost it, and an issue update that changes the project lists `milestone` too. Milestone changes on issues are not written to the issue activity log; the project feed gets `milestone.created` and `milestone.completed` (see Project activity).
 - App: the issue properties panel nests a Milestone picker under the Project row (tree line), only while the issue has a project; it lists the project's milestones with progress and saves through the optimistic `useUpdateIssue()` (a project change clears the milestone optimistically too). The milestone filter (`?milestone=<ids|none>`) is offered on a project page, or when the project filter is narrowed to one project. The projects table shows the current milestone as a chip next to the name. The project page has a Milestones section: "+ Milestone" inline add (↵ saves and keeps the row open, Esc cancels), drag to reorder (or Move up/down in the "…" menu), Rename, Set target date and Delete (confirmation). Rename, target date and reorder are optimistic with rollback; create and delete wait for the server. The milestone icon is a diamond whose fill rises with progress (`ink-subtle`, `status-completed` once complete).
 
-
 - An issue may have one parent (`parentId`); any number of issues may share it. The parent must be in the same workspace (otherwise `NOT_FOUND`, so ids can't be probed); teams may differ. An issue can't be its own parent, nor the sub-issue of one of its descendants (`BAD_REQUEST`). Checks run in the write transaction, serialized per workspace by an advisory lock so two concurrent moves can't form a loop.
 - Deleting a parent leaves its sub-issues as top-level issues (`ON DELETE SET NULL`); no activity is written for that, but each sub-issue gets an `issue.updated` (`parent`) event.
 - Progress (`subIssueProgress`, null without sub-issues): `done` counts sub-issues in a `completed` status; canceled ones are left out of `total`. Lists and details show it as `done/total`.
@@ -292,12 +291,36 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - "Set parent issue…" (⇧⌘P, Ctrl+Shift+P off macOS) searches the workspace with `issues.list` (`excludeSubtreeOf` drops the issue and its descendants); "Remove parent" clears it. Both go through the optimistic `useUpdateIssue()`.
 - Lists: `showSubIssues` (default on; URL `?subIssues=hide` turns it off) decides whether issues with a parent are listed. When shown, a sub-issue renders indented right after its parent if the parent is in the same status group and loaded; otherwise at the top level. Until the display options popover (M7-03) exists, the toggle lives in the order-by menu; "Clear" keeps it, like the sort.
 
+## Project progress
+
+- The project Progress card plots three counts per day: **scope** (every issue in the project, canceled ones included, like project progress), **started** (issues in a `started` status) and **completed** (issues in a `completed` status). Rules: `packages/core/src/projects/progress` (`countProgress`).
+- **Decision: daily snapshots, not derive-on-read.** `project_progress_snapshots` holds one row per project per UTC day (`project_progress_snapshots_project_id_date_unique`). Rebuilding history from `activity_log` would mean replaying status, project, create and delete entries per issue, and it can't answer for deleted issues or statuses, so the history is stored instead. History therefore starts when snapshots start: a project has no points before its first snapshot.
+- Only the `project-progress-snapshot` job (`maintenance` queue, payload `{ projectId }`) writes snapshots. It upserts today's row on `(projectId, date)`, so reruns are idempotent and a deleted project is a no-op. Two triggers run it:
+  - **On demand.** Issue create and delete, and status or project changes (single and bulk), queue a snapshot for the issue's old and new project. These runs are debounced: one pending job per project and day (BullMQ deduplication id `project-progress-<projectId>-<date>`; BullMQ ids can't contain `:`), run 10 s later, so a burst of edits snapshots once. Enqueueing is best effort and never fails the change. GitHub automation doesn't queue one.
+  - **Daily.** The repeatable `project-progress-daily` job at 23:55 UTC snapshots every `planned` and `in_progress` project, so each day's row holds that day's closing counts.
+- `projects.progress({ projectId })` returns:
+  - `series`: the stored snapshots, oldest first, with today's point always computed live. The card is current before any job runs, and today's stored row is only used once the day has passed.
+  - `totals`: today's counts.
+  - `byAssignee` / `byLabel`: done (`completed`) / total, computed live and not snapshotted. Unassigned issues are a "No assignee" row (`userId` null). An issue with several labels counts under each; unlabeled issues have no label row. Rows are sorted by total, most first.
+  - A project in another workspace is `NOT_FOUND`.
+- Chart: completed is stacked under started, with scope as the outline, in `status-completed` / `status-started` / `status-neutral`. The x axis runs from the first point (at least a week back) to the target date, or to today if there is no target or it has passed. A dashed line projects completion from today to the target date at the average daily pace so far (first to last point), capped at scope. It needs a future target and at least two days of history. A dotted line marks today. Hovering, or using the arrow keys while the chart has focus, shows a tooltip with the date and the three counts; a visually hidden table lists every day.
+- The card is `ProjectProgressCard.vue`, a self-contained component loaded with `defineAsyncComponent`. It fills the right panel's **Progress** card (`#progress` slot of `ProjectSidePanel`, with `bare` so the panel card provides the chrome and heading) and has its own **Progress** section on the Overview tab, after Properties and listed in the outline rail. It refetches under `projects.key()`, so the existing issue and `project.updated` invalidations (including realtime) refresh it.
+
 ## Activity
 
 - Every issue change is logged in `activity_log`, in the same transaction as the change: `created` on create, then one entry per field whose value actually changed. Setting a field to the value it already had (including the same label set in another order, or a title that trims to the current one) writes nothing.
 - Actor is `user` (with `actorId`) for changes made through the API, `github` (no `actorId`, with `pullRequestId` of the triggering PR) for automation. A deleted user's entries keep `actorType: user` with `actorId` null.
-- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` and `estimate` numbers (estimate null when unset); `labels` sorted label-id arrays; `due_date` `YYYY-MM-DD` days; `relation` `[role, otherIssueId, otherIdentifier]` in `to` when added and in `from` when removed, role read from this issue's side (`blocks`, `blocked_by`, `related`, `duplicate_of`, `duplicated_by`; the identifier is kept as it was at the time); `link` `[title, url]` in `to` when added and in `from` when removed. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
-- `activity.list` returns one issue's entries **oldest first** as `{ items, nextCursor }`, cursor = last entry id (UUIDv7), page size 50 (max 100). An issue outside the workspace is `NOT_FOUND`.
+- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` and `estimate` numbers (estimate null when unset); `labels` sorted label-id arrays; `due_date` `YYYY-MM-DD` days; `relation` `[role, otherIssueId, otherIdentifier]` in `to` when added and in `from` when removed, role read from this issue's side (`blocks`, `blocked_by`, `related`, `duplicate_of`, `duplicated_by`; the identifier is kept as it was at the time); `link` `[title, url]` in `to` when added and in `from` when removed; `mentioned_in` `[sourceIssueId, sourceIdentifier]` plus the comment id when the mention is in a comment, in `to`, on the **mentioned** issue (see Mentions). Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
+- `activity.list` returns one issue's entries **oldest first**; each carries `mentionedIn` (`{ issueId, identifier, title, commentId }` for `mentioned_in`, the source's current title or null if it was deleted; null for other kinds) as `{ items, nextCursor }`, cursor = last entry id (UUIDv7), page size 50 (max 100). An issue outside the workspace is `NOT_FOUND`.
+
+## Project page (M9-03)
+
+- **Summary:** `projects.summary` is one optional line under the name (trimmed, at most 255 characters, blank stored as null), edited in place like the name (Enter or blur saves, Esc reverts). The description stays the long-form markdown field.
+- **Header:** breadcrumb **Projects › icon name**, the favorite star (M8-07), Copy project link (the project URL without tab or filters), the "…" menu (Add / Remove from favorites, Copy link, Delete project… with a confirmation) and the right panel toggle. There is no project subscribe bell: subscriptions and Inbox notifications are issue-only, so a project bell would need its own subscription model (follow-up).
+- **Tabs:** Overview (default, no param), Activity and Issues at `?tab=overview|activity|issues`; unknown values fall back to Overview. Switching tabs **pushes** a history entry, and other params (issue filters) are kept. Each tab is lazy-loaded.
+- **Overview:** icon tile + upload, name, summary, a properties row (status, priority, lead, start → target date, teams; "…" reveals members and labels), Resources, the "Write first project update" card (a placeholder slot, `#update` on the Overview tab, filled by M9-04), a collapsible description editor (no attachments) and the milestones section. An outline rail (xl screens) jumps to each section.
+- **Issues:** the project's issue list. While a filter is on, each top-level status group reads "shown / total" (for example "Backlog 1 / 2"), and a footer reads "N issues hidden by filters · Clear filters". Both come from `issues.facets` (`statuses`: counts per workflow status) with and without the user's filters, for the same scope and display options; same-named statuses of several teams add up into one group, like the groups themselves.
+- **Right panel:** open by default, toggled from the header; open/closed is a per-browser preference (`project-panel-open` in the Pinia preferences store). Collapsible cards: **Properties** (every project property, optimistic with rollback), **Milestones** (clicking one opens the Issues tab filtered to it, `?tab=issues&milestone=<id>`, pushing history; clicking it again or "Clear filter" removes the filter), **Progress** (`#progress` slot of `ProjectSidePanel`: `ProjectProgressCard`, M9-05) and **Activity** (`#activity` slot: `ProjectActivityCard`, whose "See all" opens the Activity tab, which renders `ProjectActivityFeed`).
 
 ## Project activity
 
@@ -312,7 +335,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Like issue activity, entries are written in the same transaction as the change, and a field set to the value it already had writes nothing. Name, description, icon, teams, members and labels are not logged.
 - `projects.activity({ projectId, cursor, limit })` returns `{ items, nextCursor }` **newest first**, cursor = last entry id (UUIDv7), page size 50 (max 100). Each entry carries `actor` (`id`, `name`, `avatarUrl`; null for GitHub or a deleted user). A project outside the workspace is `NOT_FOUND`.
 - Every write publishes `project.updated` for each project whose feed changed (an issue moving between projects publishes both, an issue completing a milestone publishes its project); clients refetch every project query, the feed included.
-- App: `ProjectActivityCard` shows the latest 5 entries; "See all" opens `?tab=activity`, the full feed (`ProjectActivityFeed`, infinite scroll). Until the project tabs and right panel (M9-03, LIN-65) exist, the card sits in a right column of the project page (`lg` and up) and `?tab=activity` swaps the issue list for the feed. Dates read "Nov 3" (with the year outside the current one) and show the full timestamp on hover. A milestone completing reads without an actor ("Milestone M3 completed").
+- App: `ProjectActivityCard` shows the latest 5 entries; "See all" opens `?tab=activity`, the full feed (`ProjectActivityFeed`, infinite scroll). The card is the Activity card of the project's right panel, and the feed is the Activity tab (see Project page). Dates read "Nov 3" (with the year outside the current one) and show the full timestamp on hover. A milestone completing reads without an actor ("Milestone M3 completed").
 
 ## Comments
 
@@ -329,11 +352,11 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 
 Issues in the same workspace can be related (`issue_relations`). Types and stored direction:
 
-| Type        | Stored as                                    | Read from the issue's side                      |
-| ----------- | -------------------------------------------- | ----------------------------------------------- |
-| `blocks`    | `issueId` blocks `relatedIssueId`            | `blocks` (source) / `blockedBy` (target)        |
-| `related`   | once, either way round                       | `related` on both                               |
-| `duplicate` | `issueId` is a duplicate of `relatedIssueId` | `duplicateOf` (source) / `duplicates` (target)  |
+| Type        | Stored as                                    | Read from the issue's side                     |
+| ----------- | -------------------------------------------- | ---------------------------------------------- |
+| `blocks`    | `issueId` blocks `relatedIssueId`            | `blocks` (source) / `blockedBy` (target)       |
+| `related`   | once, either way round                       | `related` on both                              |
+| `duplicate` | `issueId` is a duplicate of `relatedIssueId` | `duplicateOf` (source) / `duplicates` (target) |
 
 - A pair of issues has at most one relation of each type, **in either direction**: repeating it, or creating the reverse (B blocks A when A blocks B, B related to A, B duplicate of A), is `CONFLICT`. Different types between the same pair are allowed. Enforced by the unique constraint plus a unique index on `(least, greatest, type)`.
 - An issue cannot relate to itself (`BAD_REQUEST`; also a DB check). Both issues must be in the workspace, otherwise `NOT_FOUND`. Relations are deleted with either issue (cascade).
@@ -354,6 +377,12 @@ Web links attached to an issue (`issue_links`; deleted with the issue). Shown wi
 - Adding and removing a link write `link` activity ("added link Spec" / "removed link Spec"); editing a link is not logged. Every create, update and delete publishes `issue.updated` with `fields: ['links']`.
 - **Filter:** `issues.list({ hasLinks: true })` keeps issues with at least one web link **or** linked PR; `false` keeps issues with neither. The filter menu's Links entry offers **Has links** / **No links** (`?links=has|none`) next to **Has pull requests** / **No pull requests** (`?pr=yes|no`, `hasPullRequests`, linked PRs only); each pair is one value at a time, and both combine by AND. The Details panel counts (`issues.facets`) take the same filter, and those counts refresh when an issue's links or linked PRs change.
 - **App:** `Ctrl L` on the issue page (⌃L on macOS, where ⌘L is the address bar; it also works while typing in the description) or "…" → **Add link…** opens the URL / "Title (optional)" dialog. PR rows show the state icon, `#number`, title and repo; link rows show title and hostname (hidden when the title is the hostname). Rows open in a new tab (`rel="noopener noreferrer"`); hover or focus shows Copy link, and for web links Edit and Remove (optimistic, rolled back with a toast).
+
+### Project links (Resources)
+
+- A project's **Resources** are web links in `project_links` (deleted with the project), with the same URL and title rules as issue links. They keep a user-visible order: `sortOrder`, new links last; there is no reorder yet.
+- `projectLinks.list({ projectId })` returns a plain array in order; `create({ projectId, url, title? })`, `update({ id, url?, title? })`, `delete({ id })` are open to any member. A project or link in another workspace is `NOT_FOUND`. Every change publishes `project.updated` (ID only), which also refetches the link lists; project link changes are not written to the project activity feed.
+- App: the Overview's Resources section ("+ Add document or link…") uses the same add / edit dialog as issue links (`LinkDialog`). Edit and remove are optimistic with rollback; add waits for the server.
 
 ## Realtime events
 
@@ -391,7 +420,7 @@ Time-boxed iterations per team (M8-06). Off by default; owners turn them on in t
   1. create missing upcoming cycles;
   2. for each open cycle that has started, record today's point in `scopeSnapshot` / `completedSnapshot` (index = cycle day, missing days are `null`; a rerun on the same day replaces the point);
   3. close ended cycles (`completedAt` = run time), first recording their last-day point, then, with rollover on, moving their unfinished issues (status not completed/canceled) to the team's next open cycle, publishing `issue.updated` with `fields: ['cycle']` and `actorId: null` per moved issue.
-  Every step is idempotent, so a rerun in the same hour (team + hour) changes nothing but the snapshot values. Rollover is not written to the activity log. A team with cycles turned off is skipped; its cycles stay as they are.
+     Every step is idempotent, so a rerun in the same hour (team + hour) changes nothing but the snapshot values. Rollover is not written to the activity log. A team with cycles turned off is skipped; its cycles stay as they are.
 - **Assigning**: `issues.create` / `issues.update` accept `cycleId` (`null` removes it). The cycle must be an open (not completed) cycle of the issue's own team; another team's cycle, a completed one, or one from another workspace is `BAD_REQUEST`. Changes are logged as activity kind `cycle` (from/to cycle ids).
 - **Auto-add**: with cycles and `cycleAutoAddStarted` on, an issue that moves to a different status in the `started` category (or is created in one) and has no cycle joins the current cycle, unless the same request sets `cycleId`. No current cycle (cooldown) means nothing happens. GitHub automation goes through the same update, so a PR opening also auto-adds.
 - **Progress**: `scope` counts every issue in the cycle except canceled ones; `started` and `completed` count the `started` / `completed` categories. Counts are live; the chart uses the daily snapshots.
@@ -402,7 +431,7 @@ Time-boxed iterations per team (M8-06). Off by default; owners turn them on in t
 
 Subscribers are the audience for Inbox notifications (M10-02). Stored in `issue_subscriptions` (one row per issue and user, unique `issue_subscriptions_issue_id_user_id_unique`, cascades with the issue and the user).
 
-- **Auto-subscribe**, in the same transaction as the write: the creator (and the assignee, if any) on create; the new assignee when `assigneeId` changes to someone else (re-saving the same assignee doesn't re-subscribe someone who unsubscribed); the author on comment create; @mentioned users once M10-03 calls `subscribeUsers(tx, issueId, userIds)`. GitHub automation never subscribes anyone.
+- **Auto-subscribe**, in the same transaction as the write: the creator (and the assignee, if any) on create; the new assignee when `assigneeId` changes to someone else (re-saving the same assignee doesn't re-subscribe someone who unsubscribed); the author on comment create; newly @mentioned members (see Mentions). GitHub automation never subscribes anyone.
 - Subscribing is idempotent (`on conflict do nothing`), unsubscribing someone who isn't subscribed is a no-op. Only workspace members can be subscribed: `subscribeUsers` silently skips others, `issues.subscribe` with a non-member `userId` is `BAD_REQUEST`.
 - `issues.subscribe` / `issues.unsubscribe` take `{ workspaceSlug, issueId, userId? }`; `userId` defaults to the signed-in user, and any member may add or remove another member (the sidebar picker). Output `{ subscribed }` is that user's new state. An issue outside the workspace is `NOT_FOUND`.
 - `issues.subscribers` returns current members only (someone who left keeps the row but isn't listed), oldest subscription first, as a plain array.
@@ -414,13 +443,23 @@ Subscribers are the audience for Inbox notifications (M10-02). Stored in `issue_
 
 Every member has a personal Inbox per workspace (M10-02). Stored in `notifications`: one row per recipient, `type`, `issueId`, `actorType` (`user` | `github`) + `actorId` (null for GitHub), a DTO-safe `payload` (status ids, comment id, PR id/number — never rows), `readAt`, `snoozedUntil`, `archivedAt`. Index `(user_id, workspace_id, created_at desc)`; rows cascade with the issue, user and workspace.
 
-- **Types and recipients** (`recipientsFor` in `packages/core/src/notifications`, pure): `assigned` → the new assignee; `mentioned` → the mentioned users (enqueued by M10-03); `issue_created_in_team` → the team's members, minus the issue's assignee (who gets `assigned`); `commented`, `status_changed`, `pr_linked` → the issue's subscribers. Always: the actor is never notified, only **current workspace members**, each user at most once per event. Events are not merged across types (an assignee who is also subscribed gets `assigned` and later `status_changed`, not one combined row).
-- **Pipeline:** after its commit, the API enqueues one `notify` job per event (`notifications` queue, payload `{ workspaceId, issueId, event, actorId, activityId? | commentId? | deliveryId?, pullRequestId?, userIds? }`, exactly one source id): `issues.create` → `issue_created_in_team` (+ `assigned` when created with an assignee), both sourced from the `created` activity entry; `issues.update` → `assigned` per assignee activity entry with a new assignee, `status_changed` per status entry; `comments.create` (replies too) → `commented`. The GitHub worker, after a processed delivery, enqueues `pr_linked` for each newly linked issue (or a reference that became closing; source = delivery id) and `status_changed` per automated status entry (`actorId` null). An enqueue failure is logged and never fails the write. Other fields (title, priority, labels…) don't notify.
-- **Idempotency:** the source key is `notify-<event>-<issueId>-<sourceId>`; it is the BullMQ job id and part of the unique `(user_id, source_key)` guard, so a retried request, job or delivery creates each row once. The job reloads what it refers to and does nothing when the issue, activity entry or comment is gone.
+- **Types and recipients** (`recipientsFor` in `packages/core/src/notifications`, pure): `assigned` → the new assignee; `mentioned` → the newly mentioned users (see Mentions); `issue_created_in_team` → the team's members, minus the issue's assignee (who gets `assigned`); `commented`, `status_changed`, `pr_linked` → the issue's subscribers (`commented` leaves out anyone the comment mentions; they get `mentioned`). Always: the actor is never notified, only **current workspace members**, each user at most once per event. Events are not merged across types (an assignee who is also subscribed gets `assigned` and later `status_changed`, not one combined row).
+- **Pipeline:** after its commit, the API enqueues one `notify` job per event (`notifications` queue, payload `{ workspaceId, issueId, event, actorId, activityId? | commentId? | deliveryId?, pullRequestId?, userIds? }`, exactly one source id): `issues.create` → `issue_created_in_team` (+ `assigned` when created with an assignee), both sourced from the `created` activity entry; `issues.update` → `assigned` per assignee activity entry with a new assignee, `status_changed` per status entry; `comments.create` (replies too) → `commented`; `mentioned` per Mentions. The GitHub worker, after a processed delivery, enqueues `pr_linked` for each newly linked issue (or a reference that became closing; source = delivery id) and `status_changed` per automated status entry (`actorId` null). An enqueue failure is logged and never fails the write. Other fields (title, priority, labels…) don't notify.
+- **Idempotency:** the source key is `notify-<event>-<issueId>-<sourceId>`; it is the BullMQ job id (for `mentioned` with a hash of the mentioned users appended, so a comment edit that mentions more people isn't dropped as a duplicate) and part of the unique `(user_id, source_key)` guard, so a retried request, job or delivery creates each row once. The job reloads what it refers to and does nothing when the issue, activity entry or comment is gone.
 - **Realtime:** after inserting, the worker publishes `notification.created` (ID only) to each recipient (Realtime events → Per-user events). The app refetches the Inbox and the unread count. Read/archive/snooze in one tab are not pushed to the user's other tabs; they refetch on focus or the next event.
 - **API** (`notifications.*`, all `requireWorkspace`, every query filters by the signed-in user and workspace; another user's id is `NOT_FOUND`): `list({ filter: 'all' | 'unread', cursor, limit })` newest first (cursor = notification id), leaving out archived and currently snoozed rows, each with actor (name, avatar URL), issue (identifier, title, status) and a server-built `summary` ("Ada assigned you", "GitHub changed status to Done", "Ada linked PR #12"; a deleted user reads "Someone"); `unreadCount` (unread, not archived, not snoozed); `markRead`, `markUnread`, `markAllRead` (visible unread ones; returns the count), `archive` (no unarchive yet), `snooze({ id, until })`.
 - **Snooze:** `until` is computed by the client in the viewer's time zone — In 1 hour, Tomorrow 9:00, Next week = next Monday 9:00 (a week later on a Monday) — and must be in the future and at most a year ahead (`BAD_REQUEST`). Snoozing also marks the row unread, so it resurfaces with a badge once `snoozedUntil` passes; it then sorts at its original time.
 - **App:** `/:workspaceSlug/inbox` (lazy) has a 360px list (All / Unread, Remind me, Archive, "…" → Mark all as read) and the selected issue's full detail page on the right (the issue sets the panel breadcrumb). Rows: actor avatar (GitHub mark for automation), mono identifier + title (medium while unread), status icon + summary, short age (`5m`, `3h`), lavender unread dot. Keys (catalog scope Inbox): `J`/`K` (or ↓/↑) move and open, `E` or `Backspace` archive, `U` toggles read, `⇧H` opens Remind me. Opening a notification marks it read; archive and snooze move the selection to the next row. All mutations are optimistic on every cached list and the unread count, rolled back with a toast. Empty: "No notifications".
+
+## Mentions
+
+@mentions in issue descriptions and comments (M10-03).
+
+- **Syntax** (markdown as stored): a user mention is `@[Name](user:<userId>)` (`\`, `[` and `]` in the name escaped with `\`); an issue mention is the plain identifier (`TIP-12`), so text stays readable outside the app. `parseMentions` in `packages/core/src/mentions` (pure) finds both: identifiers need an uppercase team key, a number ≥ 1 and a word boundary (`aTIP-1`, `TIP-1x`, `TIP-1-2`, lowercase `tip-1` don't count); code blocks, code spans, link destinations, autolinks and bare URLs are ignored; results are de-duplicated (first-seen order) and capped at **50** per kind.
+- **On write** (`issues.create`/`update` with a description, `comments.create`/`update`), inside the write's transaction, only for mentions the write **adds** (not in the previous text): user ids are resolved against the workspace's members (unknown or other-workspace ids are dropped silently, as is the author) and subscribed (`subscribeUsers`); identifiers are resolved in the same workspace only, and each mentioned issue other than the source gets a `mentioned_in` activity entry (actor = the author, `to` = `[sourceIssueId, sourceIdentifier, commentId?]`). Removing a mention undoes nothing.
+- **After commit:** one `notify` job (`mentioned`, `userIds` = the newly mentioned members) sourced from the description's activity entry (`created` on create, `description` on update) or the comment; the source issue publishes `issue.updated` with `subscribers`, each mentioned issue `issue.updated` with no fields (its timeline refetches). Mentioning someone again in a later edit doesn't notify them again; a user notified for a comment is never notified twice for it (`(user_id, source_key)` is unique).
+- **App:** the markdown editor (descriptions, the comment composer and comment edits) opens a member search on `@` (avatar, name, email; filtered by name or email) and an issue search on `#` or a typed identifier (`tip-12`; status icon, mono identifier, title; `issues.list` with `q`). ↑/↓ move, ↵ or Tab insert, Esc closes the menu only. The identifier trigger stays hidden while nothing matches. Chips (`bg-surface-2`, hairline border, `rounded-full`): a user shows `UserAvatar` + current name (the stored name if they left); an issue shows `StatusIcon` + identifier, links to the issue and takes its status from the shared query cache; an identifier that isn't an issue in the workspace renders as plain text. Comment bodies render as read-only markdown. The timeline shows "<Actor> mentioned this issue in `TIP-34` <title>", linking to the source (and `#comment-<id>` for a comment).
+- **Limitation:** Tiptap's markdown parser applies marks to text only, so formatting wrapped around a mention (`**TIP-7**`) is dropped when that text is next saved from the editor.
 
 ## Labels
 

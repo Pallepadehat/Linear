@@ -10,6 +10,7 @@ import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import type { Component } from 'vue'
 import { parseAttachmentId } from './attachments'
 import { Collapsible } from './collapsible'
+import { IssueMention, UserMention } from './mentions'
 
 const AttachmentImage = Image.extend({
   addAttributes() {
@@ -75,7 +76,13 @@ const LinearShortcuts = Extension.create({
   },
 })
 
-export type EditorViews = { image?: Component; codeBlock?: Component; math?: Component }
+export type EditorViews = {
+  image?: Component
+  codeBlock?: Component
+  math?: Component
+  userMention?: Component
+  issueMention?: Component
+}
 
 /**
  * Everything the description markdown can contain. The editor component passes Vue
@@ -102,6 +109,8 @@ export function markdownExtensions(views: EditorViews = {}): AnyExtension[] {
     withView(AttachmentImage.configure({ inline: false, allowBase64: false }), views.image),
     withView(BlockMath, views.math),
     ...Collapsible,
+    withView(UserMention, views.userMention),
+    withView(IssueMention, views.issueMention),
     LinearShortcuts,
     Markdown,
   ]

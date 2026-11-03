@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { notificationSourceKey, parseJobPayload } from './payloads'
+import {
+  notificationSourceKey,
+  parseJobPayload,
+  projectProgressSnapshotKey,
+  utcDay,
+} from './payloads'
+import { notifyJobId } from './queues'
 
 describe('parseJobPayload', () => {
   it('accepts a valid payload', () => {
@@ -35,6 +41,56 @@ describe('notify payload', () => {
   it('derives a colon-free source key from the event, issue and source', () => {
     const key = notificationSourceKey({ ...base, commentId })
     expect(key).toBe(`notify-commented-${base.issueId}-${commentId}`)
+    expect(key).not.toContain(':')
+  })
+})
+
+describe('notifyJobId', () => {
+  const base = {
+    workspaceId: '01890a5d-ac96-774b-bcce-b302099a8057',
+    issueId: '01890a5d-ac96-774b-bcce-b302099a8058',
+    actorId: null,
+    commentId: '01890a5d-ac96-774b-bcce-b302099a8059',
+  }
+  const [ada, bob] = [
+    '01890a5d-ac96-774b-bcce-b302099a805a',
+    '01890a5d-ac96-774b-bcce-b302099a805b',
+  ]
+
+  it('is the source key for events other than mentions', () => {
+    const payload = { ...base, event: 'commented' as const }
+    expect(notifyJobId(payload)).toBe(notificationSourceKey(payload))
+  })
+
+  it('tells mentions of different people in one comment apart', () => {
+    const first = notifyJobId({ ...base, event: 'mentioned', userIds: [ada] })
+    const edit = notifyJobId({ ...base, event: 'mentioned', userIds: [bob] })
+    expect(first).not.toBe(edit)
+    expect(notifyJobId({ ...base, event: 'mentioned', userIds: [bob, ada] })).toBe(
+      notifyJobId({ ...base, event: 'mentioned', userIds: [ada, bob] }),
+    )
+    expect(first).not.toContain(':')
+  })
+})
+
+describe('project progress snapshot', () => {
+  const projectId = '01890a5d-ac96-774b-bcce-b302099a8057'
+
+  it('carries only the project id', () => {
+    expect(parseJobPayload('maintenance', 'project-progress-snapshot', { projectId })).toEqual({
+      projectId,
+    })
+    expect(() => parseJobPayload('maintenance', 'project-progress-snapshot', {})).toThrow()
+  })
+
+  it('files snapshots under the UTC day', () => {
+    expect(utcDay(new Date('2026-11-03T23:59:59Z'))).toBe('2026-11-03')
+    expect(utcDay(new Date('2026-11-04T00:00:00+02:00'))).toBe('2026-11-03')
+  })
+
+  it('debounces per project and day with a colon-free key', () => {
+    const key = projectProgressSnapshotKey(projectId, new Date('2026-11-03T10:00:00Z'))
+    expect(key).toBe(`project-progress-${projectId}-2026-11-03`)
     expect(key).not.toContain(':')
   })
 })
