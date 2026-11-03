@@ -255,6 +255,13 @@ Open clients learn about changes as they happen (ADR 0011). Events are hints, no
 - Colors are stored as lowercase `#rrggbb`. They are user data rendered as-is, not design tokens.
 - Deleting a label removes it from every issue (`issue_labels` cascades).
 
+## App shell
+
+- Sidebar sections (Workspace, Your teams, Favorites) start expanded; each team row starts collapsed and expands when one of its pages is opened. The state is per browser (`sidebar-sections` in localStorage), never server data.
+- `team/:teamKey` redirects to `team/:teamKey/issues`. The team Projects page lists the workspace projects whose `teamIds` include the team (client-side filter of `projects.list`).
+- Until the command menu (M7-11) lands, the sidebar Search button focuses the issue search field, opening All issues first when the current page has none. Until M10-02, Inbox and the notifications bell open an empty inbox page and the unread badge is hidden (count 0). Views pages are placeholders until M10-05; Favorites stays hidden until M8-07.
+- The content panel keeps the `panel` surface and light-mode panel shadow from design.md → App shell (design.md wins over the issue's `bg-surface-1` / no-shadow wording).
+
 ## Isolation invariants
 
 - Every workspace-owned row has `workspaceId`; every query filters on it.
