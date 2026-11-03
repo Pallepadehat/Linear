@@ -1,3 +1,4 @@
+import type { ViewDisplay } from '@linear/contract'
 import { addMember } from '@linear/db/testing'
 import { views } from '@linear/db'
 import { eq } from 'drizzle-orm'
@@ -7,7 +8,7 @@ import { rpcClient, setupTestApp, signUp } from './harness'
 const { app, db } = await setupTestApp()
 
 const scope = { workspaceSlug: 'tip' }
-const display = {
+const display: ViewDisplay = {
   layout: 'board',
   grouping: 'assignee',
   groupDirection: 'asc',
@@ -19,7 +20,7 @@ const display = {
   showSubIssues: true,
   showEmptyGroups: false,
   properties: ['id', 'status', 'priority'],
-} as const
+}
 
 async function arrange() {
   const owner = await signUp(app, 'Owner')
