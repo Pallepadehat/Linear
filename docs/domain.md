@@ -174,8 +174,10 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Every project DTO (list, get, create, update) carries `progress` and a short-lived `iconUrl` (null until the icon is processed), so the projects table needs no per-row requests. Project names and descriptions are edited in place on the project page: the name saves on blur or Enter (Esc reverts), the description on blur; status, teams and icon save immediately, optimistically with rollback.
 - The create issue dialog preselects the project when opened from a project page. Until the issue detail page exists (M2-08), the project picker lives in the create issue dialog; M2-08 reuses `ProjectPicker` in its properties sidebar.
 - `issues.list` returns newest first, optionally filtered by team and/or project, as `{ items, nextCursor }`. The cursor is the last issue's id: UUIDv7 ids are time-ordered, so issues created later never shift the pages after a cursor. Page size defaults to 50 (max 100).
+- My Issues (the workspace landing page) lists issues in the current workspace across all teams, with two tabs: **Assigned** (default, `issues.list` with `assignee: 'me'`) and **Created** (`creator: 'me'`). `'me'` is resolved to the session user on the server, so a client can't list another user's issues this way. The active tab is in the URL (`?tab=created`; Assigned has no param). The empty state's "Create issue" opens the create dialog, preassigned to the current user from the Assigned tab.
 - Descriptions are stored as **markdown** (CommonMark + GFM task lists) with Linear's extensions: `+++ Title … +++` collapsible sections, `$$ … $$` LaTeX blocks, ```` ```mermaid ```` diagrams and `attachment:` references (see Uploads). The editor reads and writes markdown; an empty editor saves no description (`null`). An issue can't be submitted while attachments are still uploading.
 - The issue list groups loaded issues by status, keyed by category + name so the workspace-wide list merges each team's `Todo` into one group. Groups are ordered `started`, `unstarted`, `backlog`, `completed`, `canceled`, then by status position; issues keep the newest-first order within a group. Group counts show loaded issues until every page is fetched (the next page loads on scroll).
+- Status, priority, assignee and labels change in place from issue rows through one `useUpdateIssue()` mutation: the change is written to every cached copy of the issue (each loaded list page and the `get`/`getByIdentifier` detail entries) before the request, rolled back with a toast if it fails, and the lists, details and activity are refetched once the last in-flight change settles. Changing status moves the row to its new group immediately; entering `completed` sets `completedAt` optimistically (cleared when leaving it). A row's status picker offers its own team's statuses. Row pickers have no global hotkey (it couldn't tell rows apart) and show labels only when the issue has some; adding the first label waits for the detail page (M2-08), which reuses the same mutation.
 
 ## Activity
 
@@ -183,6 +185,13 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Actor is `user` (with `actorId`) for changes made through the API, `github` (no `actorId`, with `pullRequestId` of the triggering PR) for automation. A deleted user's entries keep `actorType: user` with `actorId` null.
 - `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` number; `labels` sorted label-id arrays. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
 - `activity.list` returns one issue's entries **oldest first** as `{ items, nextCursor }`, cursor = last entry id (UUIDv7), page size 50 (max 100). An issue outside the workspace is `NOT_FOUND`.
+
+## Comments
+
+- Comments belong to one issue and are deleted with it (`comments.issue_id` cascades). Bodies are markdown, trimmed, 1–50 000 characters; a blank body is `BAD_REQUEST`.
+- Only the author may edit a comment; anyone else (owners included) gets `FORBIDDEN`. The author may delete their own comment, and workspace owners may delete anyone's (see Roles); other members get `FORBIDDEN`.
+- An edited comment keeps `createdAt` and gets a new `updatedAt`; saving the same body is a no-op. Edits and deletes are not written to `activity_log`.
+- `comments.list` returns one issue's comments **oldest first** as `{ items, nextCursor }`, cursor = last comment id (UUIDv7), page size 50 (max 100). Each comment carries its author's `id`, `name` and `avatarUrl`. An issue or comment outside the workspace is `NOT_FOUND`.
 
 ## Labels
 

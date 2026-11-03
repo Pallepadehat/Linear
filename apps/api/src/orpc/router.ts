@@ -1,5 +1,6 @@
 import { projectsRouter } from '../modules/projects/projects.router'
 import { activityRouter } from '../modules/activity/activity.router'
+import { commentsRouter } from '../modules/comments/comments.router'
 import { githubRouter } from '../modules/github/github.router'
 import { issuesRouter } from '../modules/issues/issues.router'
 import { labelsRouter } from '../modules/labels/labels.router'
@@ -19,6 +20,7 @@ export const router = os.router({
   projects: projectsRouter,
   github: githubRouter,
   activity: activityRouter,
+  comments: commentsRouter,
 })
 
 export type Router = typeof router

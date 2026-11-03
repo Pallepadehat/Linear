@@ -72,6 +72,10 @@ export const getIssueByIdentifierInputSchema = workspaceScopedSchema.extend({
 export const listIssuesInputSchema = workspaceScopedSchema.extend({
   teamId: z.uuid().optional(),
   projectId: z.uuid().optional(),
+  /** `'me'` narrows to issues assigned to the signed-in user (My Issues). */
+  assignee: z.literal('me').optional(),
+  /** `'me'` narrows to issues the signed-in user created. */
+  creator: z.literal('me').optional(),
   /** `nextCursor` from the previous page. */
   cursor: z.string().min(1).nullish(),
   limit: z.number().int().min(1).max(100).default(50),
