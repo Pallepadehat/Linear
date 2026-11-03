@@ -40,6 +40,8 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     completedAt: null,
     blockedByCount: 0,
     blockingCount: 0,
+    parentId: null,
+    subIssueProgress: null,
     ...overrides,
   }
 }
@@ -59,7 +61,12 @@ beforeEach(() => {
     pages: [{ items: [issue('a'), issue('b')], nextCursor: null }],
     pageParams: [null],
   })
-  queryClient.setQueryData(detailKey, { ...issue('a'), relations: noRelations })
+  queryClient.setQueryData(detailKey, {
+    ...issue('a'),
+    parent: null,
+    children: [],
+    relations: noRelations,
+  })
 })
 afterEach(() => vi.useRealTimers())
 
@@ -88,6 +95,8 @@ describe('realtime event handler', () => {
     }
     const fetchIssue = vi.fn(async (id: string): Promise<IssueDetail> => ({
       ...issue(id, { blockedByCount: 1 }),
+      parent: null,
+      children: [],
       relations: { ...noRelations, blockedBy: [blocker] },
     }))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })

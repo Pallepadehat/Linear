@@ -110,6 +110,15 @@ export function describeActivity(entry: Activity, names: ActivityNames): string 
         ? `marked as ${relation} ${identifier}`
         : `removed the relation with ${identifier}`
     }
+    // Identifiers are stored as-is (team keys never change).
+    case 'parent': {
+      const to = asString(entry.to)
+      return to ? `set parent to ${to}` : 'removed parent'
+    }
+    case 'sub_issue': {
+      const to = asString(entry.to)
+      return to ? `added sub-issue ${to}` : `removed sub-issue ${asString(entry.from) ?? ''}`.trim()
+    }
   }
 }
 

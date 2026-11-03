@@ -10,6 +10,7 @@ import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
+import SubIssueProgressRing from './SubIssueProgressRing.vue'
 
 const props = defineProps<{
   issue: Issue
@@ -17,6 +18,8 @@ const props = defineProps<{
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
   labels: Label[]
+  /** Nesting level when shown under its parent (each level indents the row). */
+  depth?: number
   /** Keyboard focus (J/K) and selection (X); see `useIssueListKeyboard`. */
   focused?: boolean
   selected?: boolean
@@ -55,6 +58,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
   <!-- The title link stretches over the whole row; the pickers sit above it. Their
        hotkeys (⇧D, P, …) act on this row while focus is in it. -->
   <div
+    :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
     data-hotkey-scope
     class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
     :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
@@ -90,6 +94,14 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       <span v-if="selected" class="sr-only">Selected,</span>
       {{ issue.title }}
     </RouterLink>
+    <span
+      v-if="issue.subIssueProgress?.total"
+      class="flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-subtle tabular-nums"
+    >
+      <SubIssueProgressRing v-bind="issue.subIssueProgress" />
+      {{ issue.subIssueProgress.done }}/{{ issue.subIssueProgress.total }}
+      <span class="sr-only">sub-issues done</span>
+    </span>
     <span
       v-if="issue.blockedByCount"
       class="flex shrink-0 items-center gap-1 text-xs text-priority-urgent tabular-nums"

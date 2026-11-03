@@ -95,9 +95,7 @@ export function writeIssueToCaches(
     (data) => patchIssueInPages(data, id, update),
   )
   for (const queryKey of issueDetailKeys())
-    queryClient.setQueriesData<IssueDetail>({ queryKey }, (data) =>
-      patchIssue(data, id, (current) => ({ ...current, ...update(current) })),
-    )
+    queryClient.setQueriesData<IssueDetail>({ queryKey }, (data) => patchIssue(data, id, update))
 }
 
 /** Refetches everything a relation change shows up in: details, row counts, activity. */

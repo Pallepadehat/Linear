@@ -46,10 +46,32 @@ export const issueSchema = z.object({
   /** Open (not completed or canceled) issues blocking this one / blocked by it. */
   blockedByCount: z.number().int().min(0),
   blockingCount: z.number().int().min(0),
+  parentId: z.uuid().nullable(),
+  /**
+   * Null without sub-issues. `done` counts completed-category sub-issues; canceled
+   * ones are left out of `total`.
+   */
+  subIssueProgress: z
+    .object({ done: z.number().int().min(0), total: z.number().int().min(0) })
+    .nullable(),
 })
 
-/** `issues.get` / `getByIdentifier`: the issue plus its relations. */
-export const issueDetailSchema = issueSchema.extend({ relations: issueRelationsSchema })
+/**
+ * `issues.get` / `getByIdentifier`: the issue with its parent, sub-issues (oldest first)
+ * and relations.
+ */
+export const issueDetailSchema = issueSchema.extend({
+  parent: z
+    .object({
+      id: z.uuid(),
+      identifier: z.string(),
+      title: z.string(),
+      status: workflowStatusSchema,
+    })
+    .nullable(),
+  children: z.array(issueSchema),
+  relations: issueRelationsSchema,
+})
 
 const labelIdsSchema = z.array(z.uuid()).max(50)
 
@@ -64,6 +86,8 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   labelIds: labelIdsSchema.optional(),
+  /** Creates it as a sub-issue (parent in the same workspace, any team). */
+  parentId: z.uuid().nullable().optional(),
   dueDate: issueDueDateSchema.optional(),
 })
 
@@ -77,6 +101,8 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   labelIds: labelIdsSchema.optional(),
+  /** `null` removes the parent. A cycle or the issue itself is `BAD_REQUEST`. */
+  parentId: z.uuid().nullable().optional(),
   dueDate: issueDueDateSchema.optional(),
 })
 
@@ -132,6 +158,10 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   subscriberIds: userFilterIdsSchema.optional(),
   /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
   q: z.string().trim().max(255).optional(),
+  /** `false` leaves out sub-issues (issues with a parent). */
+  showSubIssues: z.boolean().default(true),
+  /** Leaves out this issue and its descendants (choosing a parent without making a cycle). */
+  excludeSubtreeOf: z.uuid().optional(),
   sort: issueSortSchema.default('createdAt'),
   direction: sortDirectionSchema.default('desc'),
   /** `nextCursor` from the previous page. */
@@ -157,6 +187,7 @@ export const issuePageSchema = z.object({
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
 export type Issue = z.infer<typeof issueSchema>
 export type IssueDetail = z.infer<typeof issueDetailSchema>
+export type SubIssueProgress = NonNullable<Issue['subIssueProgress']>
 export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>

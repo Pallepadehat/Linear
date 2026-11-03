@@ -6,17 +6,20 @@ import type { InfiniteData } from '@tanstack/vue-query'
  * optimistic issue renders exactly like the server's response will.
  */
 export type IssuePatch = Partial<
-  Pick<
-    Issue,
-    | 'title'
-    | 'description'
-    | 'status'
-    | 'priority'
-    | 'assigneeId'
-    | 'projectId'
-    | 'labels'
-    | 'dueDate'
-  >
+  // `parent` only travels with `parentId`, so the detail breadcrumb changes at once.
+  Pick<IssueDetail, 'parent'> &
+    Pick<
+      Issue,
+      | 'title'
+      | 'description'
+      | 'status'
+      | 'priority'
+      | 'assigneeId'
+      | 'projectId'
+      | 'labels'
+      | 'parentId'
+      | 'dueDate'
+    >
 >
 
 /** The issue as it will look after the patch; `completedAt` follows the category (domain.md). */
@@ -69,13 +72,31 @@ export function removeIssueFromPages(
   }
 }
 
-/** The detail-cache counterpart of `patchIssueInPages`. */
-export function patchIssue<T extends Issue>(
+/** Sub-issue progress as the server counts it: canceled sub-issues are left out. */
+export function progressOf(children: Pick<Issue, 'status'>[]): Issue['subIssueProgress'] {
+  if (children.length === 0) return null
+  return {
+    done: children.filter((c) => c.status.category === 'completed').length,
+    total: children.filter((c) => c.status.category !== 'canceled').length,
+  }
+}
+
+/**
+ * The detail-cache counterpart of `patchIssueInPages`: patches the issue itself
+ * (keeping its parent and sub-issues unless the update brings new ones), or one of
+ * its sub-issues, recounting the progress.
+ */
+export function patchIssue<T extends Issue & Partial<Pick<IssueDetail, 'children'>>>(
   data: T | undefined,
   id: string,
-  update: (issue: T) => T,
+  update: (issue: Issue) => Issue,
 ): T | undefined {
-  return data?.id === id ? update(data) : data
+  if (!data) return data
+  if (data.id === id) return { ...data, ...update(data) }
+  const { children } = data
+  if (!children?.some((child) => child.id === id)) return data
+  const next = children.map((child) => (child.id === id ? update(child) : child))
+  return { ...data, children: next, subIssueProgress: progressOf(next) }
 }
 
 export function toUpdateIssueInput(
@@ -93,6 +114,7 @@ export function toUpdateIssueInput(
     ...(patch.assigneeId !== undefined && { assigneeId: patch.assigneeId }),
     ...(patch.projectId !== undefined && { projectId: patch.projectId }),
     ...(patch.labels && { labelIds: patch.labels.map((label) => label.id) }),
+    ...(patch.parentId !== undefined && { parentId: patch.parentId }),
     ...(patch.dueDate !== undefined && { dueDate: patch.dueDate }),
   }
 }

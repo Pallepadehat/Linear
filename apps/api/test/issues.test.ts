@@ -200,14 +200,11 @@ describe('issues procedures', () => {
     expect(issue.createdAt).toBeInstanceOf(Date)
 
     const relations = { blocks: [], blockedBy: [], related: [], duplicateOf: [], duplicates: [] }
-    expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual({
-      ...issue,
-      relations,
-    })
-    expect(await issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'tip-1' })).toEqual({
-      ...issue,
-      relations,
-    })
+    const detail = { ...issue, parent: null, children: [], relations }
+    expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual(detail)
+    expect(await issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'tip-1' })).toEqual(
+      detail,
+    )
     await expect(
       issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'TIP-2' }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })

@@ -19,6 +19,16 @@ import { toIssueDetailDto, toIssueDto } from './issues.dto'
 
 const inWorkspace = requireWorkspace()
 
+async function publishSubIssuesChanged(
+  context: Parameters<typeof publishChange>[0],
+  parentIds: (string | null)[],
+) {
+  for (const issueId of new Set(parentIds)) {
+    if (issueId)
+      await publishChange(context, { type: 'issue.updated', issueId, fields: ['subIssues'] })
+  }
+}
+
 // Any member may create, edit and delete issues (docs/domain.md → Roles).
 export const issuesRouter = {
   create: authed.issues.create
@@ -31,6 +41,7 @@ export const issuesRouter = {
         creatorId: context.user.id,
       })
       await publishChange(context, { type: 'issue.created', issueId: issue.id })
+      if (issue.parentId) await publishSubIssuesChanged(context, [issue.parentId])
       return toIssueDto(await getIssue(context.db, context.workspace.id, issue.id, context.user.id))
     }),
 
@@ -75,17 +86,38 @@ export const issuesRouter = {
         issueId: issue.id,
         fields: changedIssueFields(fields),
       })
+      // Parents show their sub-issues' progress: tell the old and new parent, and the
+      // current one when a sub-issue's status changed.
+      const parents = issue.parentChange
+        ? [issue.parentChange.from, issue.parentChange.to]
+        : fields.statusId !== undefined
+          ? [issue.parentId]
+          : []
+      await publishSubIssuesChanged(context, parents)
       return toIssueDto(issue)
     }),
 
   delete: authed.issues.delete
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { id, deletedUploadIds } = await deleteIssue(context.db, context.workspace.id, input.id)
+      const { id, parentId, childIds, deletedUploadIds } = await deleteIssue(
+        context.db,
+        context.workspace.id,
+        input.id,
+      )
       for (const uploadId of deletedUploadIds) {
         await enqueue(context.queues, 'maintenance', 'delete-objects', { uploadId })
       }
       await publishChange(context, { type: 'issue.deleted', issueId: id })
+      await publishSubIssuesChanged(context, [parentId])
+      // Its sub-issues are top-level issues now.
+      for (const childId of childIds) {
+        await publishChange(context, {
+          type: 'issue.updated',
+          issueId: childId,
+          fields: ['parent'],
+        })
+      }
       return { id }
     }),
 

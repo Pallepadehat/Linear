@@ -38,6 +38,8 @@ function issue(id: string, s: WorkflowStatus, teamId = teamA): Issue {
     completedAt: null,
     blockedByCount: 0,
     blockingCount: 0,
+    parentId: null,
+    subIssueProgress: null,
   }
 }
 
