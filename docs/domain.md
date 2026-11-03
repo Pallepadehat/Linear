@@ -78,6 +78,17 @@ Each team stores the defaults used when an issue is created without that field (
 
 Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medium, `4` Low. Sorting by priority puts Urgent first and No priority last.
 
+## Estimates
+
+- Each team picks an estimate scale (`teams.estimate_scale`, owner-only like other team settings): `off` (default, estimates hidden), `linear` 1–5, `fibonacci` 1, 2, 3, 5, 8, `exponential` 1, 2, 4, 8, 16, `tshirt` XS, S, M, L, XL stored as 1, 2, 3, 5, 8 so they sum like points.
+- `teams.estimate_allow_zero` (default off) adds `0` to any scale; Fibonacci's 0 follows the same flag. A t-shirt `0` is shown as the raw number "0".
+- `issues.estimate` is a nullable integer (`null` = no estimate, DB check 0–100). Create and update accept a value only if it is on the issue team's current scale (`BAD_REQUEST` otherwise, and for any value while the scale is `off`); `null` (clear) is always allowed.
+- Changing the scale or the zero flag keeps existing estimates; the UI shows a value that is no longer on the scale as its raw number. Only a *changed* estimate is validated, so editing other fields of such an issue still works.
+- `issues.list` filter `estimates`: specific values, `null` = no estimate, `'any'` = has an estimate (OR'd). Sort `estimate`: `desc` largest first, `asc` smallest first, no estimate last in both directions, newest first within a value.
+- Activity kind `estimate` with numeric `from`/`to` (null when unset); the timeline reads "set estimate to 3 points" / "removed estimate" (t-shirt teams name the size).
+- Group headers and board columns show the sum of their issues' estimates, counting only issues whose team uses estimates; hidden when the sum is 0.
+- `E` opens the estimate picker on the issue page, in the create dialog, and on the focused list row or board card (compact pickers answer their hotkey while focus is inside their row).
+
 ## GitHub connection
 
 - Only owners install the App and connect or disconnect repositories (see Roles); every `github.*` procedure checks this on the server.
@@ -217,7 +228,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 
 - Every issue change is logged in `activity_log`, in the same transaction as the change: `created` on create, then one entry per field whose value actually changed. Setting a field to the value it already had (including the same label set in another order, or a title that trims to the current one) writes nothing.
 - Actor is `user` (with `actorId`) for changes made through the API, `github` (no `actorId`, with `pullRequestId` of the triggering PR) for automation. A deleted user's entries keep `actorType: user` with `actorId` null.
-- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` number; `labels` sorted label-id arrays. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
+- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` and `estimate` numbers (estimate null when unset); `labels` sorted label-id arrays. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
 - `activity.list` returns one issue's entries **oldest first** as `{ items, nextCursor }`, cursor = last entry id (UUIDv7), page size 50 (max 100). An issue outside the workspace is `NOT_FOUND`.
 
 ## Comments

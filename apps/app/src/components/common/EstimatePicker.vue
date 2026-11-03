@@ -43,8 +43,9 @@ function choose(value: number | null) {
   >
     <template #trigger>
       <EstimateIcon />
-      <span v-if="compact" class="text-xs text-ink-muted tabular-nums">
-        {{ model === null ? '' : estimateShortLabel(model, scale) }}
+      <span v-if="compact && model === null" class="sr-only">No estimate</span>
+      <span v-else-if="compact" class="text-xs text-ink-muted tabular-nums">
+        {{ estimateShortLabel(model ?? 0, scale) }}
       </span>
       <span v-else>{{ model === null ? 'Estimate' : estimateLabel(model, scale) }}</span>
     </template>
