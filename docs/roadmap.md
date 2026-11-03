@@ -87,7 +87,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | M7-02  | [x]    | Issue view tabs: Active / Backlog / All issues (LIN-54)                                       | M7-01        |
 | M7-03  | [ ]    | Display options popover: grouping, sub-grouping, ordering, completed, empty groups, properties (LIN-56) | M7-02 |
 | M7-04  | [ ]    | Issue row parity: project, PR, due date, estimate chips and overflow (LIN-59)                 | M7-03, M4-07 |
-| M7-05  | [ ]    | Details side panel (⌘I): breakdown by assignees / labels / priority / projects (LIN-62)       | M7-02        |
+| M7-05  | [~]    | Details side panel (⌘I): breakdown by assignees / labels / priority / projects (LIN-62)       | M7-02        |
 | M7-06  | [ ]    | Filter menu parity: Add filter… (F), creator, dates, content, links, operators (LIN-67)       | M7-02        |
 | M7-07  | [x]    | Issue detail header: breadcrumb, favorite, "…" menu, 1 / N prev/next navigation (LIN-72)      | —            |
 | M7-08  | [ ]    | Copy actions: issue URL, identifier, git branch, Copy as prompt (LIN-76)                      | M7-07        |
