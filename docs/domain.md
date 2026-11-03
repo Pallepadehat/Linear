@@ -312,7 +312,7 @@ Web links attached to an issue (`issue_links`; deleted with the issue). Shown wi
 - `issueLinks.create({ issueId, url, title? })`, `issueLinks.update({ id, url?, title? })`, `issueLinks.delete({ id })`: any member. An issue or link outside the caller's workspace is `NOT_FOUND`.
 - `issues.get` / `getByIdentifier` return `links` (`id, url, title, hostname, createdAt`), oldest first. Linked PRs keep coming from `github.pullRequests.listForIssue` (see GitHub PR linking).
 - Adding and removing a link write `link` activity ("added link Spec" / "removed link Spec"); editing a link is not logged. Every create, update and delete publishes `issue.updated` with `fields: ['links']`.
-- **Filter:** `issues.list({ hasLinks: true })` keeps issues with at least one web link **or** linked PR; `false` keeps issues with neither. The app offers only Filter → Links → **Has links** (`?links=has`).
+- **Filter:** `issues.list({ hasLinks: true })` keeps issues with at least one web link **or** linked PR; `false` keeps issues with neither. The app offers only Filter → Links → **Has links** (`?links=has`). The Details panel counts (`issues.facets`) take the same filter, and those counts refresh when an issue's links or linked PRs change.
 - **App:** `Ctrl L` on the issue page (⌃L on macOS, where ⌘L is the address bar; it also works while typing in the description) or "…" → **Add link…** opens the URL / "Title (optional)" dialog. PR rows show the state icon, `#number`, title and repo; link rows show title and hostname (hidden when the title is the hostname). Rows open in a new tab (`rel="noopener noreferrer"`); hover or focus shows Copy link, and for web links Edit and Remove (optimistic, rolled back with a toast).
 
 ## Realtime events
