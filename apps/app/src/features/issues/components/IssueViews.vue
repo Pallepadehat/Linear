@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { PanelRight, SlidersHorizontal } from '@lucide/vue'
+import { PanelRight } from '@lucide/vue'
 import { computed, defineAsyncComponent, ref } from 'vue'
 import IconButton from '@/components/common/IconButton.vue'
 import { useHotkeys } from '@/composables/useHotkeys'
-import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
 import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useDisplayOptions } from '../composables/useDisplayOptions'
 import { useFilterDimensions } from '../composables/useFilterDimensions'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { useIssueView } from '../composables/useIssueView'
+import { displayViewKey } from '../display-options'
 import { detailsPanelKey } from '../issue-details'
 import IssueDetailsPanel from './IssueDetailsPanel.vue'
+import IssueDisplayOptions from './IssueDisplayOptions.vue'
 import IssueFilterMenu from './IssueFilterMenu.vue'
-import IssueLayoutToggle from './IssueLayoutToggle.vue'
 import IssueList from './IssueList.vue'
 import IssueViewTabs from './IssueViewTabs.vue'
 
@@ -24,6 +25,8 @@ const props = defineProps<{ workspaceSlug: string; teamId?: string }>()
 const PANEL_ID = 'issue-view-panel'
 
 const preferences = usePreferencesStore()
+const viewKey = computed(() => displayViewKey(props))
+const { options } = useDisplayOptions(viewKey)
 const { view, select } = useIssueView()
 const tab = computed({ get: () => view.value, set: select })
 
@@ -45,9 +48,6 @@ useHotkeys([
 </script>
 
 <template>
-  <Teleport defer :to="PANEL_HEADER_ACTIONS">
-    <IssueLayoutToggle />
-  </Teleport>
   <div
     class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline pr-2 pl-4"
     role="toolbar"
@@ -56,8 +56,7 @@ useHotkeys([
     <IssueViewTabs v-model="tab" :panel-id="PANEL_ID" />
     <div class="ml-auto flex items-center gap-1">
       <IssueFilterMenu v-model:open="filterOpen" :dimensions="dimensions" compact />
-      <!-- Placeholder until the display options popover (M7-03). -->
-      <IconButton :icon="SlidersHorizontal" label="Display options" />
+      <IssueDisplayOptions :view-key="viewKey" allow-board />
       <IconButton
         :icon="PanelRight"
         :label="detailsOpen ? 'Close details' : 'Open details'"
@@ -77,7 +76,7 @@ useHotkeys([
       class="flex min-h-0 min-w-0 flex-1 flex-col"
     >
       <IssueBoard
-        v-if="preferences.issueLayout === 'board'"
+        v-if="options.layout === 'board'"
         :workspace-slug="workspaceSlug"
         :team-id="teamId"
         :view="view"

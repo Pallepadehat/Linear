@@ -25,6 +25,7 @@ export const activityKind = pgEnum('activity_kind', [
   'parent',
   'sub_issue',
   'relation',
+  'link',
 ])
 
 /** One row per changed issue field (docs/domain.md → Activity). */

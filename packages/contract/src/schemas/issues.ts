@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
 import { labelSchema } from './labels'
+import { issueLinkSchema } from './links'
 import { issueRelationsSchema } from './relations'
 import { statusCategorySchema, workflowStatusSchema } from './teams'
 
@@ -41,6 +42,8 @@ export const issueSchema = z.object({
   assigneeId: z.uuid().nullable(),
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
+  /** Always a milestone of `projectId` (docs/domain.md → Project milestones). */
+  milestoneId: z.uuid().nullable(),
   cycleId: z.uuid().nullable(),
   estimate: issueEstimateSchema.nullable(),
   dueDate: issueDueDateSchema,
@@ -78,6 +81,8 @@ export const issueDetailSchema = issueSchema.extend({
     .nullable(),
   children: z.array(issueSchema),
   relations: issueRelationsSchema,
+  /** Web links, oldest first (linked PRs come from `github.pullRequests.listForIssue`). */
+  links: z.array(issueLinkSchema),
 })
 
 const labelIdsSchema = z.array(z.uuid()).max(50)
@@ -92,6 +97,8 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   /** `null` = unassigned, even when the team has a default assignee. */
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  /** A milestone of `projectId`, else `BAD_REQUEST`. */
+  milestoneId: z.uuid().nullable().optional(),
   /** An open cycle of the issue's team. */
   cycleId: z.uuid().nullable().optional(),
   estimate: issueEstimateSchema.nullable().optional(),
@@ -109,7 +116,10 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
   statusId: z.uuid().optional(),
   priority: issuePrioritySchema.optional(),
   assigneeId: z.uuid().nullable().optional(),
+  /** Changing or clearing the project also clears the milestone, unless one is given. */
   projectId: z.uuid().nullable().optional(),
+  /** A milestone of the issue's (new) project, else `BAD_REQUEST`. */
+  milestoneId: z.uuid().nullable().optional(),
   /** An open cycle of the issue's team. */
   cycleId: z.uuid().nullable().optional(),
   estimate: issueEstimateSchema.nullable().optional(),
@@ -185,6 +195,7 @@ export const issueFiltersSchema = workspaceScopedSchema.extend({
   /** Scope from the page (team / project view), not a user filter. */
   teamId: z.uuid().optional(),
   projectId: z.uuid().optional(),
+  milestoneId: z.uuid().optional(),
   cycleId: z.uuid().optional(),
   /** `'me'` narrows to issues assigned to the signed-in user (My Issues). */
   assignee: z.literal('me').optional(),
@@ -193,9 +204,15 @@ export const issueFiltersSchema = workspaceScopedSchema.extend({
   statusIds: filterIdsSchema.optional(),
   /** Status categories (the Active / Backlog tabs); combines with `statusIds` via AND. */
   statusCategories: z.array(statusCategorySchema).max(5).optional(),
+  /**
+   * Completed and canceled issues only when they finished at or after this time
+   * (display options → Completed issues); open issues are unaffected.
+   */
+  completedAfter: z.date().optional(),
   priorities: z.array(issuePrioritySchema).max(5).optional(),
   assigneeIds: nullableFilterIdsSchema.optional(),
   projectIds: nullableFilterIdsSchema.optional(),
+  milestoneIds: nullableFilterIdsSchema.optional(),
   cycleIds: nullableFilterIdsSchema.optional(),
   labelIds: filterIdsSchema.optional(),
   /** Estimate values; `null` matches issues without an estimate, `'any'` those with one. */
@@ -209,6 +226,8 @@ export const issueFiltersSchema = workspaceScopedSchema.extend({
   today: isoDateSchema.optional(),
   /** Any of these users is subscribed. */
   subscriberIds: userFilterIdsSchema.optional(),
+  /** `true`: has a web link or a linked PR; `false`: has neither (docs/domain.md → Links). */
+  hasLinks: z.boolean().optional(),
   /** Title contains (case-insensitive), or an exact identifier like `tip-12`. */
   q: z.string().trim().max(255).optional(),
   /** `false` leaves out sub-issues (issues with a parent). */

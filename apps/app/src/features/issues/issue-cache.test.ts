@@ -6,7 +6,9 @@ import {
   patchIssue,
   patchIssueInPages,
   removeIssueFromPages,
+  removeLink,
   removeRelation,
+  upsertLink,
   toUpdateIssueInput,
 } from './issue-cache'
 
@@ -36,6 +38,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: crypto.randomUUID(),
     projectId: null,
+    milestoneId: null,
     cycleId: null,
     estimate: null,
     dueDate: null,
@@ -83,6 +86,16 @@ describe('applyIssuePatch', () => {
   it('leaves completedAt alone when the status is unchanged', () => {
     const completed = issue('a', { status: done, completedAt: now })
     expect(applyIssuePatch(completed, { assigneeId: null }, now).completedAt).toEqual(now)
+  })
+
+  it('clears the milestone when the project changes without a new one', () => {
+    const inMilestone = issue('a', { projectId: 'p1', milestoneId: 'm1' })
+    expect(applyIssuePatch(inMilestone, { projectId: 'p2' }, now).milestoneId).toBeNull()
+    expect(applyIssuePatch(inMilestone, { projectId: null }, now).milestoneId).toBeNull()
+    expect(applyIssuePatch(inMilestone, { projectId: 'p1' }, now).milestoneId).toBe('m1')
+    expect(
+      applyIssuePatch(inMilestone, { projectId: 'p2', milestoneId: 'm2' }, now).milestoneId,
+    ).toBe('m2')
   })
 })
 
@@ -217,9 +230,39 @@ describe('removeRelation', () => {
         duplicateOf: [],
         duplicates: [],
       },
+      links: [],
     }
     const next = removeRelation(detail, 'r2')
     expect(next.relations.blockedBy).toEqual([])
     expect(next.relations.blocks).toEqual(detail.relations.blocks)
+  })
+})
+
+describe('upsertLink / removeLink', () => {
+  const link = (id: string, title = 'Spec') => ({
+    id,
+    url: 'https://x.dev',
+    title,
+    hostname: 'x.dev',
+    createdAt: new Date(0),
+  })
+  const detail = {
+    ...issue('a'),
+    parent: null,
+    children: [],
+    relations: { blocks: [], blockedBy: [], related: [], duplicateOf: [], duplicates: [] },
+    links: [link('l1')],
+  }
+
+  it('appends a new link and replaces an existing one in place', () => {
+    const added = upsertLink(detail, link('l2'))
+    expect(added.links.map((l) => l.id)).toEqual(['l1', 'l2'])
+    const renamed = upsertLink(added, link('l1', 'Docs'))
+    expect(renamed.links.map((l) => l.title)).toEqual(['Docs', 'Spec'])
+  })
+
+  it('removes a link by id', () => {
+    expect(removeLink(detail, 'l1').links).toEqual([])
+    expect(removeLink(detail, 'nope').links).toEqual(detail.links)
   })
 })

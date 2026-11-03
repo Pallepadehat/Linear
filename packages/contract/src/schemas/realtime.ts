@@ -14,11 +14,13 @@ export const realtimeIssueFieldSchema = z.enum([
   'dueDate',
   'pullRequests',
   'cycle',
+  'milestone',
   // The issue's parent changed / one of its sub-issues was added, removed or changed status.
   'parent',
   'subIssues',
   'subscribers',
   'relations',
+  'links',
 ])
 
 const base = {
@@ -52,6 +54,8 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
     actorId: z.uuid().nullable(),
   }),
   z.object({ type: z.literal('presence.changed'), userId: z.uuid() }),
+  // Sent only to the recipient's sockets (docs/domain.md → Notifications); clients refetch the Inbox.
+  z.object({ type: z.literal('notification.created'), notificationId: z.uuid() }),
 ])
 
 /** Sent with every request (header) and with the subscription, so a tab skips its own echoes. */

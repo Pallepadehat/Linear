@@ -2,8 +2,10 @@
 import { Check } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
+import { useDisplayOptions } from '../composables/useDisplayOptions'
 import type { FilterDimension } from '../composables/useFilterDimensions'
 import { useIssueFilters } from '../composables/useIssueFilters'
+import { displayListInput, displayViewKey } from '../display-options'
 import { DETAILS_TABS, facetRows, type DetailsTab } from '../issue-details'
 import { viewStatusCategories } from '../issue-view'
 import { issueFacetsOptions } from '../queries'
@@ -17,12 +19,16 @@ const props = defineProps<{
 }>()
 
 const { filters } = useIssueFilters()
-// Same scope, view and filters as the list next to it.
+const { options } = useDisplayOptions(() => displayViewKey(props))
+// Same scope, view, filters and display options (completed issues, sub-issues) as the list.
 const { data: facets, isPending } = useQuery(
   computed(() =>
     issueFacetsOptions(
       props.workspaceSlug,
-      { teamId: props.teamId, statusCategories: viewStatusCategories(props.view) },
+      {
+        teamId: props.teamId,
+        ...displayListInput(options.value, viewStatusCategories(props.view)),
+      },
       filters.value,
     ),
   ),

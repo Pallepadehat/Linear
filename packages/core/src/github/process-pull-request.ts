@@ -49,13 +49,24 @@ type PullRequestRow = typeof pullRequests.$inferSelect
 
 export type DeliveryOutcome = 'processed' | 'ignored' | 'failed' | 'skipped'
 
-/** An issue whose linked PRs or status this delivery changed, for realtime events. */
-export type ChangedIssue = { issueId: string; statusChanged: boolean }
+/** An issue whose linked PRs or status this delivery changed, for realtime events and notifications. */
+export type ChangedIssue = {
+  issueId: string
+  statusChanged: boolean
+  /** The PR was newly linked to it (or its reference became closing). */
+  linked: boolean
+  /** Activity entries of the status changes automation made (the notifications' source). */
+  statusActivityIds: string[]
+  /** Projects whose activity feed got an entry (a milestone completed). */
+  feedProjectIds: string[]
+}
 
 export type DeliveryResult = {
   outcome: DeliveryOutcome
   /** Set when the delivery was processed; the repository's workspace. */
   workspaceId: string | null
+  /** Set when the delivery was processed. */
+  pullRequestId: string | null
   changedIssues: ChangedIssue[]
 }
 
@@ -76,7 +87,7 @@ export async function processPullRequestDelivery(
       .where(eq(webhookDeliveries.deliveryId, deliveryId))
       .for('update')
     if (!delivery || delivery.status === 'processed' || delivery.status === 'ignored') {
-      return { outcome: 'skipped', workspaceId: null, changedIssues: [] }
+      return { outcome: 'skipped', workspaceId: null, pullRequestId: null, changedIssues: [] }
     }
     const finish = async (
       status: Exclude<DeliveryOutcome, 'skipped'>,
@@ -86,7 +97,7 @@ export async function processPullRequestDelivery(
         .update(webhookDeliveries)
         .set({ status, error: error ?? null })
         .where(eq(webhookDeliveries.id, delivery.id))
-      return { outcome: status, workspaceId: null, changedIssues: [] }
+      return { outcome: status, workspaceId: null, pullRequestId: null, changedIssues: [] }
     }
 
     // A payload that doesn't parse never will; fail it without a retry.
@@ -121,13 +132,19 @@ export async function processPullRequestDelivery(
         ),
       )
     const issueIds = new Set([...linked.map((l) => l.issueId), ...removedIssueIds])
+    const newlyLinked = new Set(created.map((l) => l.issueId))
     const result = await finish('processed')
     return {
       ...result,
       workspaceId: pullRequest.workspaceId,
-      changedIssues: [...issueIds]
-        .sort()
-        .map((issueId) => ({ issueId, statusChanged: moved.has(issueId) })),
+      pullRequestId: pullRequest.id,
+      changedIssues: [...issueIds].sort().map((issueId) => ({
+        issueId,
+        statusChanged: moved.has(issueId),
+        linked: newlyLinked.has(issueId),
+        statusActivityIds: moved.get(issueId)?.activityIds ?? [],
+        feedProjectIds: moved.get(issueId)?.feedProjectIds ?? [],
+      })),
     }
   })
 }
@@ -287,9 +304,11 @@ async function automate(
   }
 
   // A fixed order keeps concurrent deliveries from locking the same issues in opposite order.
-  const moved = new Set<string>()
+  // Issue id → the status activity entries automation wrote for it, and the project feeds it touched.
+  const moved = new Map<string, { activityIds: string[]; feedProjectIds: string[] }>()
   for (const issueId of [...events.keys()].sort()) {
-    if (await automateIssue(tx, pr, issueId, events.get(issueId)!)) moved.add(issueId)
+    const result = await automateIssue(tx, pr, issueId, events.get(issueId)!)
+    if (result.activityIds.length > 0) moved.set(issueId, result)
   }
   return moved
 }
@@ -306,7 +325,7 @@ async function automateIssue(
     .innerJoin(workflowStatuses, eq(workflowStatuses.id, issues.statusId))
     .where(and(eq(issues.workspaceId, pr.workspaceId), eq(issues.id, issueId)))
     .for('update', { of: issues })
-  if (!issue) return false
+  if (!issue) return { activityIds: [], feedProjectIds: [] }
 
   const links = await tx
     .select({ type: issuePullRequestLinks.type, prState: pullRequests.state })
@@ -320,7 +339,8 @@ async function automateIssue(
     )
 
   let category = issue.category
-  let moved = false
+  const activityIds: string[] = []
+  const feedProjectIds = new Set<string>()
   for (const event of events) {
     const result = evaluate({ category }, links, event)
     if (!result) continue
@@ -338,14 +358,15 @@ async function automateIssue(
       .limit(1)
     // A team without a status in that category has nothing to move to.
     if (!status) continue
-    await updateIssue(tx, {
+    const updated = await updateIssue(tx, {
       workspaceId: pr.workspaceId,
       id: issueId,
       statusId: status.id,
       actor: { type: 'github', pullRequestId: pr.id },
     })
     category = result.to
-    moved = true
+    activityIds.push(...updated.activity.filter((a) => a.kind === 'status').map((a) => a.id))
+    for (const projectId of updated.feedProjectIds) feedProjectIds.add(projectId)
   }
-  return moved
+  return { activityIds, feedProjectIds: [...feedProjectIds] }
 }

@@ -3,11 +3,12 @@
 // `composables/useHotkeys.ts`. No DOM access here so it stays unit-testable.
 
 /** Where a shortcut applies. Higher scopes win when several bind the same key. */
-export type HotkeyScope = 'global' | 'list' | 'issue' | 'picker'
+export type HotkeyScope = 'global' | 'list' | 'inbox' | 'issue' | 'picker'
 
 export const SCOPE_PRECEDENCE: Record<HotkeyScope, number> = {
   global: 0,
   list: 1,
+  inbox: 1,
   issue: 2,
   picker: 3,
 }
@@ -15,6 +16,7 @@ export const SCOPE_PRECEDENCE: Record<HotkeyScope, number> = {
 export const SCOPE_LABELS: Record<HotkeyScope, string> = {
   global: 'General',
   list: 'Issue list',
+  inbox: 'Inbox',
   issue: 'Issue',
   picker: 'Issue properties',
 }
@@ -58,11 +60,23 @@ export const SHORTCUTS = {
   'list-select': { keys: 'x', label: 'Select focused issue', scope: 'list' },
   'list-clear': { keys: 'escape', label: 'Clear focus and selection', scope: 'list' },
   'list-delete': { keys: 'mod+backspace', label: 'Delete focused issue', scope: 'list' },
+  'inbox-next': { keys: ['j', 'arrowdown'], label: 'Next notification', scope: 'inbox' },
+  'inbox-prev': { keys: ['k', 'arrowup'], label: 'Previous notification', scope: 'inbox' },
+  'inbox-archive': { keys: ['e', 'backspace'], label: 'Archive', scope: 'inbox' },
+  'inbox-toggle-read': { keys: 'u', label: 'Mark as read / unread', scope: 'inbox' },
+  'inbox-snooze': { keys: 'shift+h', label: 'Remind me', scope: 'inbox' },
   'issue-next': { keys: 'j', label: 'Next issue', scope: 'issue' },
   'issue-prev': { keys: 'k', label: 'Previous issue', scope: 'issue' },
   'issue-back': { keys: 'escape', label: 'Go back', scope: 'issue' },
   'issue-delete': { keys: 'mod+backspace', label: 'Delete issue', scope: 'issue' },
   'issue-set-parent': { keys: 'mod+shift+p', label: 'Set parent issue', scope: 'issue' },
+  // Ctrl L on every platform: ⌃L on macOS (⌘L is the address bar), Ctrl+L elsewhere.
+  'issue-add-link': {
+    keys: isMacPlatform() ? 'ctrl+l' : 'mod+l',
+    label: 'Add link',
+    scope: 'issue',
+    allowInInputs: true,
+  },
   // Copy actions match on key code in useIssueCopy (⌘⇧, gives "<", ⌥P gives "π" on
   // macOS); listed here for the sheet and the button / menu hints.
   'issue-copy-url': { keys: 'mod+shift+,', label: 'Copy issue URL', scope: 'issue' },
