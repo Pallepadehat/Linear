@@ -67,7 +67,7 @@ describe('favorites', () => {
     expect(await owner.client.favorites.list(scope)).toHaveLength(1)
   })
 
-  it('rejects entities from another workspace, unknown ids and views', async () => {
+  it('rejects entities from another workspace and unknown ids', async () => {
     const { owner, team } = await workspaceWithEntities()
     const outsider = await signUp(app, 'Outsider')
     await outsider.client.workspaces.create({ name: 'Other', slug: 'other' })

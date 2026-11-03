@@ -3,12 +3,13 @@ import {
   issues,
   projects,
   teams,
+  views,
   workflowStatuses,
   type DbOrTx,
   type StatusCategory,
 } from '@linear/db'
 import type { favoriteEntityType } from '@linear/db'
-import { and, asc, eq, inArray, max } from 'drizzle-orm'
+import { and, asc, eq, inArray, max, or } from 'drizzle-orm'
 import { DomainError } from '../errors'
 import { mergeFavoriteOrder } from './reorder'
 
@@ -20,15 +21,31 @@ export type FavoriteOwner = { workspaceId: string; userId: string }
 const ownedBy = (owner: FavoriteOwner) =>
   and(eq(favorites.workspaceId, owner.workspaceId), eq(favorites.userId, owner.userId))
 
-/** Whether the entity exists in the workspace. Views (M10-05) don't exist yet, so never. */
+/** A view the user can see: shared, or their own private one (docs/domain.md → Views). */
+const viewVisibleTo = (userId: string) => or(eq(views.shared, true), eq(views.ownerId, userId))
+
+/** Whether the entity exists in the workspace (and, for a view, is visible to the user). */
 async function entityExists(
   db: DbOrTx,
-  workspaceId: string,
+  owner: FavoriteOwner,
   entityType: FavoriteEntityType,
   entityId: string,
 ): Promise<boolean> {
-  const table = { issue: issues, project: projects, team: teams, view: null }[entityType]
-  if (!table) return false
+  const { workspaceId } = owner
+  if (entityType === 'view') {
+    const [row] = await db
+      .select({ id: views.id })
+      .from(views)
+      .where(
+        and(
+          eq(views.workspaceId, workspaceId),
+          eq(views.id, entityId),
+          viewVisibleTo(owner.userId),
+        ),
+      )
+    return Boolean(row)
+  }
+  const table = { issue: issues, project: projects, team: teams }[entityType]
   const [row] = await db
     .select({ id: table.id })
     .from(table)
@@ -42,7 +59,7 @@ export async function addFavorite(
   owner: FavoriteOwner,
   input: { entityType: FavoriteEntityType; entityId: string },
 ) {
-  if (!(await entityExists(db, owner.workspaceId, input.entityType, input.entityId))) {
+  if (!(await entityExists(db, owner, input.entityType, input.entityId))) {
     throw new DomainError('NOT_FOUND', 'Not found')
   }
   return db.transaction(async (tx) => {
@@ -107,6 +124,7 @@ export type FavoriteSummary =
   | { entityType: 'issue'; identifier: string; title: string; statusCategory: StatusCategory }
   | { entityType: 'project'; name: string; iconUploadId: string | null }
   | { entityType: 'team'; name: string; key: string }
+  | { entityType: 'view'; name: string; icon: string; color: string }
 
 export type FavoriteWithSummary = {
   id: string
@@ -117,7 +135,7 @@ export type FavoriteWithSummary = {
 
 /**
  * The user's favorites in order, each with what the sidebar shows. Favorites whose entity is gone
- * (or a type that can't be resolved yet, like views) are left out.
+ * (or a view that is no longer visible to the user) are left out.
  */
 export async function listFavorites(
   db: DbOrTx,
@@ -162,6 +180,20 @@ export async function listFavorites(
         .where(and(eq(teams.workspaceId, workspaceId), inArray(teams.id, teamIds)))
     : []
 
+  const viewIds = idsOf('view')
+  const viewRows = viewIds.length
+    ? await db
+        .select({ id: views.id, name: views.name, icon: views.icon, color: views.color })
+        .from(views)
+        .where(
+          and(
+            eq(views.workspaceId, workspaceId),
+            inArray(views.id, viewIds),
+            viewVisibleTo(owner.userId),
+          ),
+        )
+    : []
+
   const summaries = new Map<string, FavoriteSummary>([
     ...issueRows.map((row): [string, FavoriteSummary] => [
       `issue:${row.id}`,
@@ -179,6 +211,10 @@ export async function listFavorites(
     ...teamRows.map((row): [string, FavoriteSummary] => [
       `team:${row.id}`,
       { entityType: 'team', name: row.name, key: row.key },
+    ]),
+    ...viewRows.map((row): [string, FavoriteSummary] => [
+      `view:${row.id}`,
+      { entityType: 'view', name: row.name, icon: row.icon, color: row.color },
     ]),
   ])
   return rows.flatMap((row) => {

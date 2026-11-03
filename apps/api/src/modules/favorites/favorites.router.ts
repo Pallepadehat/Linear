@@ -1,4 +1,4 @@
-import type { Favorite } from '@linear/contract'
+import { viewColorSchema, viewIconSchema, type Favorite } from '@linear/contract'
 import {
   addFavorite,
   listFavorites,
@@ -35,6 +35,15 @@ async function toDto(db: DbOrTx, storage: Storage, row: FavoriteWithSummary): Pr
       }
     case 'team':
       return { ...base, entityType: 'team', name: summary.name, key: summary.key }
+    case 'view':
+      return {
+        ...base,
+        entityType: 'view',
+        name: summary.name,
+        // A stale icon or color reads as the default rather than failing the whole list.
+        icon: viewIconSchema.catch('layers').parse(summary.icon),
+        color: viewColorSchema.catch('neutral').parse(summary.color),
+      }
   }
 }
 

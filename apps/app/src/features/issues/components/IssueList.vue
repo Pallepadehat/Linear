@@ -43,6 +43,8 @@ import SelectionCheckbox from './SelectionCheckbox.vue'
 // Spelled out: Vue's SFC compiler can't resolve the zod-inferred `IssueListFilter` for props.
 const props = defineProps<{
   workspaceSlug: string
+  /** A saved view (M10-05): its display options draft is kept under its own key. */
+  savedViewId?: string
   teamId?: string
   projectId?: string
   cycleId?: string
