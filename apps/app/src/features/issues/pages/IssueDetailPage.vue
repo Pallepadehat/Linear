@@ -17,6 +17,7 @@ import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { issuePullRequestsOptions } from '@/features/github/queries'
 import IssueViewers from '@/features/presence/components/IssueViewers.vue'
 import { useViewingIssue } from '@/features/presence/usePresence'
+import { milestoneListOptions } from '@/features/projects/milestones'
 import { projectListOptions } from '@/features/projects/queries'
 import { estimateLabel } from '@/lib/estimates'
 import { errorCode } from '@/lib/errors'
@@ -89,6 +90,12 @@ const { data: labels } = useQuery(
   computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
 const { data: projects } = useQuery(computed(() => projectListOptions(slug.value)))
+const { data: milestones } = useQuery(
+  computed(() => ({
+    ...milestoneListOptions(slug.value, issue.value?.projectId ?? ''),
+    enabled: Boolean(issue.value?.projectId),
+  })),
+)
 const { data: cycles } = useQuery(
   computed(() => ({
     ...cycleListOptions(slug.value, issue.value?.teamId ?? ''),
@@ -422,6 +429,7 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :milestones="milestones ?? []"
       :cycles="cycles ?? []"
       :cycles-enabled="teamWithStatuses?.cyclesEnabled"
       :estimates="estimates"

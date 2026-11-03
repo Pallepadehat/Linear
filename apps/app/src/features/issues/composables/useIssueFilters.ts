@@ -13,6 +13,7 @@ const FILTER_KEYS = [
   'priority',
   'assignee',
   'project',
+  'milestone',
   'cycle',
   'label',
   'due',

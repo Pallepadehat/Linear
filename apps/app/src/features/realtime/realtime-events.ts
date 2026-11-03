@@ -7,7 +7,7 @@ import type {
 } from '@linear/contract'
 import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
 import { cyclesKey } from '@/features/cycles/queries'
-import { projectsKey } from '@/features/projects/queries'
+import { invalidateProjects } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { templatesKey } from '@/features/templates/queries'
 import { issueDetailKeys, issueListKey, writeIssueToCaches } from '@/features/issues/queries'
@@ -28,6 +28,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
     (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
     (fields.has('labels') && !!input.labelIds?.length) ||
+    (fields.has('milestone') && (!!input.milestoneIds?.length || !!input.milestoneId)) ||
     (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
     (fields.has('subscribers') && !!input.subscriberIds?.length) ||
     (fields.has('title') && !!input.q) ||
@@ -37,8 +38,8 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
 }
 const listInput = (query: Query) =>
   (query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input ?? {}
-// Fields that change project and cycle progress counts.
-const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project', 'cycle']
+// Fields that change project, milestone and cycle progress counts.
+const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project', 'milestone', 'cycle']
 type Pending = 'lists' | 'projects' | 'cycles'
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.
 const COALESCE_MS = 300
@@ -70,7 +71,7 @@ export function createRealtimeEventHandler({
     timer = undefined
     if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
     else if (pendingFields.size) invalidateDependentLists(new Set(pendingFields))
-    if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (pending.has('projects')) void invalidateProjects(queryClient)
     if (pending.has('cycles')) void queryClient.invalidateQueries({ queryKey: cyclesKey() })
     pending.clear()
     pendingFields.clear()

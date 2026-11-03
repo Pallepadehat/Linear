@@ -85,6 +85,16 @@ describe('applyIssuePatch', () => {
     const completed = issue('a', { status: done, completedAt: now })
     expect(applyIssuePatch(completed, { assigneeId: null }, now).completedAt).toEqual(now)
   })
+
+  it('clears the milestone when the project changes without a new one', () => {
+    const inMilestone = issue('a', { projectId: 'p1', milestoneId: 'm1' })
+    expect(applyIssuePatch(inMilestone, { projectId: 'p2' }, now).milestoneId).toBeNull()
+    expect(applyIssuePatch(inMilestone, { projectId: null }, now).milestoneId).toBeNull()
+    expect(applyIssuePatch(inMilestone, { projectId: 'p1' }, now).milestoneId).toBe('m1')
+    expect(
+      applyIssuePatch(inMilestone, { projectId: 'p2', milestoneId: 'm2' }, now).milestoneId,
+    ).toBe('m2')
+  })
 })
 
 describe('patchIssueInPages', () => {

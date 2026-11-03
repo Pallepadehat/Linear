@@ -247,7 +247,10 @@ describe('realtime event handler', () => {
     handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
     handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
-    expect(invalidate.mock.calls).toEqual([[{ queryKey: orpc.projects.key() }]])
+    expect(invalidate.mock.calls).toEqual([
+      [{ queryKey: orpc.projects.key() }],
+      [{ queryKey: orpc.milestones.key() }],
+    ])
   })
 
   it("refetches only that issue's comments on a comment event", () => {

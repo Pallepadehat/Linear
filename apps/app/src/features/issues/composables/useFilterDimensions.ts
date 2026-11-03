@@ -7,6 +7,7 @@ import {
   CalendarX2,
   CircleDashed,
   CircleUser,
+  Diamond,
   IterationCcw,
   Signal,
   Tag,
@@ -15,6 +16,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { computed, h, type Component, type MaybeRefOrGetter, toValue } from 'vue'
 import CycleIcon from '@/components/common/CycleIcon.vue'
 import EstimateIcon from '@/components/common/EstimateIcon.vue'
+import MilestoneIcon from '@/components/common/MilestoneIcon.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
@@ -22,6 +24,7 @@ import UnassignedIcon from '@/components/common/UnassignedIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { cycleName, cyclePercent } from '@/features/cycles/cycles'
 import { cycleListOptions } from '@/features/cycles/queries'
+import { milestoneListOptions } from '@/features/projects/milestones'
 import { orpc } from '@/lib/orpc'
 import { estimateLabel, estimateValues } from '@/lib/estimates'
 import { PRIORITIES } from '@/lib/priorities'
@@ -50,6 +53,7 @@ export type FilterDimension = {
     | 'priority'
     | 'assignee'
     | 'project'
+    | 'milestone'
     | 'cycle'
     | 'label'
     | 'estimate'
@@ -98,6 +102,21 @@ export function useFilterDimensions(
     computed(() => ({
       ...cycleListOptions(input.value.workspaceSlug, cycleTeam.value?.id ?? ''),
       enabled: Boolean(cycleTeam.value),
+    })),
+  )
+
+  // Milestones belong to a project: offered on a project page, or once the project
+  // filter narrows the view to a single project.
+  const milestoneProject = computed(() => {
+    const { projectId } = toValue(scope)
+    if (projectId) return projectId
+    const selected = toValue(filters).projectIds
+    return selected.length === 1 ? (selected[0] ?? undefined) : undefined
+  })
+  const { data: milestones } = useQuery(
+    computed(() => ({
+      ...milestoneListOptions(input.value.workspaceSlug, milestoneProject.value ?? ''),
+      enabled: Boolean(milestoneProject.value),
     })),
   )
 
@@ -186,6 +205,16 @@ export function useFilterDimensions(
         label: p.name,
         icon: () => h(ProjectIcon, { src: p.iconUrl }),
         values: [p.id as string | null],
+      })),
+    ]
+
+    const milestoneOptions = [
+      { key: 'none', label: 'No milestone', icon: () => h(MilestoneIcon), values: [null] },
+      ...(milestones.value ?? []).map((m) => ({
+        key: m.id,
+        label: m.name,
+        icon: () => h(MilestoneIcon, { progress: m.progress }),
+        values: [m.id as string | null],
       })),
     ]
 
@@ -297,6 +326,18 @@ export function useFilterDimensions(
               projectOptions,
             ),
           ]),
+      ...(milestoneProject.value || f.milestoneIds.length
+        ? [
+            dimension(
+              'milestone',
+              'Milestone',
+              Diamond,
+              f.milestoneIds,
+              (v) => update({ milestoneIds: v }),
+              milestoneOptions,
+            ),
+          ]
+        : []),
       ...(cycleTeam.value
         ? [
             dimension(
