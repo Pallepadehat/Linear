@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import type { Issue, Label, LinkedPullRequest, WorkflowStatus } from '@linear/contract'
+import type { Cycle, Issue, Label, LinkedPullRequest, WorkflowStatus } from '@linear/contract'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import CyclePicker from '@/components/common/CyclePicker.vue'
 import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import { assignableCycles } from '@/features/cycles/cycles'
 import type { EstimateSettings } from '@/lib/estimates'
 import LinkedPullRequests from '@/features/github/components/LinkedPullRequests.vue'
 import { toPriority, type Priority } from '@/lib/priorities'
@@ -21,6 +23,9 @@ const props = defineProps<{
   users: AssigneeOption[]
   labels: Label[]
   projects: ProjectOption[]
+  /** The team's cycles; the Cycle section only shows when the team has cycles on. */
+  cycles?: Cycle[]
+  cyclesEnabled?: boolean
   /** The issue team's estimate scale; the picker is hidden while unknown or off. */
   estimates?: EstimateSettings | null
   /** Undefined while loading. */
@@ -78,6 +83,14 @@ const projectId = computed({
     if (id !== props.issue.projectId) emit('change', { projectId: id })
   },
 })
+const cycleOptions = computed(() => assignableCycles(props.cycles ?? []))
+const issueCycle = computed(() => props.cycles?.find((c) => c.id === props.issue.cycleId) ?? null)
+const cycleId = computed({
+  get: () => props.issue.cycleId,
+  set: (id: string | null) => {
+    if (id !== props.issue.cycleId) emit('change', { cycleId: id })
+  },
+})
 </script>
 
 <template>
@@ -127,6 +140,10 @@ const projectId = computed({
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>
       <ProjectPicker v-model="projectId" :projects="projects" />
     </section>
+    <section v-if="cyclesEnabled || issue.cycleId" class="grid gap-1">
+      <h2 class="px-2 text-xs font-medium text-ink-subtle">Cycle</h2>
+      <CyclePicker v-model="cycleId" :cycles="cycleOptions" :selected="issueCycle" />
+    </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Subscribers</h2>
       <SubscribersPicker
@@ -135,6 +152,7 @@ const projectId = computed({
         @toggle="(user, subscribe) => emit('subscription', user, subscribe)"
       />
     </section>
+    <!-- Filled in by M4-07 (linked PRs). -->
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Linked pull requests</h2>
       <LinkedPullRequests :pull-requests="pullRequests" />

@@ -185,6 +185,34 @@ describe('realtime', () => {
     expect(events).toHaveLength(1)
   })
 
+  it('signals relation changes on both issues', async () => {
+    const { owner, member, team, issue } = await workspaceWithIssue()
+    const other = await owner.client.issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'Duplicate login bug',
+    })
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    const relation = await owner.client.issueRelations.create({
+      workspaceSlug: 'tip',
+      issueId: other.id,
+      relatedIssueId: issue.id,
+      type: 'duplicate',
+    })
+    await owner.client.issueRelations.delete({ workspaceSlug: 'tip', id: relation.id })
+
+    const update = { type: 'issue.updated', actorId: owner.userId }
+    await eventually(() =>
+      expect(events).toEqual([
+        { ...update, issueId: other.id, fields: ['relations', 'status'] },
+        { ...update, issueId: issue.id, fields: ['relations'] },
+        { ...update, issueId: other.id, fields: ['relations'] },
+        { ...update, issueId: issue.id, fields: ['relations'] },
+      ]),
+    )
+  })
+
   it('never sends events to users outside the workspace (PRD Test 9)', async () => {
     const { owner, issue } = await workspaceWithIssue()
     const outsider = await signUp(app, 'Outsider')

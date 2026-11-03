@@ -94,7 +94,13 @@ describe('describeActivity', () => {
     [activity('assignee', 'u2', null), 'unassigned Grace Hopper'],
     [activity('project', null, 'p1'), 'moved the issue to Launch'],
     [activity('project', 'p1', null), 'removed the issue from Launch'],
+    [activity('cycle', null, 'c1'), 'moved the issue to a cycle'],
+    [activity('cycle', 'c1', null), 'removed the issue from its cycle'],
     [activity('labels', [], ['l1']), 'added label Bug'],
+    [activity('relation', null, ['blocks', 'i9', 'TIP-9']), 'marked as blocking TIP-9'],
+    [activity('relation', null, ['blocked_by', 'i4', 'TIP-4']), 'marked as blocked by TIP-4'],
+    [activity('relation', null, ['duplicate_of', 'i2', 'TIP-2']), 'marked as a duplicate of TIP-2'],
+    [activity('relation', ['related', 'i3', 'TIP-3'], null), 'removed the relation with TIP-3'],
     [
       activity('labels', ['l1'], ['l2', 'l3']),
       'added labels Frontend and Docs and removed label Bug',

@@ -13,6 +13,7 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  cycleId?: string
   /** The view toolbar above shows the Filter button instead. */
   hideFilterMenu?: boolean
 }>()

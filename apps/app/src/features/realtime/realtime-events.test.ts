@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Issue, IssuePage, WorkflowStatus } from '@linear/contract'
+import type { Issue, IssueDetail, IssuePage, WorkflowStatus } from '@linear/contract'
 import { QueryClient, type InfiniteData } from '@tanstack/vue-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toValue } from 'vue'
@@ -32,6 +32,7 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    cycleId: null,
     estimate: null,
     dueDate: null,
     labels: [],
@@ -39,12 +40,15 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     createdAt: created,
     updatedAt: created,
     completedAt: null,
+    blockedByCount: 0,
+    blockingCount: 0,
     parentId: null,
     subIssueProgress: null,
     ...overrides,
   }
 }
 
+const noRelations = { blocks: [], blockedBy: [], related: [], duplicateOf: [], duplicates: [] }
 const listKey = issueListOptions('tip').queryKey
 const detailKey = orpc.issues.getByIdentifier.queryKey({
   input: { workspaceSlug: 'tip', identifier: 'TIP-a' },
@@ -59,7 +63,12 @@ beforeEach(() => {
     pages: [{ items: [issue('a'), issue('b')], nextCursor: null }],
     pageParams: [null],
   })
-  queryClient.setQueryData(detailKey, { ...issue('a'), parent: null, children: [] })
+  queryClient.setQueryData(detailKey, {
+    ...issue('a'),
+    parent: null,
+    children: [],
+    relations: noRelations,
+  })
 })
 afterEach(() => vi.useRealTimers())
 
@@ -76,6 +85,27 @@ describe('realtime event handler', () => {
     expect(fetchIssue).toHaveBeenCalledOnce()
     expect(queryClient.getQueryData<Issue>(detailKey)!.status).toEqual(inProgress)
     expect(listed()[1]!.status).toEqual(todo)
+  })
+
+  it("refreshes the detail's relations and the row's block counts on a relation change", async () => {
+    const blocker = {
+      relationId: crypto.randomUUID(),
+      id: 'b',
+      identifier: 'TIP-b',
+      title: 'b',
+      status: todo,
+    }
+    const fetchIssue = vi.fn(async (id: string): Promise<IssueDetail> => ({
+      ...issue(id, { blockedByCount: 1 }),
+      parent: null,
+      children: [],
+      relations: { ...noRelations, blockedBy: [blocker] },
+    }))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['relations'], ...actor })
+    await vi.waitFor(() => expect(listed()[0]!.blockedByCount).toBe(1))
+    expect(queryClient.getQueryData<IssueDetail>(detailKey)!.relations.blockedBy).toEqual([blocker])
   })
 
   it("refetches the issue's linked pull requests when GitHub changes them", () => {
@@ -110,6 +140,20 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.created', issueId: 'c', ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect(listInvalidations()).toHaveLength(1)
+  })
+
+  it('refetches lists and cycle progress when an issue changes cycle', async () => {
+    const fetchIssue = vi.fn(async (id: string) => issue(id))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    const keys = () =>
+      invalidate.mock.calls.map(([filters]) => JSON.stringify(toValue(filters)?.queryKey))
+
+    // A rollover by the cycles job: no actor.
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['cycle'], actorId: null })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(keys()).toContain(JSON.stringify(orpc.issues.list.key()))
+    expect(keys()).toContain(JSON.stringify(orpc.cycles.key()))
   })
 
   it('refetches only the filtered or sorted lists a change can affect', async () => {

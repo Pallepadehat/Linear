@@ -28,6 +28,8 @@ Exact rules behind PRD FR-02 – FR-14. If code and this doc disagree, one of th
 | Connect / disconnect GitHub installations and repos |  ✅   |   ❌   |
 | Create / edit teams                                 |  ✅   |   ✅   |
 | Change team issue defaults                          |  ✅   |   ❌   |
+| Change team cycle settings                          |  ✅   |   ❌   |
+| View cycles, rename a cycle, move issues in/out     |  ✅   |   ✅   |
 | Create / edit / delete issues, projects, labels     |  ✅   |   ✅   |
 | Comment; edit/delete own comments                   |  ✅   |   ✅   |
 | Delete others' comments                             |  ✅   |   ❌   |
@@ -268,7 +270,7 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 
 - Every issue change is logged in `activity_log`, in the same transaction as the change: `created` on create, then one entry per field whose value actually changed. Setting a field to the value it already had (including the same label set in another order, or a title that trims to the current one) writes nothing.
 - Actor is `user` (with `actorId`) for changes made through the API, `github` (no `actorId`, with `pullRequestId` of the triggering PR) for automation. A deleted user's entries keep `actorType: user` with `actorId` null.
-- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` and `estimate` numbers (estimate null when unset); `labels` sorted label-id arrays; `due_date` `YYYY-MM-DD` days. Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
+- `from`/`to` per kind: `title` text; `status`, `assignee`, `project` ids (or null); `priority` and `estimate` numbers (estimate null when unset); `labels` sorted label-id arrays; `due_date` `YYYY-MM-DD` days; `relation` `[role, otherIssueId, otherIdentifier]` in `to` when added and in `from` when removed, role read from this issue's side (`blocks`, `blocked_by`, `related`, `duplicate_of`, `duplicated_by`; the identifier is kept as it was at the time). Ids are stored rather than names, so renamed statuses and labels show their current names. `created` and `description` carry no values (description text is not copied into the log).
 - `activity.list` returns one issue's entries **oldest first** as `{ items, nextCursor }`, cursor = last entry id (UUIDv7), page size 50 (max 100). An issue outside the workspace is `NOT_FOUND`.
 
 ## Comments
@@ -282,11 +284,28 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - **Reactions:** any member may react to any comment (root or reply) with an emoji from the contract's allowlist (`REACTION_EMOJIS`, 48 single emojis; anything else is `BAD_REQUEST`). One reaction per user per emoji per comment (`comment_reactions_comment_id_user_id_emoji_unique`); `react` and `unreact` are idempotent. A comment's `reactions` are `{ emoji, count, reactedByMe }` per emoji, ordered by when that emoji was first used. Reactions are deleted with their comment or user and are not written to `activity_log`.
 - The UI shows edit and delete only to the author (the server still lets owners delete, see Roles). Copy link copies the issue URL with `#comment-<id>`; opening it scrolls to that comment and highlights it.
 
+## Relations
+
+Issues in the same workspace can be related (`issue_relations`). Types and stored direction:
+
+| Type        | Stored as                                    | Read from the issue's side                      |
+| ----------- | -------------------------------------------- | ----------------------------------------------- |
+| `blocks`    | `issueId` blocks `relatedIssueId`            | `blocks` (source) / `blockedBy` (target)        |
+| `related`   | once, either way round                       | `related` on both                               |
+| `duplicate` | `issueId` is a duplicate of `relatedIssueId` | `duplicateOf` (source) / `duplicates` (target)  |
+
+- A pair of issues has at most one relation of each type, **in either direction**: repeating it, or creating the reverse (B blocks A when A blocks B, B related to A, B duplicate of A), is `CONFLICT`. Different types between the same pair are allowed. Enforced by the unique constraint plus a unique index on `(least, greatest, type)`.
+- An issue cannot relate to itself (`BAD_REQUEST`; also a DB check). Both issues must be in the workspace, otherwise `NOT_FOUND`. Relations are deleted with either issue (cascade).
+- **Duplicate rule:** marking an issue as a duplicate moves it, in the same transaction, to its team's first `canceled`-category status (lowest position) and logs that status change. An issue already `completed` or `canceled`, or a team without a canceled status, keeps its status. Removing the relation does not restore the old status.
+- `issues.get` / `getByIdentifier` return `relations` (`blocks`, `blockedBy`, `related`, `duplicateOf`, `duplicates`), each an issue summary (id, identifier, title, status) plus `relationId`, oldest relation first. Every issue DTO (list rows included) has `blockedByCount` / `blockingCount`: `blocks` relations whose **other** issue is still open (not `completed` or `canceled`).
+- Creating or removing a relation writes a `relation` activity entry on **both** issues (see Activity) and publishes `issue.updated` with `fields: ['relations']` for both (plus `status` for a duplicate that was canceled). A status change of a blocker does not republish its blocked issues; their counts refresh on the next list fetch.
+- Any member may create and remove relations. In the app: the detail header "…" menu → **Mark as** ▸ Blocked by… / Blocking… / Related to… / Duplicate of… opens an issue search (the issue itself excluded).
+
 ## Realtime events
 
 Open clients learn about changes as they happen (ADR 0011). Events are hints, not data: they carry IDs and the client refetches what it shows.
 
-- **Events:** `issue.created`, `issue.updated` (with `fields`: any of `title`, `description`, `status`, `priority`, `assignee`, `project`, `labels`, `dueDate`, `pullRequests`, `subscribers`), `issue.deleted`, `comment.created`, `comment.updated`, `comment.deleted`, and `project.updated` (`projectId` + `actorId`, published after every project create, update and delete; clients refetch their project queries, coalesced). Issue and comment events have `issueId` and `actorId` (the user, or `null` for GitHub automation); comment events add `commentId`. `template.updated` (create, edit or delete of an issue template) carries `templateId` and `actorId` instead of `issueId`. Schemas: `packages/contract` (client DTO) and `packages/queue` (Redis bus, same shape plus the internal `originId`).
+- **Events:** `issue.created`, `issue.updated` (with `fields`: any of `title`, `description`, `status`, `priority`, `assignee`, `project`, `labels`, `dueDate`, `pullRequests`, `subscribers`, `relations`), `issue.deleted`, `comment.created`, `comment.updated`, `comment.deleted`, and `project.updated` (`projectId` + `actorId`, published after every project create, update and delete; clients refetch their project queries, coalesced). Issue and comment events have `issueId` and `actorId` (the user, or `null` for GitHub automation); comment events add `commentId`. `template.updated` (create, edit or delete of an issue template) carries `templateId` and `actorId` instead of `issueId`. Schemas: `packages/contract` (client DTO) and `packages/queue` (Redis bus, same shape plus the internal `originId`).
 - **Who publishes:** the API after a successful `issues.create`/`update`/`delete` and `comments.create`/`update`/`delete` (replies are `comment.created`; reactions and resolving a thread are `comment.updated` of that comment); the worker after a `pull_request` delivery commits, one `issue.updated` per issue whose links or status it changed (`fields` = `pullRequests`, plus `status` when automation moved it). Skipped redeliveries publish nothing. `issue.updated.fields` lists the fields the request set, even if a value didn't change.
 - **Channel:** Redis pub/sub `workspace:<workspaceId>`. Every API instance subscribes to a workspace's channel while one of its sockets watches that workspace.
 - **Who receives:** only sockets subscribed through `realtime.subscribe`, which requires a session and workspace membership (`requireWorkspace`; non-members get `NOT_FOUND` and no events). The upgrade at `/rpc/ws` is rejected with `401` without a session and `403` for a foreign `Origin`. Membership is checked when subscribing; there is no member removal yet, so it isn't rechecked mid-stream.
@@ -306,6 +325,23 @@ Who is online and which issue they're looking at. Ephemeral: Redis only, no tabl
 - **Events:** `presence.changed { userId }` on `workspace:<id>` when a user's merged state or viewed issue changes, when a socket closes and that changes it, and for users pruned as expired on read. Clients refetch `presence.list`; it also refetches every 60 s to catch tabs that died without closing.
 - **`presence.list`:** members only (`requireWorkspace`); returns `{ userId, state: 'active' | 'away' | 'offline', viewingIssueId, lastSeenAt }` for **current members** with a live connection or a known last-seen time. Entries for non-members (e.g. removed members) are never returned.
 - **UI:** avatars show a green (`success`) dot for active, a hollow `ink-subtle` dot for away, nothing for offline; the dot is ringed in the surrounding surface color (`--avatar-ring`, default `panel`; the spec's "canvas ring" taken as "the surface behind the avatar"). The issue detail header shows the other members viewing the issue (you are excluded): up to 3 stacked avatars + "+N", tooltip "<name> is viewing". Settings → Members shows "Online" / "Away" / "Last seen …" / "Offline".
+
+## Cycles
+
+Time-boxed iterations per team (M8-06). Off by default; owners turn them on in team settings (`teams.update`).
+
+- **Settings** (team columns): `cyclesEnabled`, `cycleDurationWeeks` 1–8 (default 2), `cycleStartWeekday` 0–6 with 0 = Sunday (default Monday), `cycleCooldownWeeks` 0–2 (default 0), `cycleUpcomingCount` 1–6 (default 2), `cycleAutoAddStarted` and `cycleRolloverUnfinished` (both default on). Out-of-range values are `BAD_REQUEST`; members get `FORBIDDEN`.
+- **Date math** (`packages/core/src/cycles/schedule.ts`): cycles run on **UTC calendar days**. A cycle starts at 00:00 UTC on the start weekday and is the half-open window `[startsAt, endsAt)`, exactly `duration` weeks long, so DST never stretches or shifts it. The UI shows the first and last day in UTC ("Nov 2 – Nov 15"). A team's first cycle starts on the latest start weekday at or before today, so it has a current cycle at once. Each next cycle starts at the previous end plus the cooldown, aligned forward to the start weekday; a chain that ended more than a full cycle ago restarts in the current week. Scheduling keeps a current cycle (none during a cooldown) plus `upcomingCount` cycles starting after now. Changing the settings never moves existing cycles; new ones follow the new settings. Numbers are per team (`cycles_team_id_number_unique`), 1, 2, 3… in date order.
+- **Scheduling**: turning cycles on (or saving any cycle setting while they are on) schedules the missing cycles in the same request. After that, the `cycles-maintain` job (maintenance queue, every hour on the hour in UTC) runs one transaction per team with cycles on, holding the team row lock:
+  1. create missing upcoming cycles;
+  2. for each open cycle that has started, record today's point in `scopeSnapshot` / `completedSnapshot` (index = cycle day, missing days are `null`; a rerun on the same day replaces the point);
+  3. close ended cycles (`completedAt` = run time), first recording their last-day point, then, with rollover on, moving their unfinished issues (status not completed/canceled) to the team's next open cycle, publishing `issue.updated` with `fields: ['cycle']` and `actorId: null` per moved issue.
+  Every step is idempotent, so a rerun in the same hour (team + hour) changes nothing but the snapshot values. Rollover is not written to the activity log. A team with cycles turned off is skipped; its cycles stay as they are.
+- **Assigning**: `issues.create` / `issues.update` accept `cycleId` (`null` removes it). The cycle must be an open (not completed) cycle of the issue's own team; another team's cycle, a completed one, or one from another workspace is `BAD_REQUEST`. Changes are logged as activity kind `cycle` (from/to cycle ids).
+- **Auto-add**: with cycles and `cycleAutoAddStarted` on, an issue that moves to a different status in the `started` category (or is created in one) and has no cycle joins the current cycle, unless the same request sets `cycleId`. No current cycle (cooldown) means nothing happens. GitHub automation goes through the same update, so a PR opening also auto-adds.
+- **Progress**: `scope` counts every issue in the cycle except canceled ones; `started` and `completed` count the `started` / `completed` categories. Counts are live; the chart uses the daily snapshots.
+- **API**: `cycles.list({ teamId })` returns a plain array ordered current, upcoming (soonest first), past (newest first); a team outside the workspace is `NOT_FOUND`. `cycles.get` adds the snapshots; `cycles.update` renames (blank clears; the UI then shows "Cycle <n>"). Cross-workspace ids are `NOT_FOUND`. `issues.list` takes `cycleId` (page scope) and `cycleIds` (filter, `null` = no cycle; `?cycle=<ids|none>` in the URL).
+- **App**: the sidebar shows team › **Cycles** only for teams with cycles on. The cycle picker (`⇧C`, issue properties; row picker on rows already in a cycle; create dialog when the team has cycles on) offers No cycle, the current cycle and upcoming ones as "Cycle 4 · Nov 2 – Nov 15", optimistic with rollback. The filter menu offers Cycle on a team's issue views (team with cycles on). The settings preview shows the current or next scheduled cycle, or what the first cycle would be (a client mirror of the first-cycle rule).
 
 ## Subscribers
 

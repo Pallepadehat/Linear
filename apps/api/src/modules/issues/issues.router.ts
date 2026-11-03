@@ -4,6 +4,7 @@ import {
   getIssue,
   getIssueFacets,
   getIssueByIdentifier,
+  getIssueRelations,
   listIssues,
   listSubscribers,
   subscribe,
@@ -47,22 +48,28 @@ export const issuesRouter = {
 
   get: authed.issues.get
     .use(inWorkspace, (input) => input.workspaceSlug)
-    .handler(async ({ context, input }) =>
-      toIssueDetailDto(await getIssue(context.db, context.workspace.id, input.id, context.user.id)),
-    ),
+    .handler(async ({ context, input }) => {
+      const issue = await getIssue(context.db, context.workspace.id, input.id, context.user.id)
+      return toIssueDetailDto(
+        issue,
+        await getIssueRelations(context.db, context.workspace.id, issue.id),
+      )
+    }),
 
   getByIdentifier: authed.issues.getByIdentifier
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
       const { teamKey, number } = input.identifier
+      const issue = await getIssueByIdentifier(
+        context.db,
+        context.workspace.id,
+        teamKey,
+        number,
+        context.user.id,
+      )
       return toIssueDetailDto(
-        await getIssueByIdentifier(
-          context.db,
-          context.workspace.id,
-          teamKey,
-          number,
-          context.user.id,
-        ),
+        issue,
+        await getIssueRelations(context.db, context.workspace.id, issue.id),
       )
     }),
 
@@ -75,11 +82,11 @@ export const issuesRouter = {
         workspaceId: context.workspace.id,
         actor: { type: 'user', id: context.user.id },
       })
-      await publishChange(context, {
-        type: 'issue.updated',
-        issueId: issue.id,
-        fields: changedIssueFields(fields),
-      })
+      const changed = changedIssueFields(fields)
+      // A status change may have auto-added the issue to the current cycle.
+      if (changed.includes('status') && !changed.includes('cycle') && issue.cycleId)
+        changed.push('cycle')
+      await publishChange(context, { type: 'issue.updated', issueId: issue.id, fields: changed })
       // Parents show their sub-issues' progress: tell the old and new parent, and the
       // current one when a sub-issue's status changed.
       const parents = issue.parentChange

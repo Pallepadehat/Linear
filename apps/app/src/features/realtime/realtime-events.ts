@@ -6,6 +6,7 @@ import type {
   RealtimeIssueField,
 } from '@linear/contract'
 import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
+import { cyclesKey } from '@/features/cycles/queries'
 import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { templatesKey } from '@/features/templates/queries'
@@ -17,9 +18,9 @@ import {
 } from '@/features/issues/queries'
 import { client, orpc } from '@/lib/orpc'
 
-// Fields that decide which lists an issue is in (My Issues, project); a status change
-// only regroups, which the patched copy already does.
-const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project']
+// Fields that decide which lists an issue is in (My Issues, project, cycle); a status
+// change only regroups, which the patched copy already does.
+const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project', 'cycle']
 // Whether a list with this input may gain, lose or reorder an issue when these
 // fields change: only filtered or sorted lists depend on more than membership.
 function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssueField>) {
@@ -49,9 +50,14 @@ const FACET_FIELDS: RealtimeIssueField[] = [
   'project',
   'status',
   'title',
+  'cycle',
+  'dueDate',
+  'estimate',
+  'subscribers',
+  'parent',
 ]
-// Fields that change project progress counts.
-const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project']
+// Fields that change project and cycle progress counts.
+const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project', 'cycle']
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.
 const COALESCE_MS = 300
 
@@ -72,7 +78,8 @@ export function createRealtimeEventHandler({
   workspaceSlug,
   fetchIssue = (id) => client.issues.get({ workspaceSlug, id }),
 }: Deps) {
-  type Pending = 'lists' | 'projects' | 'facets'
+  // `cycles` refreshes cycle progress; only issue changes move it.
+  type Pending = 'lists' | 'projects' | 'cycles' | 'facets'
   const pending = new Set<Pending>()
   // Changed fields that only matter to filtered or sorted lists.
   const pendingFields = new Set<RealtimeIssueField>()
@@ -83,6 +90,7 @@ export function createRealtimeEventHandler({
     if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
     else if (pendingFields.size) invalidateDependentLists(new Set(pendingFields))
     if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (pending.has('cycles')) void queryClient.invalidateQueries({ queryKey: cyclesKey() })
     if (pending.has('facets')) void queryClient.invalidateQueries({ queryKey: issueFacetsKey() })
     pending.clear()
     pendingFields.clear()
@@ -114,7 +122,7 @@ export function createRealtimeEventHandler({
     }
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
     else invalidateFieldsSoon(fields)
-    if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects')
+    if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
     if (fields.some((f) => FACET_FIELDS.includes(f))) invalidateSoon('facets')
 
     // While this tab has its own edits in flight, their settle refetches everything;
@@ -147,7 +155,7 @@ export function createRealtimeEventHandler({
   return function handle(event: RealtimeEvent) {
     switch (event.type) {
       case 'issue.created':
-        return invalidateSoon('lists', 'projects', 'facets')
+        return invalidateSoon('lists', 'projects', 'cycles', 'facets')
       case 'issue.updated':
         return void onIssueUpdated(event.issueId, event.fields)
       case 'issue.deleted':
@@ -156,7 +164,7 @@ export function createRealtimeEventHandler({
           (data) => removeIssueFromPages(data, event.issueId),
         )
         invalidateIssue(event.issueId)
-        return invalidateSoon('projects', 'facets')
+        return invalidateSoon('projects', 'cycles', 'facets')
       case 'project.updated':
         // Project lists and pages refetch (coalesced); this tab's own edits never echo.
         return invalidateSoon('projects')

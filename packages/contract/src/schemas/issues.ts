@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
 import { labelSchema } from './labels'
+import { issueRelationsSchema } from './relations'
 import { statusCategorySchema, workflowStatusSchema } from './teams'
 
 /** 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (docs/domain.md → Priorities). */
@@ -40,6 +41,7 @@ export const issueSchema = z.object({
   assigneeId: z.uuid().nullable(),
   creatorId: z.uuid(),
   projectId: z.uuid().nullable(),
+  cycleId: z.uuid().nullable(),
   estimate: issueEstimateSchema.nullable(),
   dueDate: issueDueDateSchema,
   labels: z.array(labelSchema),
@@ -48,6 +50,9 @@ export const issueSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
   completedAt: z.date().nullable(),
+  /** Open (not completed or canceled) issues blocking this one / blocked by it. */
+  blockedByCount: z.number().int().min(0),
+  blockingCount: z.number().int().min(0),
   parentId: z.uuid().nullable(),
   /**
    * Null without sub-issues. `done` counts completed-category sub-issues; canceled
@@ -58,7 +63,10 @@ export const issueSchema = z.object({
     .nullable(),
 })
 
-/** `issues.get` / `getByIdentifier`: the issue with its parent and sub-issues (oldest first). */
+/**
+ * `issues.get` / `getByIdentifier`: the issue with its parent, sub-issues (oldest first)
+ * and relations.
+ */
 export const issueDetailSchema = issueSchema.extend({
   parent: z
     .object({
@@ -69,6 +77,7 @@ export const issueDetailSchema = issueSchema.extend({
     })
     .nullable(),
   children: z.array(issueSchema),
+  relations: issueRelationsSchema,
 })
 
 const labelIdsSchema = z.array(z.uuid()).max(50)
@@ -83,6 +92,8 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   /** `null` = unassigned, even when the team has a default assignee. */
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  /** An open cycle of the issue's team. */
+  cycleId: z.uuid().nullable().optional(),
   estimate: issueEstimateSchema.nullable().optional(),
   labelIds: labelIdsSchema.optional(),
   /** Creates it as a sub-issue (parent in the same workspace, any team). */
@@ -99,6 +110,8 @@ export const updateIssueInputSchema = workspaceScopedSchema.extend({
   priority: issuePrioritySchema.optional(),
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  /** An open cycle of the issue's team. */
+  cycleId: z.uuid().nullable().optional(),
   estimate: issueEstimateSchema.nullable().optional(),
   labelIds: labelIdsSchema.optional(),
   /** `null` removes the parent. A cycle or the issue itself is `BAD_REQUEST`. */
@@ -126,7 +139,7 @@ export const sortDirectionSchema = z.enum(['asc', 'desc'])
 export const issueDueFilterSchema = z.enum(['overdue', 'dueThisWeek', 'noDueDate'])
 
 const filterIdsSchema = z.array(z.uuid()).max(100)
-/** `null` in the list matches issues with no value (unassigned / no project). */
+/** `null` in the list matches issues with no value (unassigned / no project / no cycle). */
 const nullableFilterIdsSchema = z.array(z.uuid().nullable()).max(100)
 /** `'me'` stands for the signed-in user, so a shared URL means the viewer. */
 const userFilterIdsSchema = z.array(z.union([z.uuid(), z.literal('me')])).max(100)
@@ -139,6 +152,7 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   /** Scope from the page (team / project view), not a user filter. */
   teamId: z.uuid().optional(),
   projectId: z.uuid().optional(),
+  cycleId: z.uuid().optional(),
   /** `'me'` narrows to issues assigned to the signed-in user (My Issues). */
   assignee: z.literal('me').optional(),
   /** `'me'` narrows to issues the signed-in user created. */
@@ -149,6 +163,7 @@ export const listIssuesInputSchema = workspaceScopedSchema.extend({
   priorities: z.array(issuePrioritySchema).max(5).optional(),
   assigneeIds: nullableFilterIdsSchema.optional(),
   projectIds: nullableFilterIdsSchema.optional(),
+  cycleIds: nullableFilterIdsSchema.optional(),
   labelIds: filterIdsSchema.optional(),
   /** Estimate values; `null` matches issues without an estimate, `'any'` those with one. */
   estimates: z

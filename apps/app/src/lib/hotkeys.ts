@@ -71,6 +71,7 @@ export const SHORTCUTS = {
     scope: 'picker',
     inDialog: true,
   },
+  'issue-cycle': { keys: 'shift+c', label: 'Change cycle', scope: 'picker', inDialog: true },
 } as const satisfies Record<string, ShortcutDefinition>
 
 export type ShortcutId = keyof typeof SHORTCUTS
