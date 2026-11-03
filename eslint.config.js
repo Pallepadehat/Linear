@@ -31,6 +31,7 @@ export default tseslint.config(
       'apps/api/**',
       'apps/worker/**',
       'packages/**',
+      'apps/app/e2e/**',
       '*.config.{js,ts}',
       '**/*.config.{js,ts}',
     ],

@@ -13,7 +13,8 @@
     "GITHUB_*",
     "PORT",
     "LOG_LEVEL",
-    "CI"
+    "CI",
+    "E2E_*"
   ],
   "tasks": {
     "build": {
