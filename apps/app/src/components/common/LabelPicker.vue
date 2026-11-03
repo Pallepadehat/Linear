@@ -103,7 +103,6 @@ const sectionList = computed(() =>
     label="Change labels"
     placeholder="Change or add labels…"
     hotkey="L"
-    grouped
     multiple
     :compact="compact"
     :align="compact ? 'end' : 'start'"
@@ -133,54 +132,56 @@ const sectionList = computed(() =>
       <span v-else>{{ selected.length }} labels</span>
     </template>
 
-    <LabelPickerSearch v-model="search" />
-    <CommandGroup
-      v-for="section in sectionList"
-      :key="section.key"
-      :heading="section.heading"
-      class="p-0 [&_[data-slot=command-group-heading]]:px-2.5 [&_[data-slot=command-group-heading]]:pt-2 [&_[data-slot=command-group-heading]]:pb-1 [&_[data-slot=command-group-heading]]:text-ink-subtle"
-    >
-      <PickerItem
-        v-for="label in section.labels"
-        :key="label.id"
-        :value="label.id"
-        :selected="false"
-        @select="toggle(label.id)"
+    <template #groups>
+      <LabelPickerSearch v-model="search" />
+      <CommandGroup
+        v-for="section in sectionList"
+        :key="section.key"
+        :heading="section.heading"
+        class="p-0 [&_[data-slot=command-group-heading]]:px-2.5 [&_[data-slot=command-group-heading]]:pt-2 [&_[data-slot=command-group-heading]]:pb-1 [&_[data-slot=command-group-heading]]:text-ink-subtle"
       >
-        <span
-          class="flex size-3.5 shrink-0 items-center justify-center rounded-xs border"
-          :class="
-            model.includes(label.id)
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-hairline-strong'
-          "
-          aria-hidden="true"
+        <PickerItem
+          v-for="label in section.labels"
+          :key="label.id"
+          :value="label.id"
+          :selected="false"
+          @select="toggle(label.id)"
         >
-          <Check v-if="model.includes(label.id)" class="size-2.5" :stroke-width="3" />
+          <span
+            class="flex size-3.5 shrink-0 items-center justify-center rounded-xs border"
+            :class="
+              model.includes(label.id)
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-hairline-strong'
+            "
+            aria-hidden="true"
+          >
+            <Check v-if="model.includes(label.id)" class="size-2.5" :stroke-width="3" />
+          </span>
+          <span
+            class="size-2 shrink-0 rounded-full"
+            :style="{ backgroundColor: label.color }"
+            aria-hidden="true"
+          />
+          <span class="truncate">{{ label.name }}</span>
+          <span v-if="model.includes(label.id)" class="sr-only">(selected)</span>
+        </PickerItem>
+      </CommandGroup>
+      <!-- Not a CommandItem: it must not be filtered out by the text it echoes. -->
+      <ListboxItem
+        v-if="canCreate"
+        value="__create__"
+        class="flex h-8 cursor-default items-center gap-2.5 rounded-md px-2.5 text-[13px] text-ink outline-hidden select-none data-[highlighted]:bg-floating-hover"
+        @select.prevent="create"
+      >
+        <Plus class="size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
+        <span class="truncate">
+          Create new label: <span class="text-ink-muted">“{{ trimmed }}”</span>
         </span>
-        <span
-          class="size-2 shrink-0 rounded-full"
-          :style="{ backgroundColor: label.color }"
-          aria-hidden="true"
-        />
-        <span class="truncate">{{ label.name }}</span>
-        <span v-if="model.includes(label.id)" class="sr-only">(selected)</span>
-      </PickerItem>
-    </CommandGroup>
-    <!-- Not a CommandItem: it must not be filtered out by the text it echoes. -->
-    <ListboxItem
-      v-if="canCreate"
-      value="__create__"
-      class="flex h-8 cursor-default items-center gap-2.5 rounded-md px-2.5 text-[13px] text-ink outline-hidden select-none data-[highlighted]:bg-floating-hover"
-      @select.prevent="create"
-    >
-      <Plus class="size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
-      <span class="truncate">
-        Create new label: <span class="text-ink-muted">“{{ trimmed }}”</span>
-      </span>
-    </ListboxItem>
-    <p v-else-if="sectionList.length === 0" class="py-4 text-center text-ink-subtle">
-      No labels yet. Type to create one.
-    </p>
+      </ListboxItem>
+      <p v-else-if="sectionList.length === 0" class="py-4 text-center text-ink-subtle">
+        No labels yet. Type to create one.
+      </p>
+    </template>
   </PickerPopover>
 </template>
