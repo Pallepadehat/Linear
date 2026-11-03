@@ -3,6 +3,7 @@ import {
   deleteIssue,
   getIssue,
   getIssueByIdentifier,
+  getIssueRelations,
   listIssues,
   listSubscribers,
   subscribe,
@@ -46,22 +47,28 @@ export const issuesRouter = {
 
   get: authed.issues.get
     .use(inWorkspace, (input) => input.workspaceSlug)
-    .handler(async ({ context, input }) =>
-      toIssueDetailDto(await getIssue(context.db, context.workspace.id, input.id, context.user.id)),
-    ),
+    .handler(async ({ context, input }) => {
+      const issue = await getIssue(context.db, context.workspace.id, input.id, context.user.id)
+      return toIssueDetailDto(
+        issue,
+        await getIssueRelations(context.db, context.workspace.id, issue.id),
+      )
+    }),
 
   getByIdentifier: authed.issues.getByIdentifier
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
       const { teamKey, number } = input.identifier
+      const issue = await getIssueByIdentifier(
+        context.db,
+        context.workspace.id,
+        teamKey,
+        number,
+        context.user.id,
+      )
       return toIssueDetailDto(
-        await getIssueByIdentifier(
-          context.db,
-          context.workspace.id,
-          teamKey,
-          number,
-          context.user.id,
-        ),
+        issue,
+        await getIssueRelations(context.db, context.workspace.id, issue.id),
       )
     }),
 

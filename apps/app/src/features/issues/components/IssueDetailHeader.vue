@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import type { Issue } from '@linear/contract'
-import { ChevronDown, ChevronUp, Copy, Ellipsis, ListTree, Trash2, Unlink, X } from '@lucide/vue'
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Ellipsis,
+  GitCompareArrows,
+  ListTree,
+  Trash2,
+  Unlink,
+  X,
+} from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watchEffect } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
@@ -35,6 +45,7 @@ import { useIssueNav } from '../composables/useIssueNav'
 import type { IssuePatch } from '../issue-cache'
 import { issuePrefill } from '../prefill'
 import { issueListKey } from '../queries'
+import { RELATION_KINDS, type RelationKind } from '../relation-kinds'
 
 const props = defineProps<{
   workspaceSlug: string
@@ -43,8 +54,13 @@ const props = defineProps<{
   teamName?: string
   teamKey?: string
 }>()
-// `setParent` opens the parent picker, which the page owns (it also answers ⇧⌘P).
-const emit = defineEmits<{ change: [patch: IssuePatch]; setParent: [] }>()
+// `setParent` opens the parent picker, which the page owns (it also answers ⇧⌘P);
+// `markAs` opens the relation picker.
+const emit = defineEmits<{
+  change: [patch: IssuePatch]
+  setParent: []
+  markAs: [kind: RelationKind]
+}>()
 
 const ui = useUiStore()
 const router = useRouter()
@@ -205,6 +221,22 @@ const itemClass = 'h-8 rounded-md text-[13px]'
           <Unlink class="text-ink-subtle" aria-hidden="true" />
           Remove parent
         </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger :class="itemClass">
+            <GitCompareArrows class="text-ink-subtle" aria-hidden="true" />
+            Mark as
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent class="w-44 rounded-lg border-hairline bg-floating p-1.5">
+            <DropdownMenuItem
+              v-for="option in RELATION_KINDS"
+              :key="option.kind"
+              :class="itemClass"
+              @select="emit('markAs', option.kind)"
+            >
+              {{ option.label }}
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuItem :class="itemClass" @select="makeCopy">
           <Copy class="text-ink-subtle" aria-hidden="true" />
           Make a copy…

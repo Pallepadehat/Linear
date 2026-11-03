@@ -6,6 +6,7 @@ import {
   patchIssue,
   patchIssueInPages,
   removeIssueFromPages,
+  removeRelation,
   toUpdateIssueInput,
 } from './issue-cache'
 
@@ -43,6 +44,8 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     createdAt: created,
     updatedAt: created,
     completedAt: null,
+    blockedByCount: 0,
+    blockingCount: 0,
     parentId: null,
     subIssueProgress: null,
     ...overrides,
@@ -191,5 +194,32 @@ describe('removeIssueFromPages', () => {
     const data = pages([issue('a')])
     expect(removeIssueFromPages(data, 'z')).toBe(data)
     expect(removeIssueFromPages(undefined, 'z')).toBeUndefined()
+  })
+})
+
+describe('removeRelation', () => {
+  it('drops the relation from whichever group lists it', () => {
+    const related = (relationId: string) => ({
+      relationId,
+      id: crypto.randomUUID(),
+      identifier: 'TIP-9',
+      title: 'Other',
+      status: todo,
+    })
+    const detail = {
+      ...issue('a'),
+      parent: null,
+      children: [],
+      relations: {
+        blocks: [related('r1')],
+        blockedBy: [related('r2')],
+        related: [],
+        duplicateOf: [],
+        duplicates: [],
+      },
+    }
+    const next = removeRelation(detail, 'r2')
+    expect(next.relations.blockedBy).toEqual([])
+    expect(next.relations.blocks).toEqual(detail.relations.blocks)
   })
 })

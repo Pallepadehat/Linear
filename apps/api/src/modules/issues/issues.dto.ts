@@ -1,6 +1,7 @@
 import type { Issue, IssueDetail } from '@linear/contract'
-import type { IssueDetailRecord, IssueRecord } from '@linear/core'
+import type { IssueDetailRecord, IssueRecord, IssueRelationsRecord } from '@linear/core'
 import { toLabelDto } from '../labels/labels.dto'
+import { toIssueRelationsDto } from '../relations/relations.dto'
 
 export function toIssueDto(record: IssueRecord): Issue {
   return {
@@ -23,6 +24,8 @@ export function toIssueDto(record: IssueRecord): Issue {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     completedAt: record.completedAt,
+    blockedByCount: record.blockedByCount,
+    blockingCount: record.blockingCount,
     parentId: record.parentId,
     subIssueProgress: record.subIssueProgress,
   }
@@ -35,7 +38,10 @@ const toStatusDto = (status: IssueRecord['status']) => ({
   position: status.position,
 })
 
-export function toIssueDetailDto(record: IssueDetailRecord): IssueDetail {
+export function toIssueDetailDto(
+  record: IssueDetailRecord,
+  relations: IssueRelationsRecord,
+): IssueDetail {
   const { parent } = record
   return {
     ...toIssueDto(record),
@@ -48,5 +54,6 @@ export function toIssueDetailDto(record: IssueDetailRecord): IssueDetail {
         }
       : null,
     children: record.children.map(toIssueDto),
+    relations: toIssueRelationsDto(relations),
   }
 }

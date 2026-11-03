@@ -3,6 +3,7 @@ import type {
   Issue,
   IssueDetail,
   IssuePage,
+  IssueRelationType,
   ListIssuesInput,
   ReactionEmoji,
   User,
@@ -27,6 +28,7 @@ import {
   patchIssue,
   patchIssueInPages,
   removeIssueFromPages,
+  removeRelation,
   toUpdateIssueInput,
   type IssuePatch,
 } from './issue-cache'
@@ -80,7 +82,10 @@ const issueInfiniteListKey = () => orpc.issues.list.key({ type: 'infinite' })
 /** Single-issue caches: by id and by `TIP-200` identifier. */
 export const issueDetailKeys = () => [orpc.issues.get.key(), orpc.issues.getByIdentifier.key()]
 
-/** Writes `update` into every cache holding the issue: each list page and the detail entries. */
+/**
+ * Writes `update` into every cache holding the issue: each list page and the detail
+ * entries. Detail entries keep their relations when `update` returns a plain issue.
+ */
 export function writeIssueToCaches(
   queryClient: QueryClient,
   id: string,
@@ -93,6 +98,67 @@ export function writeIssueToCaches(
   for (const queryKey of issueDetailKeys())
     queryClient.setQueriesData<IssueDetail>({ queryKey }, (data) => patchIssue(data, id, update))
 }
+
+/** Refetches everything a relation change shows up in: details, row counts, activity. */
+function invalidateRelationViews(queryClient: QueryClient) {
+  return Promise.all([
+    ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+    queryClient.invalidateQueries({ queryKey: issueListKey() }),
+    queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
+    queryClient.invalidateQueries({ queryKey: projectsKey() }),
+  ])
+}
+
+export type CreateRelationVariables = {
+  issueId: string
+  relatedIssueId: string
+  type: IssueRelationType
+}
+
+/** Relates two issues; the views refetch once the server has it (a duplicate also changes status). */
+export function useCreateRelation(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (variables: CreateRelationVariables) =>
+      client.issueRelations.create({ workspaceSlug: toValue(workspaceSlug), ...variables }),
+    onError: (error) => {
+      toast.error("Couldn't add the relation", { description: errorMessage(error) })
+    },
+    onSettled: () => invalidateRelationViews(queryClient),
+  })
+}
+
+/** Removes a relation optimistically from the detail views, rolled back with a toast. */
+export function useDeleteRelation(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  const detailKeys = issueDetailKeys()
+  return useMutation({
+    mutationFn: (relationId: string) =>
+      client.issueRelations.delete({ workspaceSlug: toValue(workspaceSlug), id: relationId }),
+    onMutate: async (relationId) => {
+      await Promise.all(detailKeys.map((queryKey) => queryClient.cancelQueries({ queryKey })))
+      const previous = detailKeys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }))
+      for (const queryKey of detailKeys)
+        queryClient.setQueriesData<IssueDetail>({ queryKey }, (data) =>
+          data ? removeRelation(data, relationId) : data,
+        )
+      return { previous }
+    },
+    onError: (error, _relationId, context) => {
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
+      toast.error("Couldn't remove the relation", { description: errorMessage(error) })
+    },
+    onSettled: () => invalidateRelationViews(queryClient),
+  })
+}
+
+/** Issues matching a title or identifier search, for the relation picker. */
+export const issueSearchOptions = (workspaceSlug: string, q: string) =>
+  orpc.issues.list.queryOptions({
+    input: { workspaceSlug, q: q || undefined, sort: 'updatedAt', limit: 20 },
+    placeholderData: keepPreviousData,
+  })
 
 /**
  * Issue edits (title, description and every property) applied optimistically to

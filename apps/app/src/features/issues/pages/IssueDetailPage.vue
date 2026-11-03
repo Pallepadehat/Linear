@@ -25,6 +25,8 @@ import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
 import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
+import IssueRelations from '../components/IssueRelations.vue'
+import IssueSearchDialog from '../components/IssueSearchDialog.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
 import ParentIssueDialog from '../components/ParentIssueDialog.vue'
 import SubIssueSection from '../components/SubIssueSection.vue'
@@ -36,9 +38,11 @@ import {
   commentListOptions,
   issueByIdentifierOptions,
   issueSubscribersOptions,
+  useCreateRelation,
   useIssueSubscription,
   useUpdateIssue,
 } from '../queries'
+import { RELATION_KINDS, relationFor, type RelationKind } from '../relation-kinds'
 
 const route = useRoute()
 const router = useRouter()
@@ -202,6 +206,24 @@ function setParent(parent: Issue) {
     },
   })
 }
+
+// "…" → Mark as ▸ opens the issue search; picking an issue creates the relation.
+const relationKind = ref<RelationKind | null>(null)
+const pickingRelation = computed({
+  get: () => relationKind.value !== null,
+  set: (open: boolean) => {
+    if (!open) relationKind.value = null
+  },
+})
+const relationTitle = computed(
+  () => RELATION_KINDS.find((k) => k.kind === relationKind.value)?.title ?? '',
+)
+const createRelation = useCreateRelation(slug)
+function relate(other: Issue) {
+  if (issue.value && relationKind.value)
+    createRelation.mutate(relationFor(relationKind.value, issue.value.id, other.id))
+}
+
 const { data: me } = useCurrentUser()
 const { data: subscribers } = useQuery(
   computed(() => ({
@@ -313,6 +335,7 @@ onBeforeUnmount(commitDescription)
       :team-key="team?.key"
       @change="save"
       @set-parent="parentDialogOpen = true"
+      @mark-as="relationKind = $event"
     >
       <SubscribeButton :subscribed="issue.isSubscribed" @toggle="toggleMySubscription" />
     </IssueDetailHeader>
@@ -359,6 +382,7 @@ onBeforeUnmount(commitDescription)
             class="min-h-16 py-1"
           />
         </div>
+        <IssueRelations :issue="issue" :workspace-slug="slug" />
 
         <SubIssueSection
           :workspace-slug="slug"
@@ -405,6 +429,13 @@ onBeforeUnmount(commitDescription)
       :subscribers="subscribers ?? []"
       @change="save"
       @subscription="setSubscribed"
+    />
+    <IssueSearchDialog
+      v-model:open="pickingRelation"
+      :workspace-slug="slug"
+      :title="relationTitle"
+      :exclude-ids="[issue.id]"
+      @select="relate"
     />
     <ParentIssueDialog
       v-model:open="parentDialogOpen"
