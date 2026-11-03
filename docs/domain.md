@@ -251,8 +251,19 @@ Open clients learn about changes as they happen (ADR 0011). Events are hints, no
 
 - Sidebar sections (Workspace, Your teams, Favorites) start expanded; each team row starts collapsed and expands when one of its pages is opened. The state is per browser (`sidebar-sections` in localStorage), never server data.
 - `team/:teamKey` redirects to `team/:teamKey/issues`. The team Projects page lists the workspace projects whose `teamIds` include the team (client-side filter of `projects.list`).
-- Until the command menu (M7-11) lands, the sidebar Search button focuses the issue search field, opening All issues first when the current page has none. Until M10-02, Inbox and the notifications bell open an empty inbox page and the unread badge is hidden (count 0). Views pages are placeholders until M10-05; Favorites stays hidden until M8-07.
+- Until the command menu (M7-11) lands, the sidebar Search button focuses the issue search field, opening All issues first when the current page has none. Until M10-02, Inbox and the notifications bell open an empty inbox page and the unread badge is hidden (count 0). Views pages are placeholders until M10-05.
 - The content panel keeps the `panel` surface and light-mode panel shadow from design.md → App shell (design.md wins over the issue's `bg-surface-1` / no-shadow wording).
+
+## Favorites
+
+- Favorites are personal: a row belongs to one user in one workspace (`favorites.userId` + `workspaceId`), and every procedure filters on both. Another user's favorite id is `NOT_FOUND`; there is no realtime broadcast, the app refetches its own list after a change.
+- Entity types are `issue`, `project`, `team` and `view`. `view` is reserved for custom views (M10-05): until views exist, adding one is `NOT_FOUND`. Adding an entity that isn't in the workspace is `NOT_FOUND`; adding one that is already a favorite returns the existing favorite (no-op).
+- Order is an integer `sortOrder`; new favorites go last. `favorites.reorder({ ids })` puts the given ids first in that order and keeps any favorites it didn't mention after them in their current order (so a stale tab can't drop one). An id that isn't the caller's, or a repeated id, is `NOT_FOUND`.
+- There is no FK from a favorite to its entity, so deleting an issue or project deletes its favorites in the same transaction (`deleteFavoritesOf`). Future deletes of teams (and their issues) or views must do the same. `favorites.list` also skips favorites whose entity no longer resolves.
+- The list returns a display summary per favorite, resolved server-side: issue identifier, title and status category; project name and icon URL; team name and key.
+- App: the header star (tooltip "Favorite" / "Unfavorite") and `⌥F` act on the page's entity, set by the issue detail, project detail and team issues pages (`ui.favoriteTarget`, cleared on navigation). `⌥F` is matched by key code (macOS types `ƒ`) and ignored while typing. Add and remove are optimistic with rollback; an optimistic row can't be removed or reordered until the refetch gives it a real id.
+- The sidebar Favorites section sits between Workspace and Your teams (where M7-01 left its slot) and is hidden when empty. Rows reorder by drag, or with "Move up" / "Move down" in the row's "…" menu (keyboard path); right-click opens the same menu, which has "Remove from favorites". The favorited star uses `status-started` yellow, like Linear.
+- "Add to favorites" in the issue and project "…" menus arrives with those menus (M7-07 issue header, M9-03 project detail); they reuse `useToggleFavorite`.
 
 ## Isolation invariants
 

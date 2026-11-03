@@ -33,7 +33,14 @@ const { data: teams } = useQuery(
 )
 
 watchEffect(() => {
-  if (project.value) ui.breadcrumb = ['Projects', project.value.name]
+  if (!project.value) return
+  ui.breadcrumb = ['Projects', project.value.name]
+  ui.favoriteTarget = {
+    entityType: 'project',
+    entityId: project.value.id,
+    name: project.value.name,
+    iconUrl: project.value.iconUrl,
+  }
 })
 
 // Edits apply to the cache immediately and roll back if the save fails.

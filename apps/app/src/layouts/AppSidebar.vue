@@ -20,6 +20,7 @@ import TeamIcon from '@/components/common/TeamIcon.vue'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import SidebarFavorites from '@/features/favorites/components/SidebarFavorites.vue'
 import WorkspaceMenu from '@/features/workspaces/components/WorkspaceMenu.vue'
 import { orpc } from '@/lib/orpc'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -61,7 +62,10 @@ async function openSearch() {
   if (ui.searchFocusRequested) await router.push(at('issues'))
 }
 
-const shortcuts = [{ keys: 'C', label: 'Create issue' }]
+const shortcuts = [
+  { keys: 'C', label: 'Create issue' },
+  { keys: '⌥F', label: 'Toggle favorite' },
+]
 </script>
 
 <template>
@@ -96,7 +100,7 @@ const shortcuts = [{ keys: 'C', label: 'Create issue' }]
         <SidebarItem :to="at('views')" label="Views" :icon="SquareStack" />
       </SidebarSection>
 
-      <!-- Favorites (M8-07) render here once there is something to show; hidden while empty. -->
+      <SidebarFavorites />
 
       <SidebarSection
         label="Your teams"

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { FavoriteTarget } from '@/features/favorites/favorite-list'
 
 export type CreateIssueDefaults = {
   teamId?: string
@@ -28,11 +29,15 @@ export const useUiStore = defineStore('ui', () => {
    */
   const searchFocusRequested = ref(false)
 
+  /** The entity the current page shows, for the header star and ⌥F; reset on navigation. */
+  const favoriteTarget = ref<FavoriteTarget | null>(null)
+
   return {
     createIssueOpen,
     createIssueDefaults,
     openCreateIssue,
     breadcrumb,
     searchFocusRequested,
+    favoriteTarget,
   }
 })

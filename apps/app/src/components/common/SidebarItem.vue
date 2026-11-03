@@ -2,7 +2,7 @@
 import type { Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
-/** A 28px sidebar row; the active route gets the selected surface. */
+/** A 28px sidebar row; the active route gets the selected surface. The `icon` slot overrides `icon`. */
 defineProps<{
   to: RouteLocationRaw
   label: string
@@ -19,7 +19,9 @@ defineProps<{
     class="flex h-7 min-w-0 items-center gap-2 rounded-md px-2 text-ink-muted outline-hidden hover:bg-surface-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-surface-4 aria-[current=page]:text-ink"
     :class="inset && 'pl-7'"
   >
-    <component :is="icon" v-if="icon" class="size-4 shrink-0" aria-hidden="true" />
+    <slot name="icon">
+      <component :is="icon" v-if="icon" class="size-4 shrink-0" aria-hidden="true" />
+    </slot>
     <span class="truncate">{{ label }}</span>
     <span
       v-if="badge"

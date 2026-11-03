@@ -78,7 +78,15 @@ const names = computed<ActivityNames>(() => {
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
 
 watchEffect(() => {
-  if (issue.value) ui.breadcrumb = [team.value?.name ?? 'Issues', issue.value.identifier]
+  if (!issue.value) return
+  ui.breadcrumb = [team.value?.name ?? 'Issues', issue.value.identifier]
+  ui.favoriteTarget = {
+    entityType: 'issue',
+    entityId: issue.value.id,
+    identifier: issue.value.identifier,
+    title: issue.value.title,
+    statusCategory: issue.value.status.category,
+  }
 })
 
 // Comments and activity are paged; an issue's history is small, so load all of it.

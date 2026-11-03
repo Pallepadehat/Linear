@@ -313,6 +313,7 @@ Lavender stays scarce on chrome, but the product uses a small semantic palette, 
 | High / Medium / Low     | `ink-muted`              | 3 bars, 3 / 2 / 1 filled              |
 | No priority             | `ink-tertiary`           | Three dashes                          |
 | Labels                  | the label's own color    | 8px dot before the name               |
+| Favorited star          | `status-started`         | Filled star in the page header        |
 
 Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon and selected/active states. Never as a section or card fill.
 
