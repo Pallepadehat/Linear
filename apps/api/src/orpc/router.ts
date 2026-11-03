@@ -10,6 +10,7 @@ import { githubRouter } from '../modules/github/github.router'
 import { issuesRouter } from '../modules/issues/issues.router'
 import { labelsRouter } from '../modules/labels/labels.router'
 import { meRouter } from '../modules/me/me.router'
+import { notificationsRouter } from '../modules/notifications/notifications.router'
 import { teamsRouter } from '../modules/teams/teams.router'
 import { templatesRouter } from '../modules/templates/templates.router'
 import { uploadsRouter } from '../modules/uploads/uploads.router'
@@ -31,6 +32,7 @@ export const router = os.router({
   activity: activityRouter,
   comments: commentsRouter,
   favorites: favoritesRouter,
+  notifications: notificationsRouter,
   realtime: realtimeRouter,
   templates: templatesRouter,
   presence: presenceRouter,
