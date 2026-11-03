@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import ProjectActivityFeed from './ProjectActivityFeed.vue'
+import ProjectUpdatesFeed from './ProjectUpdatesFeed.vue'
 
-// `?tab=activity`: the full project feed (M9-06), newest first with infinite scroll.
+// `?tab=activity`: the project's updates (M9-04), then its full feed (M9-06), each newest
+// first with infinite scroll.
 defineProps<{ workspaceSlug: string; projectId: string }>()
 </script>
 
 <template>
   <div class="min-h-0 flex-1 overflow-y-auto">
-    <div class="mx-auto w-full max-w-3xl px-8 py-6">
+    <div class="mx-auto grid w-full max-w-3xl gap-10 px-8 py-6">
+      <ProjectUpdatesFeed
+        :key="`updates-${projectId}`"
+        :workspace-slug="workspaceSlug"
+        :project-id="projectId"
+      />
       <ProjectActivityFeed
         :key="projectId"
         :workspace-slug="workspaceSlug"
