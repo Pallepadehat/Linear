@@ -4,6 +4,8 @@ import { userSchema } from '../schemas/users'
 import {
   createIssueInputSchema,
   getIssueByIdentifierInputSchema,
+  issueFacetsInputSchema,
+  issueFacetsSchema,
   issueDetailSchema,
   issueIdInputSchema,
   issuePageSchema,
@@ -23,6 +25,8 @@ export const issuesContract = {
   delete: oc.input(issueIdInputSchema).output(z.object({ id: z.uuid() })),
   // Unbounded, so cursor-paginated (see AGENTS.md → API).
   list: oc.input(listIssuesInputSchema).output(issuePageSchema),
+  /** Counts per assignee / label / priority / project for the list's filters (Details panel). */
+  facets: oc.input(issueFacetsInputSchema).output(issueFacetsSchema),
   subscribe: oc.input(issueSubscriptionInputSchema).output(issueSubscriptionSchema),
   unsubscribe: oc.input(issueSubscriptionInputSchema).output(issueSubscriptionSchema),
   // Bounded by the workspace's members, so a plain array.

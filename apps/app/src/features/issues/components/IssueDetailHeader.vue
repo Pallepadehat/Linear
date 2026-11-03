@@ -54,7 +54,7 @@ import { COPY_LABELS, copyShortcut, type CopyKind } from '../copy-shortcuts'
 import { useIssueNav } from '../composables/useIssueNav'
 import type { IssuePatch } from '../issue-cache'
 import { issuePrefill } from '../prefill'
-import { issueListKey } from '../queries'
+import { issueFacetsKey, issueListKey } from '../queries'
 import { RELATION_KINDS, type RelationKind } from '../relation-kinds'
 
 const props = defineProps<{
@@ -160,6 +160,7 @@ async function confirmDelete() {
   toast.success(`${identifier} deleted`)
   await router.replace(listRoute.value)
   void queryClient.invalidateQueries({ queryKey: issueListKey() })
+  void queryClient.invalidateQueries({ queryKey: issueFacetsKey() })
 }
 
 // ⌘⌫ (Ctrl+Backspace elsewhere) asks to delete, like Linear; not while typing.
