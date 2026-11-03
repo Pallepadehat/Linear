@@ -6,6 +6,10 @@ import { cleanupAttachments } from '../jobs/maintenance/cleanup-attachments'
 import { cleanupPending } from '../jobs/maintenance/cleanup-pending'
 import { cyclesMaintain } from '../jobs/maintenance/cycles-maintain'
 import { deleteObjects } from '../jobs/maintenance/delete-objects'
+import {
+  projectProgressDaily,
+  projectProgressSnapshot,
+} from '../jobs/projects/project-progress-snapshot'
 
 export function createMaintenanceWorker(deps: JobDeps, connection: Redis) {
   return new Worker(
@@ -26,6 +30,14 @@ export function createMaintenanceWorker(deps: JobDeps, connection: Redis) {
         case 'cycles-maintain':
           parseJobPayload('maintenance', 'cycles-maintain', job.data)
           return cyclesMaintain(deps)
+        case 'project-progress-snapshot':
+          return projectProgressSnapshot(
+            deps,
+            parseJobPayload('maintenance', 'project-progress-snapshot', job.data).projectId,
+          )
+        case 'project-progress-daily':
+          parseJobPayload('maintenance', 'project-progress-daily', job.data)
+          return projectProgressDaily(deps)
         default:
           throw new Error(`unknown maintenance job ${job.name}`)
       }
@@ -34,7 +46,7 @@ export function createMaintenanceWorker(deps: JobDeps, connection: Redis) {
   )
 }
 
-/** Registers the hourly cleanups and cycle upkeep; upserting keeps a single schedule across restarts. */
+/** Registers the hourly cleanups, cycle upkeep and daily progress snapshots; upserting keeps a single schedule across restarts. */
 export async function scheduleMaintenance(connection: Redis) {
   const queue = new Queue(QUEUE_NAMES.maintenance, { connection })
   await queue.upsertJobScheduler(
@@ -52,6 +64,13 @@ export async function scheduleMaintenance(connection: Redis) {
     'cycles-maintain',
     { pattern: '0 * * * *', tz: 'UTC' },
     { name: 'cycles-maintain', data: {} },
+  )
+  // Late in the UTC day, so each day's row holds that day's closing counts
+  // (docs/domain.md → Project progress).
+  await queue.upsertJobScheduler(
+    'project-progress-daily',
+    { pattern: '55 23 * * *', tz: 'UTC' },
+    { name: 'project-progress-daily', data: {} },
   )
   await queue.close()
 }
