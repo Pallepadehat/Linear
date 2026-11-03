@@ -8,6 +8,7 @@ import type { Redis } from 'ioredis'
 import { createAuth } from './auth/auth'
 import type { ApiEnv } from './env'
 import { registerGithubWebhook } from './modules/github/github-webhook'
+import { createPresenceStore } from './modules/presence/presence.store'
 import { createRealtimeHub } from './modules/realtime/realtime.hub'
 import { registerAuth } from './plugins/auth'
 import { registerCors } from './plugins/cors'
@@ -67,6 +68,7 @@ export async function buildApp(deps: AppDeps) {
       github: deps.github ?? null,
       installStateSecret: deps.env.BETTER_AUTH_SECRET,
       realtime,
+      presence: createPresenceStore(deps.redis),
     },
     deps.env.APP_URL,
   )

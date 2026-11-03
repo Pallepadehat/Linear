@@ -243,7 +243,19 @@ Open clients learn about changes as they happen (ADR 0011). Events are hints, no
 - **Echoes:** each browser tab has a random client id, sent as `x-client-id` on every request and with the subscription. Events caused by a tab are not sent back to that tab (it already applied them optimistically). Other tabs of the same user do receive them.
 - **Delivery:** best effort, at most once, no replay. A failed publish is logged and never fails the change. Clients reconnect with backoff (1 s doubling to 30 s, jittered) and refetch their active queries after a reconnect.
 - **Client handling:** `issue.updated` fetches that issue once and patches it into every cached list and detail copy (skipped while the tab has its own edit in flight, which refetches when it settles); lists refetch, coalesced, only on create or when `assignee`/`project` changed (membership of My Issues and project views); other changes refetch only the filtered or sorted lists they can affect (`status` → status filter, `priority` → priority filter or sort, `labels` → label filter, `title` → search, any change → `updatedAt` sort); deletes drop the issue from lists; comment events refetch that issue's comments.
-- **Not covered yet:** presence, collaborative editing, notifications.
+- **Not covered yet:** collaborative editing, notifications.
+
+## Presence
+
+Who is online and which issue they're looking at. Ephemeral: Redis only, no table, nothing in the activity log.
+
+- **Heartbeat:** `presence.heartbeat { workspaceSlug, viewingIssueId: uuid | null, state: 'active' | 'away' }`, sent by each tab every 20 s, when the viewed issue changes, when the tab is hidden/shown (`away` while hidden), and on (re)connect. It is accepted only over the realtime WebSocket, from a socket currently subscribed to that workspace (`realtime.subscribe`), with membership checked by `requireWorkspace` (non-members `NOT_FOUND`). A heartbeat over HTTP, from a socket not subscribed to the workspace, or naming an issue outside the workspace is dropped silently (no error, nothing stored).
+- **Storage:** `presence:<workspaceId>:<userId>` is a hash of the user's live connections (one per socket) → `{ state, viewingIssueId, at }`, key TTL 60 s refreshed per heartbeat; `presence:<workspaceId>` is a sorted set of userIds scored by expiry, used for listing; `presence:<workspaceId>:seen` keeps each user's last heartbeat time (no TTL) for "last seen". A connection with no heartbeat for 60 s counts as gone; expired users are pruned when the list is read.
+- **Merging tabs:** a user is `active` if any live connection is active, else `away`; `viewingIssueId` comes from the most recent active connection (else the most recent one).
+- **Disconnect:** closing a socket removes that connection right away; the user goes offline when their last connection is gone.
+- **Events:** `presence.changed { userId }` on `workspace:<id>` when a user's merged state or viewed issue changes, when a socket closes and that changes it, and for users pruned as expired on read. Clients refetch `presence.list`; it also refetches every 60 s to catch tabs that died without closing.
+- **`presence.list`:** members only (`requireWorkspace`); returns `{ userId, state: 'active' | 'away' | 'offline', viewingIssueId, lastSeenAt }` for **current members** with a live connection or a known last-seen time. Entries for non-members (e.g. removed members) are never returned.
+- **UI:** avatars show a green (`success`) dot for active, a hollow `ink-subtle` dot for away, nothing for offline; the dot is ringed in the surrounding surface color (`--avatar-ring`, default `panel`; the spec's "canvas ring" taken as "the surface behind the avatar"). The issue detail header shows the other members viewing the issue (you are excluded): up to 3 stacked avatars + "+N", tooltip "<name> is viewing". Settings → Members shows "Online" / "Away" / "Last seen …" / "Offline".
 
 ## Labels
 
