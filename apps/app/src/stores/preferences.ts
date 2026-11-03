@@ -11,6 +11,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const issueLayout = useLocalStorage<IssueLayout>('issue-layout', 'list')
   /** Expanded/collapsed sidebar sections and team rows; survives reloads. */
   const sidebarSections = useLocalStorage<Record<string, boolean>>('sidebar-sections', {})
+  /** Details panel (⌘I) open per view, keyed by `detailsPanelKey()`; closed unless opened. */
+  const issueDetails = useLocalStorage<Record<string, boolean>>('issue-details', {})
 
   function isExpanded(key: string) {
     return isSectionExpanded(sidebarSections.value, key)
@@ -19,5 +21,22 @@ export const usePreferencesStore = defineStore('preferences', () => {
     sidebarSections.value = setSectionExpanded(sidebarSections.value, key, expanded)
   }
 
-  return { lastWorkspaceSlug, issueLayout, sidebarSections, isExpanded, setExpanded }
+  function isDetailsOpen(view: string) {
+    return issueDetails.value[view] === true
+  }
+  function toggleDetails(view: string) {
+    const { [view]: open, ...rest } = issueDetails.value
+    issueDetails.value = open ? rest : { ...rest, [view]: true }
+  }
+
+  return {
+    lastWorkspaceSlug,
+    issueLayout,
+    sidebarSections,
+    isExpanded,
+    setExpanded,
+    issueDetails,
+    isDetailsOpen,
+    toggleDetails,
+  }
 })

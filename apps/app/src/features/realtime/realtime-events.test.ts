@@ -4,7 +4,7 @@ import { QueryClient, type InfiniteData } from '@tanstack/vue-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toValue } from 'vue'
 import { EMPTY_FILTERS, type IssueFilters } from '@/features/issues/issue-filters'
-import { issueListOptions } from '@/features/issues/queries'
+import { issueFacetsOptions, issueListOptions } from '@/features/issues/queries'
 import { orpc } from '@/lib/orpc'
 import { createRealtimeEventHandler } from './realtime-events'
 import { backoffDelay } from './useRealtime'
@@ -140,6 +140,37 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byPriority), stale(byTitle)]).toEqual([false, true, true])
+  })
+
+  it('refetches the Details panel counts, coalesced, when they can change', async () => {
+    const handle = createRealtimeEventHandler({
+      queryClient,
+      workspaceSlug: 'tip',
+      fetchIssue: async (id) => issue(id),
+    })
+    const facets = issueFacetsOptions('tip', { teamId: 'team' }).queryKey
+    queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [] })
+    const stale = () => queryClient.getQueryState(facets)!.isInvalidated
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['description'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(stale()).toBe(false)
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['labels'], ...actor })
+    handle({ type: 'issue.updated', issueId: 'b', fields: ['assignee'], ...actor })
+    expect(stale()).toBe(false)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(stale()).toBe(true)
+
+    for (const event of [
+      { type: 'issue.created' as const, issueId: 'c', ...actor },
+      { type: 'issue.deleted' as const, issueId: 'c', ...actor },
+    ]) {
+      queryClient.setQueryData(facets, { assignees: [], labels: [], priorities: [], projects: [] })
+      handle(event)
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(stale()).toBe(true)
+    }
   })
 
   it("leaves caches alone while this tab's own edit is in flight", async () => {

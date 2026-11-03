@@ -34,7 +34,7 @@ import { useUiStore } from '@/stores/ui'
 import { useIssueNav } from '../composables/useIssueNav'
 import type { IssuePatch } from '../issue-cache'
 import { issuePrefill } from '../prefill'
-import { issueListKey } from '../queries'
+import { issueFacetsKey, issueListKey } from '../queries'
 
 const props = defineProps<{
   workspaceSlug: string
@@ -112,6 +112,7 @@ async function confirmDelete() {
   toast.success(`${identifier} deleted`)
   await router.replace(listRoute.value)
   void queryClient.invalidateQueries({ queryKey: issueListKey() })
+  void queryClient.invalidateQueries({ queryKey: issueFacetsKey() })
 }
 
 // ⌘⌫ (Ctrl+Backspace elsewhere) asks to delete, like Linear; not while typing.

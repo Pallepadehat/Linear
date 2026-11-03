@@ -9,7 +9,12 @@ import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
 import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { templatesKey } from '@/features/templates/queries'
-import { issueDetailKeys, issueListKey, writeIssueToCaches } from '@/features/issues/queries'
+import {
+  issueDetailKeys,
+  issueFacetsKey,
+  issueListKey,
+  writeIssueToCaches,
+} from '@/features/issues/queries'
 import { client, orpc } from '@/lib/orpc'
 
 // Fields that decide which lists an issue is in (My Issues, project); a status change
@@ -28,6 +33,15 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
 }
 const listInput = (query: Query) =>
   (query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input ?? {}
+// Fields that change the Details panel's counts, or which issues a filtered view counts.
+const FACET_FIELDS: RealtimeIssueField[] = [
+  'assignee',
+  'labels',
+  'priority',
+  'project',
+  'status',
+  'title',
+]
 // Fields that change project progress counts.
 const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project']
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.
@@ -50,7 +64,8 @@ export function createRealtimeEventHandler({
   workspaceSlug,
   fetchIssue = (id) => client.issues.get({ workspaceSlug, id }),
 }: Deps) {
-  const pending = new Set<'lists' | 'projects'>()
+  type Pending = 'lists' | 'projects' | 'facets'
+  const pending = new Set<Pending>()
   // Changed fields that only matter to filtered or sorted lists.
   const pendingFields = new Set<RealtimeIssueField>()
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -60,11 +75,12 @@ export function createRealtimeEventHandler({
     if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
     else if (pendingFields.size) invalidateDependentLists(new Set(pendingFields))
     if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (pending.has('facets')) void queryClient.invalidateQueries({ queryKey: issueFacetsKey() })
     pending.clear()
     pendingFields.clear()
   }
 
-  function invalidateSoon(...what: ('lists' | 'projects')[]) {
+  function invalidateSoon(...what: Pending[]) {
     what.forEach((w) => pending.add(w))
     timer ??= setTimeout(flush, COALESCE_MS)
   }
@@ -90,6 +106,7 @@ export function createRealtimeEventHandler({
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects')
+    if (fields.some((f) => FACET_FIELDS.includes(f))) invalidateSoon('facets')
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.
@@ -115,7 +132,7 @@ export function createRealtimeEventHandler({
   return function handle(event: RealtimeEvent) {
     switch (event.type) {
       case 'issue.created':
-        return invalidateSoon('lists', 'projects')
+        return invalidateSoon('lists', 'projects', 'facets')
       case 'issue.updated':
         return void onIssueUpdated(event.issueId, event.fields)
       case 'issue.deleted':
@@ -124,7 +141,7 @@ export function createRealtimeEventHandler({
           (data) => removeIssueFromPages(data, event.issueId),
         )
         invalidateIssue(event.issueId)
-        return invalidateSoon('projects')
+        return invalidateSoon('projects', 'facets')
       case 'comment.created':
       case 'comment.updated':
       case 'comment.deleted':

@@ -53,6 +53,25 @@ export function issueListOptions(
   })
 }
 
+/**
+ * The Details panel's counts for the same scope, view and filters as the list
+ * (sort doesn't change counts, so it isn't part of the key).
+ */
+export function issueFacetsOptions(
+  workspaceSlug: string,
+  filter: IssueListFilter = {},
+  filters: IssueFilters = EMPTY_FILTERS,
+) {
+  const { q, sort: _sort, direction: _direction, ...rest } = filters
+  return orpc.issues.facets.queryOptions({
+    input: { workspaceSlug, ...filter, ...rest, q: q || undefined },
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Every Details panel count; invalidated wherever issue lists are. */
+export const issueFacetsKey = () => orpc.issues.facets.key()
+
 /** Matches every issue list (all teams, every page), for invalidation. */
 export const issueListKey = () => orpc.issues.list.key()
 
@@ -121,6 +140,7 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
       if (queryClient.isMutating({ mutationKey }) > 1) return
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: listKey }),
+        queryClient.invalidateQueries({ queryKey: issueFacetsKey() }),
         ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
         // Project progress counts issues by status and project.

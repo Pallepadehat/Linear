@@ -4,12 +4,14 @@ import { onKeyStroke } from '@vueuse/core'
 import { computed, defineAsyncComponent, ref } from 'vue'
 import IconButton from '@/components/common/IconButton.vue'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
-import { isPlainShortcut } from '@/lib/keyboard'
+import { isPlainShortcut, isTypingTarget } from '@/lib/keyboard'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useUiStore } from '@/stores/ui'
 import { useFilterDimensions } from '../composables/useFilterDimensions'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import { useIssueView } from '../composables/useIssueView'
+import { detailsPanelKey } from '../issue-details'
+import IssueDetailsPanel from './IssueDetailsPanel.vue'
 import IssueFilterMenu from './IssueFilterMenu.vue'
 import IssueLayoutToggle from './IssueLayoutToggle.vue'
 import IssueList from './IssueList.vue'
@@ -37,6 +39,20 @@ onKeyStroke('f', (event) => {
   event.preventDefault()
   filterOpen.value = true
 })
+
+// The Details panel (⌘I, Ctrl+I elsewhere), remembered per view.
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+const detailsKey = computed(() => detailsPanelKey(props.teamId, view.value))
+const detailsOpen = computed(() => preferences.isDetailsOpen(detailsKey.value))
+const toggleDetails = () => preferences.toggleDetails(detailsKey.value)
+onKeyStroke('i', (event) => {
+  const modifier = isMac ? event.metaKey : event.ctrlKey
+  if (!modifier || event.altKey || event.shiftKey || ui.createIssueOpen) return
+  // ⌘I is italic in the editor.
+  if (isTypingTarget(event.target)) return
+  event.preventDefault()
+  toggleDetails()
+})
 </script>
 
 <template>
@@ -55,27 +71,36 @@ onKeyStroke('f', (event) => {
       <IconButton :icon="SlidersHorizontal" label="Display options" />
       <IconButton
         :icon="PanelRight"
-        label="Details"
-        shortcut="⌘ I"
-        aria-keyshortcuts="Meta+I"
-        :aria-pressed="ui.issueDetailsOpen"
-        :class="{ 'bg-surface-2 text-ink': ui.issueDetailsOpen }"
-        @click="ui.issueDetailsOpen = !ui.issueDetailsOpen"
+        :label="detailsOpen ? 'Close details' : 'Open details'"
+        :shortcut="isMac ? '⌘ I' : 'Ctrl I'"
+        :aria-keyshortcuts="isMac ? 'Meta+I' : 'Control+I'"
+        :aria-pressed="detailsOpen"
+        :class="{ 'bg-surface-2 text-ink': detailsOpen }"
+        @click="toggleDetails"
       />
     </div>
   </div>
-  <div
-    :id="PANEL_ID"
-    role="tabpanel"
-    :aria-labelledby="`issue-view-tab-${view}`"
-    class="flex min-h-0 flex-1 flex-col"
-  >
-    <IssueBoard
-      v-if="preferences.issueLayout === 'board'"
+  <div class="flex min-h-0 flex-1">
+    <div
+      :id="PANEL_ID"
+      role="tabpanel"
+      :aria-labelledby="`issue-view-tab-${view}`"
+      class="flex min-h-0 min-w-0 flex-1 flex-col"
+    >
+      <IssueBoard
+        v-if="preferences.issueLayout === 'board'"
+        :workspace-slug="workspaceSlug"
+        :team-id="teamId"
+        :view="view"
+      />
+      <IssueList v-else :workspace-slug="workspaceSlug" :team-id="teamId" :view="view" />
+    </div>
+    <IssueDetailsPanel
+      v-if="detailsOpen"
       :workspace-slug="workspaceSlug"
       :team-id="teamId"
       :view="view"
+      :dimensions="dimensions"
     />
-    <IssueList v-else :workspace-slug="workspaceSlug" :team-id="teamId" :view="view" />
   </div>
 </template>
