@@ -1,6 +1,6 @@
 import type { Issue, WorkflowStatus } from '@linear/contract'
 import { describe, expect, it } from 'vitest'
-import { resolveDropTarget, toBoardColumns } from './board-columns'
+import { boardOrder, resolveDropTarget, toBoardColumns } from './board-columns'
 
 const status = (
   name: string,
@@ -103,5 +103,17 @@ describe('resolveDropTarget', () => {
     expect(resolveDropTarget(issue('a', todo), 'completed:Done', undefined)).toEqual({
       type: 'unavailable',
     })
+  })
+})
+
+describe('boardOrder', () => {
+  it('lists identifiers column by column in workflow order', () => {
+    const issues = [issue('a', done), issue('b', todo), issue('c', backlog), issue('d', todo)]
+    expect(boardOrder(issues, new Map([[teamA, [backlog, todo, inProgress, done]]]))).toEqual([
+      'TIP-c',
+      'TIP-b',
+      'TIP-d',
+      'TIP-a',
+    ])
   })
 })

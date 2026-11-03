@@ -1,6 +1,7 @@
 import type { ProjectStatus } from '@linear/contract'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import type { IssuePrefill } from '@/features/issues/prefill'
 
 export type CreateIssueDefaults = {
@@ -9,6 +10,13 @@ export type CreateIssueDefaults = {
   projectId?: string
   assigneeId?: string
 }
+
+/**
+ * One breadcrumb segment: plain text, or a link, optionally with the team badge
+ * (`teamInitial`) or a mono identifier before the label.
+ */
+export type Crumb =
+  string | { label: string; to?: RouteLocationRaw; teamInitial?: string; identifier?: string }
 
 /** Transient UI state shared across the layout (never server data). */
 export const useUiStore = defineStore('ui', () => {
@@ -28,7 +36,7 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   /** Breadcrumb a page puts in the panel header; null falls back to the route title. */
-  const breadcrumb = ref<string[] | null>(null)
+  const breadcrumb = ref<Crumb[] | null>(null)
 
   /** Projects table filter: the statuses shown (empty = all). */
   const projectStatusFilter = ref<ProjectStatus[]>([])

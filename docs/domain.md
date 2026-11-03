@@ -80,7 +80,7 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 
 ## GitHub connection
 
-- Only owners install the App and connect or disconnect repositories (see Roles); every `github.*` procedure checks this on the server.
+- Only owners install the App and connect or disconnect repositories (see Roles); every `github.*` procedure checks this on the server, except `github.pullRequests.listForIssue`, which any member may call.
 - Install flow: `github.installUrl` → GitHub → callback `/setup/github?installation_id&state&code` → `github.completeInstall`. The `state` is signed, expires after 10 minutes, and must belong to the user completing the install. The installation is only stored if the authorizing GitHub user can access it (ADR 0009).
 - An installation belongs to one workspace. Completing an install for an installation owned by another workspace → `CONFLICT`; re-installing in the same workspace just refreshes the account name.
 - The available repositories come live from GitHub (the installation's accessible repos). Only those can be connected. A repository connected to another workspace → `CONFLICT`; connecting it again in the same workspace is a no-op.
@@ -119,6 +119,14 @@ Stored as integers so they sort: `0` No priority, `1` Urgent, `2` High, `3` Medi
 ### PR state
 
 Stored state is one of `open`, `draft`, `closed`, `merged`. `merged` is terminal: no later event may move it back. "Merged" is determined by GitHub's `merged` flag, never by `closed` alone.
+
+### Linked PRs on an issue
+
+- `github.pullRequests.listForIssue` returns every PR linked to the issue as `{ id, number, title, url, repoFullName, state, linkType, updatedAt }`, most recently updated first. It is a plain array: an issue links to a handful of PRs. An issue outside the caller's workspace is `NOT_FOUND`.
+- A PR linked through both a `reference` and a `closing` mention has one link, of type `closing` (links are unique per issue and PR), so it is listed once.
+- Displayed states: Open, Draft, Merged, Closed (closed without merge). Link types read "Closes" (`closing`) and "References" (`reference`). Rows open the PR on GitHub in a new tab.
+- GitHub activity entries link to their PR (`repo#number`) while it is still linked; once unlinked or removed they read without the link.
+- A `pullRequests` realtime field on `issue.updated` refetches the issue's PR list.
 
 ## Automation
 
@@ -220,6 +228,9 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - Dropping a card on a column moves the issue to its **own team's** status with that column's category + name, through the same optimistic `useUpdateIssue()` (rollback + toast on error). A column the dragged issue's team has no status for doesn't accept the drop; dropping on the current column does nothing. The keyboard alternative is the card's status picker (Tab to it, Enter, pick the status), which offers the issue team's statuses.
 
 - **Assignee picker** (one shared `AssigneePicker` in the create dialog, issue detail, list rows and board cards): rows are **No assignee** (`0`), the current user (`1`), then a **Team members** section with everyone else sorted by name (`2`–`9` for the first eight). Teams have no separate membership: every workspace member belongs to every team, so the team's members are `workspaces.listMembers` and no `teamId` input is needed. The filter matches name and email (case-insensitive); digits pick a row only while the filter is empty. Rows keep the shared 32px picker height and "Assign to..." placeholder from `design.md` (it wins over the issue's 28px).
+- **Issue detail header** (M7-07): breadcrumb `Team › Issues › TIP-200 Title`; "Issues" links back to the list the issue was opened from (with its filters), else the team's issues page.
+- **Prev/next** (`issueNav` Pinia store): clicking an issue in a list or board stores the list's query key, the identifiers in the order rendered (list: by group, collapsed groups skipped; board: column by column) and the list's full path. The header shows `n / total` with ↓/↑ buttons; `J`/`K` step when focus isn't in an input, editor, menu or dialog. Steps use `router.replace`, so Back returns to the list. The context only applies to the issue it was opened for or stepped to: any other way of reaching an issue (URL, search, a link) clears it and hides the counter. The total counts the issues the list had **loaded** (pages of 50), like the list's group counts. While the detail page is open, the source list's query (inactive) is refetched when invalidated (realtime) and the order is re-derived from its cache; if the current issue leaves the list, the counter hides.
+- The "…" menu has only items for built features: **Remove ▸** (assignee, project, all labels, priority — only those set; optimistic like the sidebar), **Make a copy…** (create dialog in the issue's team, prefilled through `issuePrefill` like a template) and **Delete** (`⌘⌫` / `Ctrl ⌫`): a confirmation dialog, then `issues.delete`, a toast and `router.replace` back to the source list. Create related ▸ (needs M8 relations / sub-issues), Copy ▸ (M7-08), Due date, Add link…, Mark as ▸ and Favorite (M8-02/05/04/07) are omitted until those exist, as is the favorite star.
 
 ## Activity
 
