@@ -47,3 +47,19 @@ export type LinkFields = z.input<typeof linkFieldsSchema>
 export type IssueLink = z.infer<typeof issueLinkSchema>
 export type CreateIssueLinkInput = z.input<typeof createIssueLinkInputSchema>
 export type UpdateIssueLinkInput = z.input<typeof updateIssueLinkInputSchema>
+
+/** A project resource link; the same fields as an issue link. */
+export const projectLinkSchema = issueLinkSchema.extend({ projectId: z.uuid() })
+
+export const listProjectLinksInputSchema = workspaceScopedSchema.extend({ projectId: z.uuid() })
+
+export const createProjectLinkInputSchema = workspaceScopedSchema
+  .extend({ projectId: z.uuid() })
+  .extend(linkFieldsSchema.shape)
+
+export const updateProjectLinkInputSchema = updateIssueLinkInputSchema
+export const projectLinkIdInputSchema = issueLinkIdInputSchema
+
+export type ProjectLink = z.infer<typeof projectLinkSchema>
+export type CreateProjectLinkInput = z.input<typeof createProjectLinkInputSchema>
+export type UpdateProjectLinkInput = z.input<typeof updateProjectLinkInputSchema>

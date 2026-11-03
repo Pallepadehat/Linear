@@ -32,6 +32,8 @@ export const projects = pgTable(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     name: text().notNull(),
     description: text(),
+    // One-line summary under the name on the project page (M9-03).
+    summary: text(),
     status: projectStatus().notNull().default('planned'),
     iconUploadId: uuid().references(() => uploads.id, { onDelete: 'set null' }),
     // 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (same scale as issues).

@@ -30,6 +30,7 @@ async function toDto(db: DbOrTx, storage: Storage, row: ProjectRow): Promise<Pro
     id: row.id,
     name: row.name,
     description: row.description,
+    summary: row.summary,
     status: row.status,
     iconUploadId: row.iconUploadId,
     iconUrl: await imageUrl(db, storage, row.iconUploadId),

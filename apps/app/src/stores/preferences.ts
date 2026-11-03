@@ -35,6 +35,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Details panel (⌘I) open per view, keyed by `detailsPanelKey()`; closed unless opened. */
   const issueDetails = useLocalStorage<Record<string, boolean>>('issue-details', {})
 
+  /** The project page's right panel (properties, milestones, progress, activity); open by default. */
+  const projectPanelOpen = useLocalStorage<boolean>('project-panel-open', true)
+
   function isExpanded(key: string) {
     return isSectionExpanded(sidebarSections.value, key)
   }
@@ -74,6 +77,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     isDetailsOpen,
     toggleDetails,
     projectSort,
+    projectPanelOpen,
     displayOptions,
     setDisplayOptions,
     resetDisplayOptions,

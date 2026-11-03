@@ -18,10 +18,18 @@ export type IssueRef = { id: string; identifier: string }
 
 /**
  * One breadcrumb segment: plain text, or a link, optionally with the team badge
- * (`teamInitial`) or a mono identifier before the label.
+ * (`teamInitial`), a project icon or a mono identifier before the label.
  */
 export type Crumb =
-  string | { label: string; to?: RouteLocationRaw; teamInitial?: string; identifier?: string }
+  | string
+  | {
+      label: string
+      to?: RouteLocationRaw
+      teamInitial?: string
+      identifier?: string
+      /** Shows the project icon (or its placeholder glyph) before the label. */
+      projectIcon?: { src: string | null }
+    }
 
 /** Transient UI state shared across the layout (never server data). */
 export const useUiStore = defineStore('ui', () => {

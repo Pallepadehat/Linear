@@ -23,6 +23,7 @@ import { currentMilestones, type MilestoneRecord } from './milestones/milestones
 type Changes = {
   name?: string
   description?: string | null
+  summary?: string | null
   status?: typeof projects.$inferInsert.status
   iconUploadId?: string | null
   teamIds?: string[]
@@ -192,6 +193,8 @@ async function saveProject(
     const changes = {
       name: input.name,
       description: input.description,
+      // A blank summary clears it, so the placeholder shows again.
+      summary: input.summary === undefined ? undefined : input.summary?.trim() || null,
       status: input.status,
       iconUploadId: input.iconUploadId,
       priority: input.priority,

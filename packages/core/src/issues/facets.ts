@@ -33,10 +33,11 @@ export async function getIssueFacets(db: DbOrTx, input: IssueFilterInput) {
       .orderBy(desc(total), column)
   }
 
-  const [assignees, priorities, projectRows, labelRows] = await Promise.all([
+  const [assignees, priorities, projectRows, statusRows, labelRows] = await Promise.all([
     grouped(issues.assigneeId),
     grouped(issues.priority),
     grouped(issues.projectId),
+    grouped(issues.statusId),
     db
       .select({ key: issueLabels.labelId, count: count() })
       .from(issueLabels)
@@ -53,6 +54,7 @@ export async function getIssueFacets(db: DbOrTx, input: IssueFilterInput) {
     labels: labelRows.map((row) => ({ id: row.key, count: row.count })),
     priorities: priorities.map((row) => ({ value: row.key, count: row.count })),
     projects: projectRows.map((row) => ({ id: row.key, count: row.count })),
+    statuses: statusRows.map((row) => ({ id: row.key, count: row.count })),
   }
 }
 
