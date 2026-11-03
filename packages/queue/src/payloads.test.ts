@@ -5,6 +5,7 @@ import {
   projectProgressSnapshotKey,
   utcDay,
 } from './payloads'
+import { notifyJobId } from './queues'
 
 describe('parseJobPayload', () => {
   it('accepts a valid payload', () => {
@@ -41,6 +42,34 @@ describe('notify payload', () => {
     const key = notificationSourceKey({ ...base, commentId })
     expect(key).toBe(`notify-commented-${base.issueId}-${commentId}`)
     expect(key).not.toContain(':')
+  })
+})
+
+describe('notifyJobId', () => {
+  const base = {
+    workspaceId: '01890a5d-ac96-774b-bcce-b302099a8057',
+    issueId: '01890a5d-ac96-774b-bcce-b302099a8058',
+    actorId: null,
+    commentId: '01890a5d-ac96-774b-bcce-b302099a8059',
+  }
+  const [ada, bob] = [
+    '01890a5d-ac96-774b-bcce-b302099a805a',
+    '01890a5d-ac96-774b-bcce-b302099a805b',
+  ]
+
+  it('is the source key for events other than mentions', () => {
+    const payload = { ...base, event: 'commented' as const }
+    expect(notifyJobId(payload)).toBe(notificationSourceKey(payload))
+  })
+
+  it('tells mentions of different people in one comment apart', () => {
+    const first = notifyJobId({ ...base, event: 'mentioned', userIds: [ada] })
+    const edit = notifyJobId({ ...base, event: 'mentioned', userIds: [bob] })
+    expect(first).not.toBe(edit)
+    expect(notifyJobId({ ...base, event: 'mentioned', userIds: [bob, ada] })).toBe(
+      notifyJobId({ ...base, event: 'mentioned', userIds: [ada, bob] }),
+    )
+    expect(first).not.toContain(':')
   })
 })
 

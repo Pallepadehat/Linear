@@ -23,22 +23,39 @@ import {
 import CodeBlockView from './CodeBlockView.vue'
 import EditorBubbleMenu from './EditorBubbleMenu.vue'
 import { markdownExtensions } from './extensions'
+import IssueMentionView from './IssueMentionView.vue'
 import MathBlockView from './MathBlockView.vue'
+import MentionMenu from './MentionMenu.vue'
+import { useMentionSuggestions } from './mention-suggestions'
 import { filterSlashCommands, type SlashCommand, type SlashContext } from './slash-commands'
 import SlashMenu from './SlashMenu.vue'
+import UserMentionView from './UserMentionView.vue'
 
 // Rich text that reads and writes markdown, like Linear's editor: markdown
 // shortcuts as you type, a `/` block menu (headings, lists, media and files,
 // code, diagrams, math, collapsible sections, quotes), a formatting toolbar on
 // selection, and file uploads by paperclip, paste or drop. The stored value is
 // always markdown; uploads are referenced as `attachment:<uploadId>`.
-const props = defineProps<{
-  placeholder?: string
-  label: string
-  class?: string
-  /** Enables attachments, stored in this workspace. */
-  workspaceSlug?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    placeholder?: string
+    label: string
+    class?: string
+    /** Enables @mentions and attachments (stored in this workspace). */
+    workspaceSlug?: string
+    /** Attachments need somewhere to be tracked (descriptions); comments turn them off. */
+    attachments?: boolean
+    /** Renders the markdown without editing (comment bodies). */
+    readonly?: boolean
+  }>(),
+  {
+    placeholder: undefined,
+    class: undefined,
+    workspaceSlug: undefined,
+    attachments: true,
+    readonly: false,
+  },
+)
 const model = defineModel<string>({ default: '' })
 
 const root = useTemplateRef<HTMLElement>('root')
@@ -48,12 +65,15 @@ const { upload } = useUpload()
 
 // ---------------------------------------------------------------- uploads
 
+// Where attachments are stored; unset turns attachments off.
+const attachmentSlug = computed(() => (props.attachments ? props.workspaceSlug : undefined))
+
 const pendingUploads = ref(0)
 const fileAccept = ref(ATTACHMENT_TYPES.join(','))
 let nextPlaceholder = 0
 
 function pickFiles(kind: 'media' | 'files' = 'files') {
-  if (!props.workspaceSlug) return
+  if (!attachmentSlug.value) return
   fileAccept.value =
     kind === 'media' ? ATTACHMENT_TYPES.filter(isImageType).join(',') : ATTACHMENT_TYPES.join(',')
   // Wait a tick so the input picks up the new `accept`.
@@ -91,7 +111,8 @@ function findLinkRange(e: Editor, href: string): { from: number; to: number } | 
  */
 async function attachFiles(files: File[], at?: number) {
   const e = editor.value
-  if (!e || !props.workspaceSlug || files.length === 0) return
+  const workspaceSlug = attachmentSlug.value
+  if (!e || !workspaceSlug || files.length === 0) return
   let pos = at ?? e.state.selection.to
 
   for (const file of files) {
@@ -118,7 +139,7 @@ async function attachFiles(files: File[], at?: number) {
     pos = e.state.selection.to
 
     pendingUploads.value++
-    void upload(file, { kind: 'attachment', workspaceSlug: props.workspaceSlug })
+    void upload(file, { kind: 'attachment', workspaceSlug })
       .then((uploadId) => {
         const href = attachmentHref(uploadId)
         if (image) {
@@ -186,7 +207,7 @@ async function openAttachment(uploadId: string) {
 const dragDepth = ref(0)
 const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false
 function onDragEnter(event: DragEvent) {
-  if (props.workspaceSlug && hasFiles(event)) dragDepth.value++
+  if (attachmentSlug.value && hasFiles(event)) dragDepth.value++
 }
 function onDragLeave(event: DragEvent) {
   if (hasFiles(event)) dragDepth.value = Math.max(0, dragDepth.value - 1)
@@ -205,7 +226,7 @@ const slashContext: SlashContext = { pickFiles }
 
 const availableCommands = (query: string) =>
   filterSlashCommands(query).filter(
-    (c) => props.workspaceSlug || (c.id !== 'media' && c.id !== 'files'),
+    (c) => attachmentSlug.value || (c.id !== 'media' && c.id !== 'files'),
   )
 
 function runSlash(command: SlashCommand | undefined) {
@@ -290,16 +311,26 @@ const EditorShortcuts = Extension.create({
   },
 })
 
+// ---------------------------------------------------------------- mentions
+
+const mentions = useMentionSuggestions({
+  workspaceSlug: () => props.workspaceSlug,
+  editor: () => editor.value,
+})
+
 // ---------------------------------------------------------------- editor
 
 const editor = useEditor({
   content: model.value,
+  editable: !props.readonly,
   contentType: 'markdown',
   extensions: [
     ...markdownExtensions({
       image: AttachmentImageView,
       codeBlock: CodeBlockView,
       math: MathBlockView,
+      userMention: UserMentionView,
+      issueMention: IssueMentionView,
     }),
     Placeholder.configure({
       placeholder: ({ node }) =>
@@ -307,19 +338,22 @@ const editor = useEditor({
       includeChildren: true,
     }),
     SlashCommands,
+    mentions.extension,
     EditorShortcuts,
   ],
   editorProps: {
-    attributes: {
-      class: 'markdown-body outline-hidden',
-      role: 'textbox',
-      'aria-multiline': 'true',
-      'aria-label': props.label,
-    },
+    attributes: props.readonly
+      ? { class: 'markdown-body outline-hidden', role: 'group', 'aria-label': props.label }
+      : {
+          class: 'markdown-body outline-hidden',
+          role: 'textbox',
+          'aria-multiline': 'true',
+          'aria-label': props.label,
+        },
     handleDrop: (view, event, _slice, moved) => {
       dragDepth.value = 0
       const files = [...(event.dataTransfer?.files ?? [])]
-      if (moved || files.length === 0 || !props.workspaceSlug) return false
+      if (moved || files.length === 0 || !attachmentSlug.value) return false
       event.preventDefault()
       const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
       void attachFiles(files, at)
@@ -327,7 +361,7 @@ const editor = useEditor({
     },
     handlePaste: (_view, event) => {
       const files = [...(event.clipboardData?.files ?? [])]
-      if (files.length === 0 || !props.workspaceSlug) return false
+      if (files.length === 0 || !attachmentSlug.value) return false
       void attachFiles(files)
       return true
     },
@@ -373,14 +407,24 @@ defineExpose({
   <!-- Clicking the empty area below the text (a tall, expanded editor) focuses the end. -->
   <div
     ref="root"
-    :class="cn('relative cursor-text', props.class)"
-    @mousedown.self.prevent="editor?.commands.focus('end')"
+    :class="cn('relative', !readonly && 'cursor-text', props.class)"
+    @mousedown.self="!readonly && ($event.preventDefault(), editor?.commands.focus('end'))"
     @dragenter="onDragEnter"
     @dragleave="onDragLeave"
     @drop="dragDepth = 0"
   >
     <EditorContent :editor="editor" />
     <EditorBubbleMenu v-if="editor" :editor="editor" :append-to="appendTo" />
+    <MentionMenu
+      v-if="mentions.visible.value && editor"
+      :kind="mentions.state.kind"
+      :items="mentions.items.value"
+      :active="mentions.state.active"
+      :loading="mentions.loading.value"
+      :get-rect="mentions.state.getRect"
+      @hover="mentions.state.active = $event"
+      @select="mentions.select"
+    />
     <SlashMenu
       v-if="showSlash"
       :items="slash.items"

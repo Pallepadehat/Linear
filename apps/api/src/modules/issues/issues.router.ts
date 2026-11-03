@@ -19,6 +19,7 @@ import { enqueue } from '@linear/queue'
 import { imageUrl } from '../../lib/upload-urls'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
+import { announceMentions } from '../notifications/mentions'
 import { issueUpdateEvents, notify } from '../notifications/notify'
 import { changesProgress, snapshotProjectsProgress } from '../projects/progress-snapshots'
 import { changedIssueFields, publishChange } from '../realtime/publish'
@@ -80,6 +81,9 @@ export const issuesRouter = {
         { ...source, event: 'issue_created_in_team' },
         ...(issue.assigneeId ? [{ ...source, event: 'assigned' as const }] : []),
       ])
+      await announceMentions(context, issue.id, issue.mentions, {
+        activityId: issue.createdActivityId,
+      })
       await snapshotProjectsProgress(context, [issue.projectId])
       return toIssueDto(await getIssue(context.db, context.workspace.id, issue.id, context.user.id))
     }),
@@ -136,6 +140,13 @@ export const issuesRouter = {
           : []
       await publishSubIssuesChanged(context, parents)
       await notify(context, issueUpdateEvents(issue.id, issue.activity, issue.assigneeId))
+      const described = issue.activity.find((entry) => entry.kind === 'description')
+      await announceMentions(
+        context,
+        issue.id,
+        issue.mentions,
+        described ? { activityId: described.id } : null,
+      )
       // Each project whose feed got an entry (issue removed / added, milestone completed).
       for (const projectId of issue.feedProjectIds) {
         await publishChange(context, { type: 'project.updated', projectId })

@@ -3,6 +3,7 @@ import { and, asc, count, eq, gt, inArray, isNull, lte, min, sql, type SQL } fro
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
 import { assertReplyParent } from './threads'
+import { syncMentions, type MentionsResult } from '../mentions/mentions.service'
 import { subscribeUsers } from '../subscriptions/subscriptions.service'
 
 export type ListCommentsInput = {
@@ -264,7 +265,7 @@ export async function listComments(db: DbOrTx, input: ListCommentsInput) {
 export async function createComment(db: DbOrTx, input: CreateCommentInput) {
   const body = normalizeBody(input.body)
   await assertIssue(db, input.workspaceId, input.issueId)
-  const id = await db.transaction(async (tx) => {
+  const { id, mentions } = await db.transaction(async (tx) => {
     if (input.parentId) {
       const [parent] = await tx
         .select({ issueId: comments.issueId, parentId: comments.parentId })
@@ -289,9 +290,17 @@ export async function createComment(db: DbOrTx, input: CreateCommentInput) {
       .returning({ id: comments.id })
     if (!comment) throw new Error('comment insert returned no row')
     await subscribeUsers(tx, input.issueId, [input.authorId])
-    return comment.id
+    const mentions = await syncMentions(tx, {
+      workspaceId: input.workspaceId,
+      issueId: input.issueId,
+      actorId: input.authorId,
+      before: null,
+      after: body,
+      commentId: comment.id,
+    })
+    return { id: comment.id, mentions }
   })
-  return getComment(db, input.workspaceId, id, input.authorId)
+  return { ...(await getComment(db, input.workspaceId, id, input.authorId)), mentions }
 }
 
 export async function updateComment(db: DbOrTx, input: UpdateCommentInput) {
@@ -300,14 +309,26 @@ export async function updateComment(db: DbOrTx, input: UpdateCommentInput) {
   if (existing.authorId !== input.userId) {
     throw new DomainError('FORBIDDEN', 'You can only edit your own comments')
   }
-  if (existing.body === body) return existing
+  if (existing.body === body) return { ...existing, mentions: noMentions }
 
-  await db
-    .update(comments)
-    .set({ body })
-    .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.id)))
-  return getComment(db, input.workspaceId, input.id, input.userId)
+  const mentions = await db.transaction(async (tx) => {
+    await tx
+      .update(comments)
+      .set({ body })
+      .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.id)))
+    return syncMentions(tx, {
+      workspaceId: input.workspaceId,
+      issueId: existing.issueId,
+      actorId: input.userId,
+      before: existing.body,
+      after: body,
+      commentId: existing.id,
+    })
+  })
+  return { ...(await getComment(db, input.workspaceId, input.id, input.userId)), mentions }
 }
+
+const noMentions: MentionsResult = { userIds: [], mentionedIssueIds: [] }
 
 /** Deleting a thread root deletes its replies (FK cascade). */
 export async function deleteComment(db: DbOrTx, input: DeleteCommentInput) {

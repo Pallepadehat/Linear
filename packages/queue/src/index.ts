@@ -19,6 +19,7 @@ export {
   enqueueNotification,
   enqueueProjectProgressSnapshots,
   PROJECT_PROGRESS_DEBOUNCE_MS,
+  notifyJobId,
   type Queues,
 } from './queues'
 export {
