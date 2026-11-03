@@ -12,7 +12,6 @@ import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { assignableCycles } from '@/features/cycles/cycles'
 import PullRequestIcon from '@/features/github/components/PullRequestIcon.vue'
 import { pullRequestStates } from '@/features/github/pull-requests'
@@ -65,7 +64,7 @@ function onLinkClick(event: MouseEvent) {
   } else emit('open')
 }
 
-// Read-only chips sit above the row link (for their tooltips), so they open the issue
+// Read-only chips sit above the row link (for their `title` tooltips), so they open the issue
 // themselves, like a click anywhere else on the row.
 const router = useRouter()
 function onChipClick(event: MouseEvent) {
@@ -129,7 +128,7 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
   <div
     :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
     data-hotkey-scope
-    class="group/row relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
+    class="group/row relative mx-2 flex h-full min-w-0 items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
     :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
     :data-focused="focused || undefined"
     :data-selected="selected || undefined"
@@ -185,8 +184,9 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
       </span>
       <span
         v-if="issue.blockedByCount"
-        class="flex shrink-0 items-center gap-1 text-xs text-priority-urgent tabular-nums"
+        class="relative z-10 flex shrink-0 cursor-default items-center gap-1 text-xs text-priority-urgent tabular-nums"
         :title="`Blocked by ${issue.blockedByCount} ${issue.blockedByCount === 1 ? 'issue' : 'issues'}`"
+        @click="onChipClick"
       >
         <Ban class="size-3.5" aria-hidden="true" />
         <span class="sr-only">Blocked by</span>
@@ -194,8 +194,9 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
       </span>
       <span
         v-if="issue.blockingCount"
-        class="flex shrink-0 items-center gap-1 text-xs text-ink-subtle tabular-nums"
+        class="relative z-10 flex shrink-0 cursor-default items-center gap-1 text-xs text-ink-subtle tabular-nums"
         :title="`Blocking ${issue.blockingCount} ${issue.blockingCount === 1 ? 'issue' : 'issues'}`"
+        @click="onChipClick"
       >
         <OctagonAlert class="size-3.5" aria-hidden="true" />
         <span class="sr-only">Blocking</span>
@@ -227,37 +228,29 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
           @update:model-value="setCycle"
         />
       </span>
-      <Tooltip v-if="shows('pullRequests') && issue.pullRequests[0]">
-        <TooltipTrigger as-child>
-          <span
-            class="relative z-10 flex h-6 shrink-0 cursor-default items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-muted tabular-nums"
-            @click="onChipClick"
-          >
-            <PullRequestIcon :state="issue.pullRequests[0].state" />
-            #{{ issue.pullRequests[0].number }}
-            <span v-if="issue.pullRequests.length > 1" class="text-ink-subtle">
-              +{{ issue.pullRequests.length - 1 }}
-            </span>
-            <span class="sr-only">Pull requests: {{ pullRequestSummary }}</span>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>Pull requests: {{ pullRequestSummary }}</TooltipContent>
-      </Tooltip>
-      <Tooltip v-if="shows('links') && issue.linkCount">
-        <TooltipTrigger as-child>
-          <span
-            class="relative z-10 flex h-6 shrink-0 cursor-default items-center gap-1 rounded-full border border-hairline px-2 text-xs text-ink-muted tabular-nums"
-            @click="onChipClick"
-          >
-            <Link2 class="size-3.5 text-ink-subtle" aria-hidden="true" />
-            {{ issue.linkCount }}
-            <span class="sr-only">{{ issue.linkCount === 1 ? 'link' : 'links' }}</span>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>
-          {{ issue.linkCount }} {{ issue.linkCount === 1 ? 'link' : 'links' }}
-        </TooltipContent>
-      </Tooltip>
+      <span
+        v-if="shows('pullRequests') && issue.pullRequests[0]"
+        :title="`Pull requests: ${pullRequestSummary}`"
+        class="relative z-10 flex h-6 shrink-0 cursor-default items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-muted tabular-nums"
+        @click="onChipClick"
+      >
+        <PullRequestIcon :state="issue.pullRequests[0].state" />
+        #{{ issue.pullRequests[0].number }}
+        <span v-if="issue.pullRequests.length > 1" class="text-ink-subtle">
+          +{{ issue.pullRequests.length - 1 }}
+        </span>
+        <span class="sr-only">Pull requests: {{ pullRequestSummary }}</span>
+      </span>
+      <span
+        v-if="shows('links') && issue.linkCount"
+        :title="`${issue.linkCount} ${issue.linkCount === 1 ? 'link' : 'links'}`"
+        class="relative z-10 flex h-6 shrink-0 cursor-default items-center gap-1 rounded-full border border-hairline px-2 text-xs text-ink-muted tabular-nums"
+        @click="onChipClick"
+      >
+        <Link2 class="size-3.5 text-ink-subtle" aria-hidden="true" />
+        {{ issue.linkCount }}
+        <span class="sr-only">{{ issue.linkCount === 1 ? 'link' : 'links' }}</span>
+      </span>
       <DueDatePicker
         v-if="shows('dueDate')"
         row
@@ -281,29 +274,23 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
       :model-value="issue.assigneeId"
       @update:model-value="setAssignee"
     />
-    <Tooltip v-if="shows('updatedAt')">
-      <TooltipTrigger as-child>
-        <time
-          :datetime="issue.updatedAt.toISOString()"
-          class="relative z-10 ml-1 hidden w-12 shrink-0 cursor-default text-right text-xs text-ink-subtle tabular-nums sm:block"
-          @click="onChipClick"
-        >
-          {{ dateFormat.format(issue.updatedAt) }}
-        </time>
-      </TooltipTrigger>
-      <TooltipContent>Updated {{ fullDateFormat.format(issue.updatedAt) }}</TooltipContent>
-    </Tooltip>
-    <Tooltip v-if="shows('createdAt')">
-      <TooltipTrigger as-child>
-        <time
-          :datetime="issue.createdAt.toISOString()"
-          class="relative z-10 ml-1 hidden w-12 shrink-0 cursor-default text-right text-xs text-ink-subtle tabular-nums sm:block"
-          @click="onChipClick"
-        >
-          {{ dateFormat.format(issue.createdAt) }}
-        </time>
-      </TooltipTrigger>
-      <TooltipContent>Created {{ fullDateFormat.format(issue.createdAt) }}</TooltipContent>
-    </Tooltip>
+    <time
+      v-if="shows('updatedAt')"
+      :datetime="issue.updatedAt.toISOString()"
+      :title="`Updated ${fullDateFormat.format(issue.updatedAt)}`"
+      class="relative z-10 ml-1 hidden w-12 shrink-0 cursor-default text-right text-xs text-ink-subtle tabular-nums sm:block"
+      @click="onChipClick"
+    >
+      {{ dateFormat.format(issue.updatedAt) }}
+    </time>
+    <time
+      v-if="shows('createdAt')"
+      :datetime="issue.createdAt.toISOString()"
+      :title="`Created ${fullDateFormat.format(issue.createdAt)}`"
+      class="relative z-10 ml-1 hidden w-12 shrink-0 cursor-default text-right text-xs text-ink-subtle tabular-nums sm:block"
+      @click="onChipClick"
+    >
+      {{ dateFormat.format(issue.createdAt) }}
+    </time>
   </div>
 </template>
