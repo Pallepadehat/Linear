@@ -170,7 +170,7 @@ function confirmDelete() {
       <li
         v-for="(milestone, index) in milestones"
         :key="milestone.id"
-        class="group/milestone relative flex h-9 items-center gap-2.5 rounded-md px-2 text-[13px] hover:bg-surface-2"
+        class="group/milestone relative flex min-h-9 items-center gap-2.5 rounded-md px-2 py-1 text-[13px] hover:bg-surface-2"
         :class="dragIndex === index && 'opacity-40'"
         :draggable="renamingId !== milestone.id"
         @dragstart="onDragStart($event, index)"
@@ -199,7 +199,12 @@ function confirmDelete() {
             @blur="cancelDraft"
           />
         </template>
-        <span v-else class="min-w-0 flex-1 truncate text-ink">{{ milestone.name }}</span>
+        <span v-else class="grid min-w-0 flex-1">
+          <span class="truncate text-ink">{{ milestone.name }}</span>
+          <span v-if="milestone.description" class="truncate text-xs text-ink-subtle">
+            {{ milestone.description }}
+          </span>
+        </span>
         <span class="shrink-0 text-ink-subtle tabular-nums">
           {{ milestonePercent(milestone) }}%
           <span class="sr-only">complete,</span>
