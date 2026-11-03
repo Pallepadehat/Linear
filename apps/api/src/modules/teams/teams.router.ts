@@ -1,4 +1,10 @@
-import { createTeam, getTeamByKey, listTeams, listWorkflowStatuses } from '@linear/core'
+import {
+  createTeam,
+  getTeamByKey,
+  listTeams,
+  listWorkflowStatuses,
+  updateTeamDefaults,
+} from '@linear/core'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
 import { toTeamDto, toTeamWithStatusesDto } from './teams.dto'
@@ -33,5 +39,21 @@ export const teamsRouter = {
     .handler(async ({ context }) => {
       const teams = await listTeams(context.db, context.workspace.id)
       return teams.map(toTeamDto)
+    }),
+
+  // Issue defaults are team settings, so owner-only (docs/domain.md → Roles).
+  update: authed.teams.update
+    .use(requireWorkspace('owner'), (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const current = await getTeamByKey(context.db, context.workspace.id, input.key)
+      const team = await updateTeamDefaults(context.db, {
+        workspaceId: context.workspace.id,
+        teamId: current.id,
+        defaultStatusId: input.defaultStatusId,
+        defaultPriority: input.defaultPriority,
+        defaultAssigneeId: input.defaultAssigneeId,
+      })
+      const statuses = await listWorkflowStatuses(context.db, context.workspace.id, [team.id])
+      return toTeamWithStatusesDto(team, statuses)
     }),
 }

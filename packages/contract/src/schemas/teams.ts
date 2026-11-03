@@ -22,8 +22,15 @@ export const teamSchema = z.object({
   key: z.string(),
 })
 
+/** 0 No priority … 4 Low; same scale as issue priority (docs/domain.md → Priorities). */
+const defaultPrioritySchema = z.number().int().min(0).max(4)
+
 export const teamWithStatusesSchema = teamSchema.extend({
   statuses: z.array(workflowStatusSchema),
+  /** The status new issues get when none is given; already resolved through the fallback rule. */
+  defaultStatusId: z.uuid().nullable(),
+  defaultPriority: defaultPrioritySchema,
+  defaultAssigneeId: z.uuid().nullable(),
 })
 
 export const createTeamInputSchema = workspaceScopedSchema.extend({
@@ -33,8 +40,17 @@ export const createTeamInputSchema = workspaceScopedSchema.extend({
 
 export const getTeamInputSchema = workspaceScopedSchema.extend({ key: teamKeySchema })
 
+/** Owner-only. Omitted fields are left unchanged. */
+export const updateTeamInputSchema = workspaceScopedSchema.extend({
+  key: teamKeySchema,
+  defaultStatusId: z.uuid().optional(),
+  defaultPriority: defaultPrioritySchema.optional(),
+  defaultAssigneeId: z.uuid().nullable().optional(),
+})
+
 export type StatusCategory = z.infer<typeof statusCategorySchema>
 export type WorkflowStatus = z.infer<typeof workflowStatusSchema>
 export type Team = z.infer<typeof teamSchema>
 export type TeamWithStatuses = z.infer<typeof teamWithStatusesSchema>
 export type CreateTeamInput = z.infer<typeof createTeamInputSchema>
+export type UpdateTeamInput = z.infer<typeof updateTeamInputSchema>

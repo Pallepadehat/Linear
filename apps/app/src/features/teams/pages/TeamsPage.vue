@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
+import { Settings } from '@lucide/vue'
 import { computed } from 'vue'
+import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { orpc } from '@/lib/orpc'
 import CreateTeamForm from '../components/CreateTeamForm.vue'
@@ -19,14 +21,23 @@ const { data: teams, isPending } = useQuery(
       </h2>
       <ul class="divide-y divide-hairline rounded-lg border border-hairline bg-surface-1">
         <li v-if="isPending" class="px-4 py-3 text-ink-subtle">Loading…</li>
-        <li v-for="team in teams" :key="team.id">
+        <li v-for="team in teams" :key="team.id" class="flex items-center hover:bg-surface-2">
           <RouterLink
             :to="{ name: 'team', params: { workspaceSlug: slug, teamKey: team.key } }"
-            class="flex items-center justify-between gap-4 px-4 py-3 hover:bg-surface-2"
+            class="flex min-w-0 flex-1 items-center justify-between gap-4 py-3 pl-4"
           >
-            <span class="font-medium text-ink">{{ team.name }}</span>
+            <span class="truncate font-medium text-ink">{{ team.name }}</span>
             <span class="font-mono text-xs text-ink-subtle">{{ team.key }}</span>
           </RouterLink>
+          <Button as-child variant="ghost" size="icon-sm" class="mx-2">
+            <RouterLink
+              :to="{ name: 'team-settings', params: { workspaceSlug: slug, teamKey: team.key } }"
+              :aria-label="`${team.name} settings`"
+              :title="`${team.name} settings`"
+            >
+              <Settings aria-hidden="true" />
+            </RouterLink>
+          </Button>
         </li>
       </ul>
     </section>

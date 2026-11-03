@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
-import IssueList from '../components/IssueList.vue'
+import IssueViews from '../components/IssueViews.vue'
 
 const { slug } = useCurrentWorkspace()
 </script>
 
 <template>
-  <IssueList :workspace-slug="slug" />
+  <IssueViews :workspace-slug="slug" />
 </template>

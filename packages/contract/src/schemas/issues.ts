@@ -43,9 +43,10 @@ export const createIssueInputSchema = workspaceScopedSchema.extend({
   teamId: z.uuid(),
   title: issueTitleSchema,
   description: issueDescriptionSchema.optional(),
-  /** Defaults to the team's `Backlog` status. */
+  /** Omitted status, priority and assignee use the team's issue defaults. */
   statusId: z.uuid().optional(),
   priority: issuePrioritySchema.optional(),
+  /** `null` = unassigned, even when the team has a default assignee. */
   assigneeId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   labelIds: labelIdsSchema.optional(),
