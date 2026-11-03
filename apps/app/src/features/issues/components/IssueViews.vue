@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { PanelRight, SlidersHorizontal } from '@lucide/vue'
-import { onKeyStroke } from '@vueuse/core'
 import { computed, defineAsyncComponent, ref } from 'vue'
 import IconButton from '@/components/common/IconButton.vue'
+import { useHotkeys } from '@/composables/useHotkeys'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
-import { isPlainShortcut } from '@/lib/keyboard'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useUiStore } from '@/stores/ui'
 import { useFilterDimensions } from '../composables/useFilterDimensions'
@@ -32,11 +31,7 @@ const dimensions = useFilterDimensions(() => props, filters, update)
 
 // `F` opens the filter menu, like Linear; ignored while typing.
 const filterOpen = ref(false)
-onKeyStroke('f', (event) => {
-  if (ui.createIssueOpen || !isPlainShortcut(event)) return
-  event.preventDefault()
-  filterOpen.value = true
-})
+useHotkeys([{ id: 'list-filter', run: () => void (filterOpen.value = true) }])
 </script>
 
 <template>

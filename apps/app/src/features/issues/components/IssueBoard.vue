@@ -25,20 +25,23 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  cycleId?: string
   /** The view tab (team and All issues pages); My issues and project lists have none. */
   view?: 'all' | 'active' | 'backlog'
 }>()
 
 const ui = useUiStore()
 const { active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, queryKey, issues, users, labels, statusesByTeam, updateIssue } = useIssueViewData(
-  () => props.workspaceSlug,
-  () => ({
-    teamId: props.teamId,
-    projectId: props.projectId,
-    statusCategories: viewStatusCategories(props.view),
-  }),
-)
+const { query, queryKey, issues, users, labels, statusesByTeam, estimatesByTeam, updateIssue } =
+  useIssueViewData(
+    () => props.workspaceSlug,
+    () => ({
+      teamId: props.teamId,
+      projectId: props.projectId,
+      cycleId: props.cycleId,
+      statusCategories: viewStatusCategories(props.view),
+    }),
+  )
 
 // Pages are newest-first across all statuses, so every column is only complete
 // once every page is in; keep loading in the background. Columns are virtualized.
@@ -108,6 +111,7 @@ function onDrop(column: Column) {
       :workspace-slug="workspaceSlug"
       :team-id="teamId"
       :project-id="projectId"
+      :cycle-id="cycleId"
       :hide-filter-menu="!!view"
     />
     <div
@@ -154,7 +158,9 @@ function onDrop(column: Column) {
       title="No issues yet"
       description="Create an issue to start tracking work."
     >
-      <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+      <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId, cycleId })"
+        >New issue</Button
+      >
     </EmptyState>
     <div v-else class="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
       <BoardColumn
@@ -162,6 +168,7 @@ function onDrop(column: Column) {
         :key="column.key"
         :column="column"
         :statuses-by-team="statusesByTeam"
+        :estimates-by-team="estimatesByTeam"
         :users="users"
         :labels="labels"
         :dragging-id="dragging?.id ?? null"
@@ -172,7 +179,7 @@ function onDrop(column: Column) {
         @dragend="endDrag"
         @drop="onDrop(column)"
         @open="openIssue"
-        @create="ui.openCreateIssue({ teamId, projectId, statusId: column.status.id })"
+        @create="ui.openCreateIssue({ teamId, projectId, cycleId, statusId: column.status.id })"
       />
     </div>
   </div>

@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -15,25 +16,40 @@ import {
 
 const sort = defineModel<IssueSort>('sort', { required: true })
 const direction = defineModel<SortDirection>('direction', { required: true })
+// Lives here until the display options popover (M7-03) exists.
+const showSubIssues = defineModel<boolean>('showSubIssues', { required: true })
 
 const SORTS: { value: IssueSort; label: string }[] = [
   { value: 'createdAt', label: 'Created' },
   { value: 'updatedAt', label: 'Updated' },
   { value: 'priority', label: 'Priority' },
+  { value: 'estimate', label: 'Estimate' },
+  { value: 'dueDate', label: 'Due date' },
 ]
 
 const sortLabel = computed(() => SORTS.find((s) => s.value === sort.value)?.label ?? 'Created')
-// Direction labels in the sort's own terms; No priority stays last either way.
+// Direction labels in the sort's own terms; No priority / no estimate / no due date stay
+// last either way.
 const directions = computed(() =>
   sort.value === 'priority'
     ? [
         { value: 'desc', label: 'Urgent first' },
         { value: 'asc', label: 'Low first' },
       ]
-    : [
-        { value: 'desc', label: 'Newest first' },
-        { value: 'asc', label: 'Oldest first' },
-      ],
+    : sort.value === 'estimate'
+      ? [
+          { value: 'desc', label: 'Largest first' },
+          { value: 'asc', label: 'Smallest first' },
+        ]
+      : sort.value === 'dueDate'
+        ? [
+            { value: 'asc', label: 'Soonest first' },
+            { value: 'desc', label: 'Latest first' },
+          ]
+        : [
+            { value: 'desc', label: 'Newest first' },
+            { value: 'asc', label: 'Oldest first' },
+          ],
 )
 
 function setSort(value: unknown) {
@@ -82,6 +98,15 @@ function setDirection(value: unknown) {
           {{ option.label }}
         </DropdownMenuRadioItem>
       </DropdownMenuRadioGroup>
+      <DropdownMenuSeparator class="bg-hairline" />
+      <DropdownMenuCheckboxItem
+        :model-value="showSubIssues"
+        class="h-8 rounded-md text-[13px]"
+        @update:model-value="showSubIssues = $event === true"
+        @select.prevent
+      >
+        Show sub-issues
+      </DropdownMenuCheckboxItem>
     </DropdownMenuContent>
   </DropdownMenu>
 </template>

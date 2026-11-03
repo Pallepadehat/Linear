@@ -6,30 +6,40 @@ import type {
   RealtimeIssueField,
 } from '@linear/contract'
 import type { InfiniteData, Query, QueryClient } from '@tanstack/vue-query'
+import { cyclesKey } from '@/features/cycles/queries'
 import { projectsKey } from '@/features/projects/queries'
 import { removeIssueFromPages } from '@/features/issues/issue-cache'
 import { templatesKey } from '@/features/templates/queries'
 import { issueDetailKeys, issueListKey, writeIssueToCaches } from '@/features/issues/queries'
 import { client, orpc } from '@/lib/orpc'
 
-// Fields that decide which lists an issue is in (My Issues, project); a status change
-// only regroups, which the patched copy already does.
-const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project']
+// Fields that decide which lists an issue is in (My Issues, project, cycle); a status
+// change only regroups, which the patched copy already does.
+const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project', 'cycle']
 // Whether a list with this input may gain, lose or reorder an issue when these
 // fields change: only filtered or sorted lists depend on more than membership.
 function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssueField>) {
   return (
     input.sort === 'updatedAt' ||
-    (fields.has('status') && (!!input.statusIds?.length || !!input.statusCategories?.length)) ||
+    (fields.has('status') &&
+      (!!input.statusIds?.length ||
+        !!input.statusCategories?.length ||
+        !!input.due?.includes('overdue'))) ||
+    (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||
     (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
     (fields.has('labels') && !!input.labelIds?.length) ||
-    (fields.has('title') && !!input.q)
+    (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
+    (fields.has('subscribers') && !!input.subscriberIds?.length) ||
+    (fields.has('title') && !!input.q) ||
+    // Gaining or losing a parent moves the issue in or out of lists that hide sub-issues.
+    (fields.has('parent') && (input.showSubIssues === false || !!input.excludeSubtreeOf))
   )
 }
 const listInput = (query: Query) =>
   (query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input ?? {}
-// Fields that change project progress counts.
-const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project']
+// Fields that change project and cycle progress counts.
+const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project', 'cycle']
+type Pending = 'lists' | 'projects' | 'cycles'
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.
 const COALESCE_MS = 300
 
@@ -50,7 +60,8 @@ export function createRealtimeEventHandler({
   workspaceSlug,
   fetchIssue = (id) => client.issues.get({ workspaceSlug, id }),
 }: Deps) {
-  const pending = new Set<'lists' | 'projects'>()
+  // `cycles` refreshes cycle progress; only issue changes move it.
+  const pending = new Set<Pending>()
   // Changed fields that only matter to filtered or sorted lists.
   const pendingFields = new Set<RealtimeIssueField>()
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -60,11 +71,12 @@ export function createRealtimeEventHandler({
     if (pending.has('lists')) void queryClient.invalidateQueries({ queryKey: issueListKey() })
     else if (pendingFields.size) invalidateDependentLists(new Set(pendingFields))
     if (pending.has('projects')) void queryClient.invalidateQueries({ queryKey: projectsKey() })
+    if (pending.has('cycles')) void queryClient.invalidateQueries({ queryKey: cyclesKey() })
     pending.clear()
     pendingFields.clear()
   }
 
-  function invalidateSoon(...what: ('lists' | 'projects')[]) {
+  function invalidateSoon(...what: Pending[]) {
     what.forEach((w) => pending.add(w))
     timer ??= setTimeout(flush, COALESCE_MS)
   }
@@ -82,6 +94,7 @@ export function createRealtimeEventHandler({
 
   async function onIssueUpdated(issueId: string, fields: RealtimeIssueField[]) {
     void queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) })
+    if (fields.includes('subscribers')) invalidateSubscribers(issueId)
     if (fields.includes('pullRequests')) {
       void queryClient.invalidateQueries({
         queryKey: orpc.github.pullRequests.listForIssue.key({ input: { issueId } }),
@@ -89,7 +102,7 @@ export function createRealtimeEventHandler({
     }
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
     else invalidateFieldsSoon(fields)
-    if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects')
+    if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.
@@ -101,6 +114,12 @@ export function createRealtimeEventHandler({
       // Deleted or briefly unreachable: let the queries sort it out.
       invalidateIssue(issueId)
     }
+  }
+
+  function invalidateSubscribers(issueId: string) {
+    void queryClient.invalidateQueries({
+      queryKey: orpc.issues.subscribers.key({ input: { issueId } }),
+    })
   }
 
   function invalidateIssue(issueId: string) {
@@ -115,7 +134,7 @@ export function createRealtimeEventHandler({
   return function handle(event: RealtimeEvent) {
     switch (event.type) {
       case 'issue.created':
-        return invalidateSoon('lists', 'projects')
+        return invalidateSoon('lists', 'projects', 'cycles')
       case 'issue.updated':
         return void onIssueUpdated(event.issueId, event.fields)
       case 'issue.deleted':
@@ -124,8 +143,17 @@ export function createRealtimeEventHandler({
           (data) => removeIssueFromPages(data, event.issueId),
         )
         invalidateIssue(event.issueId)
+        return invalidateSoon('projects', 'cycles')
+      case 'project.updated':
+        // Project lists and pages refetch (coalesced); this tab's own edits never echo.
         return invalidateSoon('projects')
       case 'comment.created':
+        // Commenting subscribes the author (and flips their `isSubscribed`).
+        invalidateSubscribers(event.issueId)
+        invalidateIssue(event.issueId)
+        return void queryClient.invalidateQueries({
+          queryKey: orpc.comments.list.key({ input: { issueId: event.issueId } }),
+        })
       case 'comment.updated':
       case 'comment.deleted':
         return void queryClient.invalidateQueries({

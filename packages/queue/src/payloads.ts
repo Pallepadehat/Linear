@@ -10,6 +10,7 @@ export const jobSchemas = {
     'delete-objects': z.object({ uploadId: z.uuid() }),
     'cleanup-pending': z.object({}),
     'cleanup-attachments': z.object({}),
+    'cycles-maintain': z.object({}),
   },
   githubWebhooks: {
     pull_request: z.object({ deliveryId: z.uuid() }),

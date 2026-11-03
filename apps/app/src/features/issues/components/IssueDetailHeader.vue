@@ -7,13 +7,17 @@ import {
   CopyPlus,
   Ellipsis,
   GitBranch,
+  GitCompareArrows,
   Hash,
   Link,
+  ListTree,
+  Star,
+  StarOff,
   Trash2,
+  Unlink,
   X,
 } from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onKeyStroke } from '@vueuse/core'
 import { computed, ref, watchEffect } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -39,8 +43,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
+import { useToggleFavorite } from '@/features/favorites/queries'
 import { errorMessage } from '@/lib/errors'
-import { isTypingTarget } from '@/lib/keyboard'
+import { useHotkeys } from '@/composables/useHotkeys'
+import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import { COPY_LABELS, copyShortcut, useIssueCopy, type CopyKind } from '../composables/useIssueCopy'
@@ -48,6 +54,7 @@ import { useIssueNav } from '../composables/useIssueNav'
 import type { IssuePatch } from '../issue-cache'
 import { issuePrefill } from '../prefill'
 import { issueListKey } from '../queries'
+import { RELATION_KINDS, type RelationKind } from '../relation-kinds'
 
 const props = defineProps<{
   workspaceSlug: string
@@ -56,7 +63,13 @@ const props = defineProps<{
   teamName?: string
   teamKey?: string
 }>()
-const emit = defineEmits<{ change: [patch: IssuePatch] }>()
+// `setParent` opens the parent picker, which the page owns (it also answers ⇧⌘P);
+// `markAs` opens the relation picker.
+const emit = defineEmits<{
+  change: [patch: IssuePatch]
+  setParent: []
+  markAs: [kind: RelationKind]
+}>()
 
 const ui = useUiStore()
 const router = useRouter()
@@ -98,12 +111,22 @@ watchEffect(
       { label: 'Issues', to: listRoute.value },
       { label: props.issue.title, identifier: props.issue.identifier },
     ]
+    // The header star and ⌥F act on this issue (M8-07).
+    ui.favoriteTarget = {
+      entityType: 'issue',
+      entityId: props.issue.id,
+      identifier: props.issue.identifier,
+      title: props.issue.title,
+      statusCategory: props.issue.status.category,
+    }
   },
   { flush: 'post' },
 )
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-const deleteShortcut = isMac ? '⌘⌫' : 'Ctrl ⌫'
+// From the shortcut catalog, so the menu hint matches the binding.
+const deleteShortcut = shortcutKeys('issue-delete')
+  .flat()
+  .join(isMacPlatform() ? '' : ' ')
 
 // Only properties that are set can be removed; the submenu hides when none are.
 type Removable = { label: string; patch: IssuePatch }
@@ -139,11 +162,15 @@ async function confirmDelete() {
 }
 
 // ⌘⌫ (Ctrl+Backspace elsewhere) asks to delete, like Linear; not while typing.
-onKeyStroke('Backspace', (event) => {
-  if (!(isMac ? event.metaKey : event.ctrlKey) || isTypingTarget(event.target)) return
-  event.preventDefault()
-  confirmingDelete.value = true
-})
+useHotkeys([{ id: 'issue-delete', run: () => void (confirmingDelete.value = true) }])
+
+const favorites = useToggleFavorite(() => props.workspaceSlug)
+const isFavorite = computed(() =>
+  favorites.isFavorite({ entityType: 'issue', entityId: props.issue.id }),
+)
+function toggleFavorite() {
+  if (ui.favoriteTarget?.entityId === props.issue.id) favorites.toggle(ui.favoriteTarget)
+}
 
 const itemClass = 'h-8 rounded-md text-[13px]'
 </script>
@@ -250,6 +277,8 @@ const itemClass = 'h-8 rounded-md text-[13px]'
         <TooltipContent>Previous issue <kbd class="ml-1 font-sans">K</kbd></TooltipContent>
       </Tooltip>
     </div>
+    <!-- Page-level toggles (the subscribe bell) sit just before the actions menu. -->
+    <slot />
     <DropdownMenu>
       <DropdownMenuTrigger as-child>
         <Button
@@ -278,6 +307,40 @@ const itemClass = 'h-8 rounded-md text-[13px]'
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem :class="itemClass" @select="emit('setParent')">
+          <ListTree class="text-ink-subtle" aria-hidden="true" />
+          Set parent issue…
+          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">⇧⌘P</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          v-if="issue.parentId"
+          :class="itemClass"
+          @select="emit('change', { parentId: null, parent: null })"
+        >
+          <Unlink class="text-ink-subtle" aria-hidden="true" />
+          Remove parent
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger :class="itemClass">
+            <GitCompareArrows class="text-ink-subtle" aria-hidden="true" />
+            Mark as
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent class="w-44 rounded-lg border-hairline bg-floating p-1.5">
+            <DropdownMenuItem
+              v-for="option in RELATION_KINDS"
+              :key="option.kind"
+              :class="itemClass"
+              @select="emit('markAs', option.kind)"
+            >
+              {{ option.label }}
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem :class="itemClass" @select="toggleFavorite">
+          <component :is="isFavorite ? StarOff : Star" class="text-ink-subtle" aria-hidden="true" />
+          {{ isFavorite ? 'Remove from favorites' : 'Add to favorites' }}
+          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">⌥F</DropdownMenuShortcut>
+        </DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger :class="itemClass">
             <Copy class="text-ink-subtle" aria-hidden="true" />

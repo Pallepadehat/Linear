@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Issue, IssuePage, WorkflowStatus } from '@linear/contract'
+import type { Issue, IssueDetail, IssuePage, WorkflowStatus } from '@linear/contract'
 import { QueryClient, type InfiniteData } from '@tanstack/vue-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toValue } from 'vue'
@@ -32,14 +32,23 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
     assigneeId: null,
     creatorId: 'user',
     projectId: null,
+    cycleId: null,
+    estimate: null,
+    dueDate: null,
     labels: [],
+    isSubscribed: false,
     createdAt: created,
     updatedAt: created,
     completedAt: null,
+    blockedByCount: 0,
+    blockingCount: 0,
+    parentId: null,
+    subIssueProgress: null,
     ...overrides,
   }
 }
 
+const noRelations = { blocks: [], blockedBy: [], related: [], duplicateOf: [], duplicates: [] }
 const listKey = issueListOptions('tip').queryKey
 const detailKey = orpc.issues.getByIdentifier.queryKey({
   input: { workspaceSlug: 'tip', identifier: 'TIP-a' },
@@ -54,7 +63,12 @@ beforeEach(() => {
     pages: [{ items: [issue('a'), issue('b')], nextCursor: null }],
     pageParams: [null],
   })
-  queryClient.setQueryData(detailKey, issue('a'))
+  queryClient.setQueryData(detailKey, {
+    ...issue('a'),
+    parent: null,
+    children: [],
+    relations: noRelations,
+  })
 })
 afterEach(() => vi.useRealTimers())
 
@@ -71,6 +85,27 @@ describe('realtime event handler', () => {
     expect(fetchIssue).toHaveBeenCalledOnce()
     expect(queryClient.getQueryData<Issue>(detailKey)!.status).toEqual(inProgress)
     expect(listed()[1]!.status).toEqual(todo)
+  })
+
+  it("refreshes the detail's relations and the row's block counts on a relation change", async () => {
+    const blocker = {
+      relationId: crypto.randomUUID(),
+      id: 'b',
+      identifier: 'TIP-b',
+      title: 'b',
+      status: todo,
+    }
+    const fetchIssue = vi.fn(async (id: string): Promise<IssueDetail> => ({
+      ...issue(id, { blockedByCount: 1 }),
+      parent: null,
+      children: [],
+      relations: { ...noRelations, blockedBy: [blocker] },
+    }))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['relations'], ...actor })
+    await vi.waitFor(() => expect(listed()[0]!.blockedByCount).toBe(1))
+    expect(queryClient.getQueryData<IssueDetail>(detailKey)!.relations.blockedBy).toEqual([blocker])
   })
 
   it("refetches the issue's linked pull requests when GitHub changes them", () => {
@@ -107,6 +142,20 @@ describe('realtime event handler', () => {
     expect(listInvalidations()).toHaveLength(1)
   })
 
+  it('refetches lists and cycle progress when an issue changes cycle', async () => {
+    const fetchIssue = vi.fn(async (id: string) => issue(id))
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    const keys = () =>
+      invalidate.mock.calls.map(([filters]) => JSON.stringify(toValue(filters)?.queryKey))
+
+    // A rollover by the cycles job: no actor.
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['cycle'], actorId: null })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(keys()).toContain(JSON.stringify(orpc.issues.list.key()))
+    expect(keys()).toContain(JSON.stringify(orpc.cycles.key()))
+  })
+
   it('refetches only the filtered or sorted lists a change can affect', async () => {
     const fetchIssue = vi.fn(async (id: string) => issue(id))
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip', fetchIssue })
@@ -140,6 +189,30 @@ describe('realtime event handler', () => {
     handle({ type: 'issue.updated', issueId: 'a', fields: ['priority', 'title'], ...actor })
     await vi.advanceTimersByTimeAsync(1_000)
     expect([stale(listKey), stale(byPriority), stale(byTitle)]).toEqual([false, true, true])
+
+    const byEstimate = keyFor({ estimates: [null] })
+    queryClient.setQueryData<InfiniteData<IssuePage>>(byEstimate, {
+      pages: [{ items: [issue('a')], nextCursor: null }],
+      pageParams: [null],
+    })
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['estimate'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(listKey), stale(byEstimate)]).toEqual([false, true])
+    const overdue = keyFor({ due: ['overdue'] })
+    const byDueDate = keyFor({ sort: 'dueDate' })
+    for (const key of [overdue, byDueDate]) {
+      queryClient.setQueryData<InfiniteData<IssuePage>>(key, {
+        pages: [{ items: [issue('a')], nextCursor: null }],
+        pageParams: [null],
+      })
+    }
+    // Finishing an issue takes it out of Overdue; a new due date reorders and refilters.
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['status'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect([stale(overdue), stale(byDueDate)]).toEqual([true, false])
+    handle({ type: 'issue.updated', issueId: 'a', fields: ['dueDate'], ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(stale(byDueDate)).toBe(true)
   })
 
   it("leaves caches alone while this tab's own edit is in flight", async () => {
@@ -165,6 +238,15 @@ describe('realtime event handler', () => {
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
     handle({ type: 'issue.deleted', issueId: 'a', ...actor })
     expect(listed().map((i) => i.id)).toEqual(['b'])
+  })
+
+  it('refetches project queries, coalesced, on project events', async () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
+    handle({ type: 'project.updated', projectId: crypto.randomUUID(), ...actor })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(invalidate.mock.calls).toEqual([[{ queryKey: orpc.projects.key() }]])
   })
 
   it("refetches only that issue's comments on a comment event", () => {

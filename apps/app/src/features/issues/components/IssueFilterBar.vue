@@ -2,9 +2,8 @@
 import type { IssueSort, SortDirection } from '@linear/contract'
 import { Search, X } from '@lucide/vue'
 import { useDebounceFn } from '@vueuse/core'
-import { computed, ref, useTemplateRef, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
-import { useUiStore } from '@/stores/ui'
 import { useFilterDimensions } from '../composables/useFilterDimensions'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import IssueFilterMenu from './IssueFilterMenu.vue'
@@ -14,6 +13,7 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  cycleId?: string
   /** The view toolbar above shows the Filter button instead. */
   hideFilterMenu?: boolean
 }>()
@@ -27,6 +27,10 @@ const activeDimensions = computed(() => dimensions.value.filter((d) => d.selecte
 const sort = computed({
   get: () => filters.value.sort,
   set: (value: IssueSort) => update({ sort: value }),
+})
+const showSubIssues = computed({
+  get: () => filters.value.showSubIssues,
+  set: (value: boolean) => update({ showSubIssues: value }),
 })
 const direction = computed({
   get: () => filters.value.direction,
@@ -43,19 +47,6 @@ watch(
   (q) => {
     if (q !== search.value.trim()) search.value = q
   },
-)
-
-// The sidebar's Search button asks the visible filter bar to focus its field.
-const ui = useUiStore()
-const searchInput = useTemplateRef<HTMLInputElement>('searchInput')
-watch(
-  [() => ui.searchFocusRequested, searchInput],
-  ([requested, input]) => {
-    if (!requested || !input) return
-    ui.searchFocusRequested = false
-    input.focus()
-  },
-  { flush: 'post' },
 )
 
 function clearSearch(event: KeyboardEvent) {
@@ -102,7 +93,6 @@ function clearSearch(event: KeyboardEvent) {
       >
         <Search class="size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
         <input
-          ref="searchInput"
           v-model="search"
           type="search"
           aria-label="Search issues"
@@ -112,7 +102,11 @@ function clearSearch(event: KeyboardEvent) {
           @keydown.esc.prevent="clearSearch"
         />
       </div>
-      <IssueSortMenu v-model:sort="sort" v-model:direction="direction" />
+      <IssueSortMenu
+        v-model:sort="sort"
+        v-model:direction="direction"
+        v-model:show-sub-issues="showSubIssues"
+      />
     </div>
   </div>
 </template>

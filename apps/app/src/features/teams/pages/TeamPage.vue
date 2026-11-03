@@ -21,7 +21,14 @@ const { data: team, error } = useQuery(
 )
 
 watchEffect(() => {
-  if (team.value) ui.breadcrumb = [team.value.name, 'Issues']
+  if (!team.value) return
+  ui.breadcrumb = [team.value.name, 'Issues']
+  ui.favoriteTarget = {
+    entityType: 'team',
+    entityId: team.value.id,
+    name: team.value.name,
+    key: team.value.key,
+  }
 })
 </script>
 
