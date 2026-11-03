@@ -171,6 +171,23 @@ describe('realtime', () => {
     await eventually(() => expect(events).toEqual([event, event, event]))
   })
 
+  it('publishes project.updated for project link changes', async () => {
+    const { owner, member } = await workspaceWithIssue()
+    const scope = { workspaceSlug: 'tip' }
+    const project = await owner.client.projects.create({ ...scope, name: 'Launch' })
+    const { events } = await subscribe(member.cookie, 'tip')
+    const link = await owner.client.projectLinks.create({
+      ...scope,
+      projectId: project.id,
+      url: 'https://example.com',
+    })
+    await owner.client.projectLinks.update({ ...scope, id: link.id, title: 'Spec' })
+    await owner.client.projectLinks.delete({ ...scope, id: link.id })
+
+    const event = { type: 'project.updated', projectId: project.id, actorId: owner.userId }
+    await eventually(() => expect(events).toEqual([event, event, event]))
+  })
+
   it('publishes project.updated for milestone changes and issue.updated for issues losing one', async () => {
     const { owner, member, team } = await workspaceWithIssue()
     const scope = { workspaceSlug: 'tip' }
