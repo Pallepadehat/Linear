@@ -20,6 +20,9 @@ const props = defineProps<{
   labels: Label[]
   /** The issue team's estimate scale; no chip while unknown or off. */
   estimates?: EstimateSettings
+  /** Keyboard focus (J/K) and selection (X); see `useIssueListKeyboard`. */
+  focused?: boolean
+  selected?: boolean
 }>()
 const emit = defineEmits<{
   update: [patch: IssuePatch]
@@ -60,6 +63,9 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
   <div
     data-hotkey-scope
     class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
+    :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
+    :data-focused="focused || undefined"
+    :data-selected="selected || undefined"
   >
     <PriorityPicker
       compact
@@ -87,6 +93,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       class="ml-1 min-w-0 flex-1 truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
       @click="emit('open')"
     >
+      <span v-if="selected" class="sr-only">Selected,</span>
       {{ issue.title }}
     </RouterLink>
     <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
