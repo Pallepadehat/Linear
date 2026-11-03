@@ -26,13 +26,23 @@ const MEMBERSHIP_FIELDS: RealtimeIssueField[] = ['assignee', 'project', 'cycle']
 function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssueField>) {
   return (
     input.sort === 'updatedAt' ||
+    // Any change bumps `updatedAt`.
+    !!input.updatedAfter ||
+    !!input.updatedBefore ||
     (fields.has('status') &&
       (!!input.statusIds?.length ||
+        !!input.statusIdsNot?.length ||
         !!input.statusCategories?.length ||
+        // Completing or reopening sets or clears `completedAt`.
+        !!input.completedAfter ||
+        !!input.completedBefore ||
         !!input.due?.includes('overdue'))) ||
     (fields.has('dueDate') && (!!input.due?.length || input.sort === 'dueDate')) ||
-    (fields.has('priority') && (!!input.priorities?.length || input.sort === 'priority')) ||
-    (fields.has('labels') && !!input.labelIds?.length) ||
+    (fields.has('priority') &&
+      (!!input.priorities?.length || !!input.prioritiesNot?.length || input.sort === 'priority')) ||
+    (fields.has('labels') && (!!input.labelIds?.length || !!input.labelIdsNot?.length)) ||
+    ((fields.has('title') || fields.has('description')) && !!input.content) ||
+    (fields.has('pullRequests') && input.hasPullRequests !== undefined) ||
     (fields.has('estimate') && (!!input.estimates?.length || input.sort === 'estimate')) ||
     (fields.has('subscribers') && !!input.subscriberIds?.length) ||
     (fields.has('title') && !!input.q) ||
@@ -112,6 +122,13 @@ export function createRealtimeEventHandler({
     void queryClient.invalidateQueries({ queryKey: issueListKey(), predicate })
   }
 
+  // Other fields (description, PRs, …) only matter to counts filtered on them.
+  function facetsDependOn(fields: RealtimeIssueField[]) {
+    const changed = new Set(fields)
+    const predicate = (query: Query) => listDependsOn(listInput(query), changed)
+    return queryClient.getQueryCache().findAll({ queryKey: issueFacetsKey(), predicate }).length > 0
+  }
+
   async function onIssueUpdated(issueId: string, fields: RealtimeIssueField[]) {
     void queryClient.invalidateQueries({ queryKey: orpc.activity.list.key({ input: { issueId } }) })
     if (fields.includes('subscribers')) invalidateSubscribers(issueId)
@@ -123,7 +140,9 @@ export function createRealtimeEventHandler({
     if (fields.some((f) => MEMBERSHIP_FIELDS.includes(f))) invalidateSoon('lists')
     else invalidateFieldsSoon(fields)
     if (fields.some((f) => PROGRESS_FIELDS.includes(f))) invalidateSoon('projects', 'cycles')
-    if (fields.some((f) => FACET_FIELDS.includes(f))) invalidateSoon('facets')
+    if (fields.some((f) => FACET_FIELDS.includes(f)) || facetsDependOn(fields)) {
+      invalidateSoon('facets')
+    }
 
     // While this tab has its own edits in flight, their settle refetches everything;
     // patching now would fight the optimistic values.

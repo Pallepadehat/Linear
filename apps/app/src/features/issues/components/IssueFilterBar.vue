@@ -22,7 +22,7 @@ const SEARCH_DEBOUNCE_MS = 250
 
 const { filters, active, update, clear } = useIssueFilters()
 const dimensions = useFilterDimensions(() => props, filters, update)
-const activeDimensions = computed(() => dimensions.value.filter((d) => d.selectedLabels.length))
+const activeDimensions = computed(() => dimensions.value.filter((d) => d.active))
 
 const sort = computed({
   get: () => filters.value.sort,
@@ -71,8 +71,24 @@ function clearSearch(event: KeyboardEvent) {
         <component :is="dimension.icon" class="size-3.5 text-ink-subtle" aria-hidden="true" />
         {{ dimension.label }}
       </span>
-      <span class="max-w-56 truncate border-l border-hairline px-2 text-ink">
-        {{ dimension.selectedLabels.join(', ') }}
+      <button
+        v-if="dimension.cycleOperator"
+        type="button"
+        class="flex h-full items-center border-l border-hairline px-2 text-ink-subtle hover:bg-surface-2 hover:text-ink focus-visible:bg-surface-2 focus-visible:text-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden focus-visible:ring-inset"
+        :aria-label="`${dimension.label} ${dimension.operator}, change operator`"
+        title="Change operator"
+        @click="dimension.cycleOperator()"
+      >
+        {{ dimension.operator }}
+      </button>
+      <span v-else class="flex h-full items-center border-l border-hairline px-2 text-ink-subtle">
+        {{ dimension.operator }}
+      </span>
+      <span
+        class="max-w-56 truncate border-l border-hairline px-2 text-ink"
+        :title="dimension.selectedLabels.join(', ')"
+      >
+        {{ dimension.summary }}
       </span>
       <button
         type="button"

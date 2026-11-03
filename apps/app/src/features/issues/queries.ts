@@ -20,7 +20,6 @@ import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
 import { cyclesKey } from '@/features/cycles/queries'
 import { projectsKey } from '@/features/projects/queries'
-import { todayIso } from '@/lib/due-dates'
 import { client, orpc } from '@/lib/orpc'
 import { patchCommentInPages, toggleReaction } from './comment-cache'
 import {
@@ -32,9 +31,19 @@ import {
   toUpdateIssueInput,
   type IssuePatch,
 } from './issue-cache'
-import { EMPTY_FILTERS, type IssueFilters } from './issue-filters'
+import { EMPTY_FILTERS, toListInput, type IssueFilters } from './issue-filters'
 
 const PAGE_SIZE = 50
+
+/**
+ * "Past week" filters are anchored to now, rounded to the minute so the list, board
+ * and Details panel built in the same moment share one query key.
+ */
+function minuteNow() {
+  const now = new Date()
+  now.setSeconds(0, 0)
+  return now
+}
 
 export type IssueListFilter = Pick<
   ListIssuesInput,
@@ -50,17 +59,15 @@ export function issueListOptions(
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const { q, due, ...rest } = filters
-  // Relative due filters are evaluated against the viewer's local day (domain.md).
-  const relative = due.some((bucket) => bucket !== 'noDueDate')
+  const filterInput = toListInput(filters, minuteNow())
+  const { sort, direction } = filters
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
       workspaceSlug,
       ...filter,
-      ...rest,
-      ...(due.length && { due }),
-      ...(relative && { today: todayIso() }),
-      q: q || undefined,
+      ...filterInput,
+      sort,
+      direction,
       cursor,
       limit: PAGE_SIZE,
     }),
@@ -80,9 +87,8 @@ export function issueFacetsOptions(
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const { q, sort: _sort, direction: _direction, ...rest } = filters
   return orpc.issues.facets.queryOptions({
-    input: { workspaceSlug, ...filter, ...rest, q: q || undefined },
+    input: { workspaceSlug, ...filter, ...toListInput(filters, minuteNow()) },
     placeholderData: keepPreviousData,
   })
 }

@@ -2,25 +2,12 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   EMPTY_FILTERS,
+  FILTER_QUERY_KEYS,
   hasActiveFilters,
   parseIssueFilters,
   serializeIssueFilters,
   type IssueFilters,
 } from '../issue-filters'
-
-const FILTER_KEYS = [
-  'status',
-  'priority',
-  'assignee',
-  'project',
-  'cycle',
-  'label',
-  'due',
-  'q',
-  'sort',
-  'dir',
-  'subIssues',
-]
 
 /**
  * Issue list filters and sort, stored in the route query so a reload or a
@@ -37,7 +24,7 @@ export function useIssueFilters() {
   function update(changes: Partial<IssueFilters>) {
     // Keep unrelated query params (owned by other features) as they are.
     const rest = Object.fromEntries(
-      Object.entries(route.query).filter(([key]) => !FILTER_KEYS.includes(key)),
+      Object.entries(route.query).filter(([key]) => !FILTER_QUERY_KEYS.includes(key)),
     )
     void router.replace({
       query: { ...rest, ...serializeIssueFilters({ ...filters.value, ...changes }) },
