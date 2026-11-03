@@ -84,7 +84,9 @@ export async function listIssueAttachmentIds(tx: DbOrTx, workspaceId: string, is
   const rows = await tx
     .select({ uploadId: issueAttachments.uploadId })
     .from(issueAttachments)
-    .where(and(eq(issueAttachments.workspaceId, workspaceId), eq(issueAttachments.issueId, issueId)))
+    .where(
+      and(eq(issueAttachments.workspaceId, workspaceId), eq(issueAttachments.issueId, issueId)),
+    )
   return rows.map((row) => row.uploadId)
 }
 

@@ -20,9 +20,9 @@ describe('parseAttachmentIds', () => {
   })
 
   it('normalizes case and removes duplicates', () => {
-    expect(parseAttachmentIds(`[a](attachment:${A.toUpperCase()}) [b](attachment:${A})`)).toEqual(
-      [A],
-    )
+    expect(parseAttachmentIds(`[a](attachment:${A.toUpperCase()}) [b](attachment:${A})`)).toEqual([
+      A,
+    ])
   })
 
   it('ignores prose, other schemes, placeholders and malformed ids', () => {
