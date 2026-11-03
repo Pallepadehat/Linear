@@ -46,7 +46,10 @@ const onSubmit = handleSubmit(async (form) => {
     const team = await create.mutateAsync({ workspaceSlug: slug.value, ...form })
     await queryClient.invalidateQueries({ queryKey: orpc.teams.list.key() })
     resetForm()
-    await router.push({ name: 'team', params: { workspaceSlug: slug.value, teamKey: team.key } })
+    await router.push({
+      name: 'team-issues',
+      params: { workspaceSlug: slug.value, teamKey: team.key },
+    })
   } catch (error) {
     if (errorCode(error) === 'CONFLICT') setFieldError('key', errorMessage(error))
     else formError.value = errorMessage(error)

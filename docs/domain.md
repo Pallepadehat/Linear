@@ -258,6 +258,13 @@ Open clients learn about changes as they happen (ADR 0011). Events are hints, no
 - **Prefill rules** (`prefillFrom` in `apps/app/src/features/issues/prefill.ts`, the app can't import `packages/core`): a field the user set by hand — or the dialog's opener set (a group's `+`, a project page) — is never overwritten; every other field takes the source's value, else the team's issue default. Switching templates or choosing "No template" therefore resets what the previous template filled. Clearing the title or description hands it back to the template. A source assignee who is no longer a member is skipped. Switching to another team drops a team template.
 - **Make a copy…** prefills through the same helper from `issuePrefill(issue)`: title `Copy of <title>`, description, status (by category in another team), priority, assignee, project and labels. Opened with `ui.openCreateIssue({ teamId }, issuePrefill(issue))`; its menu entry comes with the issue "…" menu (LIN-72).
 
+## App shell
+
+- Sidebar sections (Workspace, Your teams, Favorites) start expanded; each team row starts collapsed and expands when one of its pages is opened. The state is per browser (`sidebar-sections` in localStorage), never server data.
+- `team/:teamKey` redirects to `team/:teamKey/issues`. The team Projects page lists the workspace projects whose `teamIds` include the team (client-side filter of `projects.list`).
+- Until the command menu (M7-11) lands, the sidebar Search button focuses the issue search field, opening All issues first when the current page has none. Until M10-02, Inbox and the notifications bell open an empty inbox page and the unread badge is hidden (count 0). Views pages are placeholders until M10-05; Favorites stays hidden until M8-07.
+- The content panel keeps the `panel` surface and light-mode panel shadow from design.md → App shell (design.md wins over the issue's `bg-surface-1` / no-shadow wording).
+
 ## Isolation invariants
 
 - Every workspace-owned row has `workspaceId`; every query filters on it.
