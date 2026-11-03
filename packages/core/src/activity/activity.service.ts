@@ -1,5 +1,5 @@
 import { activityLog, issues, type DbOrTx } from '@linear/db'
-import { and, asc, eq, gt } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray } from 'drizzle-orm'
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
 import type { ActivityChange } from './diff'
@@ -16,6 +16,24 @@ export type ListActivityInput = {
 
 export type ActivityRecord = typeof activityLog.$inferSelect
 export type RecordedActivity = Pick<ActivityRecord, 'id' | 'kind'>
+
+/** Where a `mentioned_in` entry's issue was mentioned; the title is read fresh. */
+export type MentionSource = {
+  issueId: string
+  identifier: string
+  title: string | null
+  commentId: string | null
+}
+
+export type ActivityEntry = ActivityRecord & { mentionedIn: MentionSource | null }
+
+/** `mentioned_in` stores `[sourceIssueId, sourceIdentifier, commentId?]` in `to`. */
+function mentionSourceOf(entry: ActivityRecord) {
+  if (entry.kind !== 'mentioned_in' || !Array.isArray(entry.to)) return null
+  const [issueId, identifier, commentId] = entry.to
+  if (!issueId || !identifier) return null
+  return { issueId, identifier, commentId: commentId ?? null }
+}
 
 /**
  * Call inside the transaction that made the changes, so both commit or neither does.
@@ -69,7 +87,27 @@ export async function listActivity(db: DbOrTx, input: ListActivityInput) {
     )
     .orderBy(asc(activityLog.id))
     .limit(input.limit + 1)
-  const items = rows.slice(0, input.limit)
-  const nextCursor = rows.length > input.limit ? (items.at(-1)?.id ?? null) : null
+  const page = rows.slice(0, input.limit)
+  const nextCursor = rows.length > input.limit ? (page.at(-1)?.id ?? null) : null
+
+  const sourceIds = [...new Set(page.flatMap((e) => mentionSourceOf(e)?.issueId ?? []))]
+  const titles = new Map(
+    sourceIds.length === 0
+      ? []
+      : (
+          await db
+            .select({ id: issues.id, title: issues.title })
+            .from(issues)
+            .where(and(eq(issues.workspaceId, input.workspaceId), inArray(issues.id, sourceIds)))
+        ).map((r) => [r.id, r.title]),
+  )
+  const items: ActivityEntry[] = page.map((entry) => {
+    const source = mentionSourceOf(entry)
+    return {
+      ...entry,
+      // A deleted source keeps its identifier but has no title.
+      mentionedIn: source ? { ...source, title: titles.get(source.issueId) ?? null } : null,
+    }
+  })
   return { items, nextCursor }
 }

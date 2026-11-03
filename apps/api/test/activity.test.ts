@@ -35,6 +35,7 @@ describe('activity.list', () => {
         kind: 'created',
         from: null,
         to: null,
+        mentionedIn: null,
         createdAt: expect.any(Date),
       },
     ])
