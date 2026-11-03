@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
+import { onKeyStroke } from '@vueuse/core'
 import { computed, defineAsyncComponent, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useHotkeys } from '@/composables/useHotkeys'
+import FavoriteButton from '@/features/favorites/components/FavoriteButton.vue'
+import { useToggleFavorite } from '@/features/favorites/queries'
 import { usePresence } from '@/features/presence/usePresence'
 import { useRealtime } from '@/features/realtime/useRealtime'
 import { orpc } from '@/lib/orpc'
@@ -49,8 +52,27 @@ const crumbs = computed(() => ui.breadcrumb ?? [routeTitle.value])
 // A page's breadcrumb only applies while it is shown.
 watch(
   () => route.path,
-  () => (ui.breadcrumb = null),
+  () => {
+    ui.breadcrumb = null
+    ui.favoriteTarget = null
+  },
 )
+
+// ⌥F toggles the favorite on the page's entity. Matched by key code, not through useHotkeys:
+// on macOS ⌥F types "ƒ", so the key never reads "f". Ignored while typing or in a dialog.
+const favorites = useToggleFavorite(slug)
+onKeyStroke((event) => {
+  if (event.code !== 'KeyF' || !event.altKey || event.metaKey || event.ctrlKey) return
+  const target = event.target
+  if (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.closest('input, textarea, select'))
+  )
+    return
+  if (!ui.favoriteTarget || document.querySelector('[role="dialog"][data-state="open"]')) return
+  event.preventDefault()
+  favorites.toggle(ui.favoriteTarget)
+})
 
 const go = (name: string, params: Record<string, string> = {}) =>
   void router.push({ name, params: { workspaceSlug: slug.value, ...params } })
@@ -135,6 +157,9 @@ const createProjectOpen = computed({
       class="my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-hairline bg-panel shadow-panel"
     >
       <PageHeader :crumbs="crumbs">
+        <template #favorite>
+          <FavoriteButton />
+        </template>
         <template #actions>
           <div :id="PANEL_HEADER_ACTIONS.slice(1)" class="flex items-center gap-2" />
         </template>

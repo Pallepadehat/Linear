@@ -7,6 +7,8 @@ import {
   Ellipsis,
   GitCompareArrows,
   ListTree,
+  Star,
+  StarOff,
   Trash2,
   Unlink,
   X,
@@ -36,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
+import { useToggleFavorite } from '@/features/favorites/queries'
 import { errorMessage } from '@/lib/errors'
 import { useHotkeys } from '@/composables/useHotkeys'
 import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
@@ -91,6 +94,14 @@ watchEffect(
       { label: 'Issues', to: listRoute.value },
       { label: props.issue.title, identifier: props.issue.identifier },
     ]
+    // The header star and ⌥F act on this issue (M8-07).
+    ui.favoriteTarget = {
+      entityType: 'issue',
+      entityId: props.issue.id,
+      identifier: props.issue.identifier,
+      title: props.issue.title,
+      statusCategory: props.issue.status.category,
+    }
   },
   { flush: 'post' },
 )
@@ -136,6 +147,14 @@ async function confirmDelete() {
 
 // ⌘⌫ (Ctrl+Backspace elsewhere) asks to delete, like Linear; not while typing.
 useHotkeys([{ id: 'issue-delete', run: () => void (confirmingDelete.value = true) }])
+
+const favorites = useToggleFavorite(() => props.workspaceSlug)
+const isFavorite = computed(() =>
+  favorites.isFavorite({ entityType: 'issue', entityId: props.issue.id }),
+)
+function toggleFavorite() {
+  if (ui.favoriteTarget?.entityId === props.issue.id) favorites.toggle(ui.favoriteTarget)
+}
 
 const itemClass = 'h-8 rounded-md text-[13px]'
 </script>
@@ -238,6 +257,11 @@ const itemClass = 'h-8 rounded-md text-[13px]'
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem :class="itemClass" @select="toggleFavorite">
+          <component :is="isFavorite ? StarOff : Star" class="text-ink-subtle" aria-hidden="true" />
+          {{ isFavorite ? 'Remove from favorites' : 'Add to favorites' }}
+          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">⌥F</DropdownMenuShortcut>
+        </DropdownMenuItem>
         <DropdownMenuItem :class="itemClass" @select="makeCopy">
           <Copy class="text-ink-subtle" aria-hidden="true" />
           Make a copy…

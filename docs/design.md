@@ -317,6 +317,7 @@ Lavender stays scarce on chrome, but the product uses a small semantic palette, 
 | PR draft                | `status-neutral`         | Draft pull request icon               |
 | PR merged               | `status-completed`       | Merge icon                            |
 | PR closed (not merged)  | `priority-urgent`        | Closed pull request icon              |
+| Favorited star          | `status-started`         | Filled star in the page header        |
 
 Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon and selected/active states. Never as a section or card fill.
 

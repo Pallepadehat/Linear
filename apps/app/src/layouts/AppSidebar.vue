@@ -19,6 +19,7 @@ import SidebarItem from '@/components/common/SidebarItem.vue'
 import SidebarSection from '@/components/common/SidebarSection.vue'
 import TeamIcon from '@/components/common/TeamIcon.vue'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import SidebarFavorites from '@/features/favorites/components/SidebarFavorites.vue'
 import WorkspaceMenu from '@/features/workspaces/components/WorkspaceMenu.vue'
 import { shortcutKeys } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
@@ -94,7 +95,7 @@ const commandMenuKeys = shortcutKeys('command-menu').flat().join('')
         <SidebarItem :to="at('views')" label="Views" :icon="SquareStack" />
       </SidebarSection>
 
-      <!-- Favorites (M8-07) render here once there is something to show; hidden while empty. -->
+      <SidebarFavorites />
 
       <SidebarSection
         label="Your teams"

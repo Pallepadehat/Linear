@@ -1,6 +1,7 @@
 import type { ProjectStatus } from '@linear/contract'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { FavoriteTarget } from '@/features/favorites/favorite-list'
 import type { RouteLocationRaw } from 'vue-router'
 import type { IssuePrefill } from '@/features/issues/prefill'
 
@@ -59,6 +60,9 @@ export const useUiStore = defineStore('ui', () => {
   /** Issue awaiting the delete confirmation dialog. */
   const issueToDelete = ref<IssueRef | null>(null)
 
+  /** The entity the current page shows, for the header star and ⌥F; reset on navigation. */
+  const favoriteTarget = ref<FavoriteTarget | null>(null)
+
   return {
     createIssueOpen,
     createIssueDefaults,
@@ -71,5 +75,6 @@ export const useUiStore = defineStore('ui', () => {
     shortcutsOpen,
     activeIssue,
     issueToDelete,
+    favoriteTarget,
   }
 })

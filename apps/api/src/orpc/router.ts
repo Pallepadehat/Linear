@@ -5,6 +5,7 @@ import { realtimeRouter } from '../modules/realtime/realtime.router'
 import { activityRouter } from '../modules/activity/activity.router'
 import { commentsRouter } from '../modules/comments/comments.router'
 import { cyclesRouter } from '../modules/cycles/cycles.router'
+import { favoritesRouter } from '../modules/favorites/favorites.router'
 import { githubRouter } from '../modules/github/github.router'
 import { issuesRouter } from '../modules/issues/issues.router'
 import { labelsRouter } from '../modules/labels/labels.router'
@@ -29,6 +30,7 @@ export const router = os.router({
   github: githubRouter,
   activity: activityRouter,
   comments: commentsRouter,
+  favorites: favoritesRouter,
   realtime: realtimeRouter,
   templates: templatesRouter,
   presence: presenceRouter,

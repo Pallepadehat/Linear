@@ -148,6 +148,13 @@
       "when": 1793708899600,
       "tag": "0020_cycles",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793709279882,
+      "tag": "0021_favorites",
+      "breakpoints": true
     }
   ]
 }
