@@ -53,10 +53,10 @@ async function onKeydown(event: KeyboardEvent) {
 
 <template>
   <aside
-    class="flex w-80 shrink-0 flex-col border-l border-hairline bg-panel"
+    class="flex w-88 shrink-0 flex-col border-l border-hairline bg-panel"
     aria-label="Issue details"
   >
-    <div role="tablist" aria-label="Break down by" class="flex flex-wrap items-center gap-1 p-3">
+    <div role="tablist" aria-label="Break down by" class="flex items-center gap-1 p-3">
       <button
         v-for="t in DETAILS_TABS"
         :id="`issue-details-tab-${t.value}`"
@@ -88,7 +88,9 @@ async function onKeydown(event: KeyboardEvent) {
       <div v-if="isPending" class="space-y-1 px-1" aria-hidden="true">
         <div v-for="n in 4" :key="n" class="h-8 animate-pulse rounded-md bg-surface-2" />
       </div>
-      <p v-else-if="rows.length === 0" class="px-3 py-2 text-ink-subtle">No issues</p>
+      <p v-else-if="rows.length === 0" class="px-3 py-2 text-ink-subtle">
+        {{ facets?.assignees.length ? 'No labels' : 'No issues' }}
+      </p>
       <ul v-else class="space-y-px">
         <li v-for="row in rows" :key="row.key">
           <button
