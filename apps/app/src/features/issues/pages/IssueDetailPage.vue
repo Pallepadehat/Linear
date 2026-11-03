@@ -96,6 +96,8 @@ const names = computed<ActivityNames>(() => {
 })
 const avatarOf = (userId: string) => users.value.find((u) => u.id === userId)?.avatarUrl ?? null
 
+const currentUser = useCurrentUser()
+
 // Teammates see that you're on this issue (presence heartbeats).
 useViewingIssue(() => issue.value?.id)
 
@@ -340,6 +342,9 @@ onBeforeUnmount(commitDescription)
             :entries="timeline"
             :names="names"
             :avatar-of="avatarOf"
+            :workspace-slug="slug"
+            :issue-id="issue.id"
+            :current-user-id="currentUser.data.value?.id"
             :pull-request-of="pullRequestOf"
           />
           <CommentComposer :workspace-slug="slug" :issue-id="issue.id" />
