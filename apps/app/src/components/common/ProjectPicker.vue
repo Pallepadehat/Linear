@@ -6,7 +6,9 @@ import ProjectIcon from './ProjectIcon.vue'
 
 export type ProjectOption = { id: string; name: string; iconUrl?: string | null }
 
-const props = defineProps<{ projects: ProjectOption[] }>()
+// `row` renders the list-row chip: a hairline pill aligned to the row's end; rows only
+// render it when the issue has a project.
+const props = defineProps<{ projects: ProjectOption[]; row?: boolean }>()
 const model = defineModel<string | null>({ required: true })
 const open = ref(false)
 
@@ -26,6 +28,12 @@ function choose(id: string | null) {
     label="Change project"
     placeholder="Add to project..."
     :current="model ?? NONE"
+    :align="row ? 'end' : 'start'"
+    :trigger-class="
+      row
+        ? 'h-6 max-w-40 gap-1.5 border border-hairline px-2 text-xs font-normal text-ink-muted has-[>svg]:px-2'
+        : undefined
+    "
   >
     <template #trigger>
       <ProjectIcon :src="current?.iconUrl" />
