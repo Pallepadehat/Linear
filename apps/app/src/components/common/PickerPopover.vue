@@ -108,7 +108,7 @@ function onKeydown(event: KeyboardEvent) {
       <slot v-if="$slots.panel" name="panel" />
       <Command v-else :model-value="current ?? ''" class="bg-transparent" @keydown="onKeydown">
         <PickerInput :placeholder="placeholder" :hotkey="hotkeyHint" />
-        <CommandList class="max-h-80 p-1.5">
+        <CommandList class="max-h-80 p-1.5" :aria-label="label">
           <CommandEmpty class="py-4 text-ink-subtle">No results</CommandEmpty>
           <CommandGroup class="p-0">
             <slot />
