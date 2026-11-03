@@ -2,6 +2,7 @@
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import GitHubSettings from '@/features/github/components/GitHubSettings.vue'
 import LabelsSettings from '@/features/labels/components/LabelsSettings.vue'
+import TemplateSettings from '@/features/templates/components/TemplateSettings.vue'
 import MembersList from '../components/MembersList.vue'
 import ProfileSettings from '../components/ProfileSettings.vue'
 import ThemeSettings from '../components/ThemeSettings.vue'
@@ -36,6 +37,10 @@ const { workspace } = useCurrentWorkspace()
         <p class="text-ink-subtle">Workspace labels can be used by every team.</p>
       </div>
       <LabelsSettings :team-id="null" />
+    </section>
+    <section id="templates" aria-labelledby="templates-heading" class="grid gap-4">
+      <h2 id="templates-heading" class="text-base font-semibold text-ink">Templates</h2>
+      <TemplateSettings />
     </section>
     <section id="github" aria-labelledby="github-heading" class="grid gap-4">
       <h2 id="github-heading" class="text-base font-semibold text-ink">GitHub</h2>
