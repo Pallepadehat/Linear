@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, Layers, Plus } from '@lucide/vue'
-import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
+import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/vue-query'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch, watchEffect } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -9,10 +9,19 @@ import { Button } from '@/components/ui/button'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import { groupIssuesByStatus, toListRows, type IssueListRow } from '../group-issues'
-import { issueListOptions } from '../queries'
+import { issueListOptions, useUpdateIssue } from '../queries'
 import IssueRow from './IssueRow.vue'
 
-const props = defineProps<{ workspaceSlug: string; teamId?: string; projectId?: string }>()
+// Spelled out: Vue's SFC compiler can't resolve the zod-inferred `IssueListFilter` for props.
+const props = defineProps<{
+  workspaceSlug: string
+  teamId?: string
+  projectId?: string
+  assignee?: 'me'
+  creator?: 'me'
+}>()
+// Replaces the default "No issues yet" state, e.g. for My Issues tabs.
+defineSlots<{ empty?: () => unknown }>()
 
 const GROUP_HEIGHT = 40
 const ROW_HEIGHT = 36
@@ -22,7 +31,12 @@ const PREFETCH_ROWS = 20
 const ui = useUiStore()
 const query = useInfiniteQuery(
   computed(() =>
-    issueListOptions(props.workspaceSlug, { teamId: props.teamId, projectId: props.projectId }),
+    issueListOptions(props.workspaceSlug, {
+      teamId: props.teamId,
+      projectId: props.projectId,
+      assignee: props.assignee,
+      creator: props.creator,
+    }),
   ),
 )
 const { data: members } = useQuery(
@@ -31,8 +45,38 @@ const { data: members } = useQuery(
   ),
 )
 
-const membersById = computed(() => new Map(members.value?.map((m) => [m.userId, m])))
+const { data: labels } = useQuery(
+  computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: props.workspaceSlug } })),
+)
+const { data: teams } = useQuery(
+  computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: props.workspaceSlug } })),
+)
+
+const users = computed(
+  () => members.value?.map((m) => ({ id: m.userId, name: m.name, avatarUrl: m.avatarUrl })) ?? [],
+)
 const issues = computed(() => query.data.value?.pages.flatMap((page) => page.items) ?? [])
+
+// The status picker offers the issue's own team's statuses, so load them for
+// every team with an issue on screen (a handful; one `teams.get` each).
+const listedTeams = computed(() => {
+  const ids = new Set(issues.value.map((issue) => issue.teamId))
+  return teams.value?.filter((team) => ids.has(team.id)) ?? []
+})
+const teamQueries = useQueries({
+  queries: computed(() =>
+    listedTeams.value.map((team) =>
+      orpc.teams.get.queryOptions({
+        input: { workspaceSlug: props.workspaceSlug, key: team.key },
+      }),
+    ),
+  ),
+})
+const statusesByTeam = computed(
+  () => new Map(teamQueries.value.flatMap((q) => (q.data ? [[q.data.id, q.data.statuses]] : []))),
+)
+
+const updateIssue = useUpdateIssue(() => props.workspaceSlug)
 const collapsed = ref(new Set<string>())
 const rows = computed(() => toListRows(groupIssuesByStatus(issues.value), collapsed.value))
 
@@ -111,14 +155,17 @@ watchEffect(() => {
   >
     <Button variant="secondary" size="sm" @click="query.refetch()">Retry</Button>
   </EmptyState>
-  <EmptyState
-    v-else-if="rows.length === 0"
-    :icon="Layers"
-    title="No issues yet"
-    description="Create an issue to start tracking work."
-  >
-    <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
-  </EmptyState>
+  <template v-else-if="rows.length === 0">
+    <slot name="empty">
+      <EmptyState
+        :icon="Layers"
+        title="No issues yet"
+        description="Create an issue to start tracking work."
+      >
+        <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+      </EmptyState>
+    </slot>
+  </template>
   <div v-else ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto pt-2 pb-4" role="list">
     <div class="relative w-full" :style="{ height: `${virtualizer.getTotalSize()}px` }">
       <div
@@ -161,7 +208,10 @@ watchEffect(() => {
           v-else
           class="flex-1"
           :issue="row.issue"
-          :assignee="row.issue.assigneeId ? membersById.get(row.issue.assigneeId) : undefined"
+          :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
+          :users="users"
+          :labels="labels ?? []"
+          @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
         />
       </div>
     </div>

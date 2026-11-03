@@ -1,45 +1,57 @@
 <script setup lang="ts">
-import type { Issue, UpdateIssueInput, WorkflowStatus } from '@linear/contract'
+import type { Issue, Label, WorkflowStatus } from '@linear/contract'
 import { GitPullRequest } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
-import LabelPicker, { type LabelOption } from '@/components/common/LabelPicker.vue'
+import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { fullDate, timeAgo } from '@/lib/relative-time'
-
-export type IssueChanges = Omit<UpdateIssueInput, 'workspaceSlug' | 'id'>
+import type { IssuePatch } from '../issue-cache'
 
 const props = defineProps<{
   issue: Issue
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
-  labels: LabelOption[]
+  labels: Label[]
   projects: ProjectOption[]
 }>()
-const emit = defineEmits<{ change: [changes: IssueChanges] }>()
+const emit = defineEmits<{ change: [patch: IssuePatch] }>()
 
 const statusId = computed({
   get: () => props.issue.status.id,
-  set: (id: string) => emit('change', { statusId: id }),
+  set: (id: string) => {
+    const status = props.statuses.find((s) => s.id === id)
+    if (status && status.id !== props.issue.status.id) emit('change', { status })
+  },
 })
 const priority = computed({
   get: () => toPriority(props.issue.priority),
-  set: (value: Priority) => emit('change', { priority: value }),
+  set: (value: Priority) => {
+    if (value !== props.issue.priority) emit('change', { priority: value })
+  },
 })
 const assigneeId = computed({
   get: () => props.issue.assigneeId,
-  set: (id: string | null) => emit('change', { assigneeId: id }),
+  set: (id: string | null) => {
+    if (id !== props.issue.assigneeId) emit('change', { assigneeId: id })
+  },
 })
 const labelIds = computed({
   get: () => props.issue.labels.map((l) => l.id),
-  set: (ids: string[]) => emit('change', { labelIds: ids }),
+  // The issue's own labels stay resolvable even if the workspace list hasn't loaded.
+  set: (ids: string[]) => {
+    const byId = new Map([...props.issue.labels, ...props.labels].map((l) => [l.id, l]))
+    emit('change', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
+  },
 })
 const projectId = computed({
   get: () => props.issue.projectId,
-  set: (id: string | null) => emit('change', { projectId: id }),
+  set: (id: string | null) => {
+    if (id !== props.issue.projectId) emit('change', { projectId: id })
+  },
 })
 </script>
 

@@ -1,33 +1,31 @@
 <script setup lang="ts">
-import { issueTitleSchema, type Issue } from '@linear/contract'
+import { issueTitleSchema } from '@linear/contract'
 import { SearchX } from '@lucide/vue'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
-import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
-import { projectListOptions, projectsKey } from '@/features/projects/queries'
-import { errorCode, errorMessage } from '@/lib/errors'
-import { client, orpc } from '@/lib/orpc'
+import { projectListOptions } from '@/features/projects/queries'
+import { errorCode } from '@/lib/errors'
+import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import CommentComposer from '../components/CommentComposer.vue'
-import IssueProperties, { type IssueChanges } from '../components/IssueProperties.vue'
+import IssueProperties from '../components/IssueProperties.vue'
 import IssueTimeline from '../components/IssueTimeline.vue'
+import type { IssuePatch } from '../issue-cache'
 import { buildTimeline, type ActivityNames } from '../issue-timeline'
 import {
   activityListOptions,
   commentListOptions,
   issueByIdentifierOptions,
-  issueListKey,
-  storeIssue,
+  useUpdateIssue,
 } from '../queries'
 
 const route = useRoute()
 const ui = useUiStore()
-const queryClient = useQueryClient()
 const { slug } = useCurrentWorkspace()
 const identifier = computed(() => String(route.params.identifier))
 
@@ -109,53 +107,10 @@ const timeline = computed(() =>
   ),
 )
 
-// Edits apply to the cache at once and roll back if the save fails.
-const update = useMutation({
-  mutationFn: ({ id, changes }: { id: string; changes: IssueChanges }) =>
-    client.issues.update({ workspaceSlug: slug.value, id, ...changes }),
-  onMutate: async ({ changes }) => {
-    const previous = issue.value
-    if (!previous) return { previous }
-    await queryClient.cancelQueries({
-      queryKey: issueByIdentifierOptions(slug.value, identifier.value).queryKey,
-    })
-    storeIssue(queryClient, slug.value, applyChanges(previous, changes))
-    return { previous }
-  },
-  onError: (err, _vars, context) => {
-    if (context?.previous) storeIssue(queryClient, slug.value, context.previous)
-    toast.error(errorMessage(err))
-  },
-  onSuccess: (saved) => storeIssue(queryClient, slug.value, saved),
-  onSettled: (_saved, _err, { id, changes }) => {
-    void queryClient.invalidateQueries({ queryKey: issueListKey() })
-    void queryClient.invalidateQueries({
-      queryKey: activityListOptions(slug.value, id).queryKey,
-    })
-    // Project progress counts issues by status.
-    if (changes.statusId !== undefined || changes.projectId !== undefined)
-      void queryClient.invalidateQueries({ queryKey: projectsKey() })
-  },
-})
-
-function applyChanges(current: Issue, changes: IssueChanges): Issue {
-  const next: Issue = { ...current, updatedAt: new Date() }
-  if (changes.title !== undefined) next.title = changes.title
-  if (changes.description !== undefined) next.description = changes.description
-  if (changes.priority !== undefined) next.priority = changes.priority
-  if (changes.assigneeId !== undefined) next.assigneeId = changes.assigneeId
-  if (changes.projectId !== undefined) next.projectId = changes.projectId
-  if (changes.statusId !== undefined)
-    next.status = statuses.value.find((s) => s.id === changes.statusId) ?? current.status
-  if (changes.labelIds !== undefined) {
-    const ids = changes.labelIds
-    next.labels = (labels.value ?? []).filter((l) => ids.includes(l.id))
-  }
-  return next
-}
-
-function save(changes: IssueChanges) {
-  if (issue.value) update.mutate({ id: issue.value.id, changes })
+// Shared with the issue list: optimistic, rolled back with a toast on error.
+const updateIssue = useUpdateIssue(slug)
+function save(patch: IssuePatch) {
+  if (issue.value) updateIssue.mutate({ issue: issue.value, patch })
 }
 
 // Title and description are drafts while focused, saved on blur (Enter for the title).

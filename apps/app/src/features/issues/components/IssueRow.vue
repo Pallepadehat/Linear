@@ -1,54 +1,96 @@
 <script setup lang="ts">
-import type { Issue } from '@linear/contract'
-import PriorityIcon from '@/components/common/PriorityIcon.vue'
+import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import { computed } from 'vue'
+import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import LabelPicker from '@/components/common/LabelPicker.vue'
+import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
-import UnassignedIcon from '@/components/common/UnassignedIcon.vue'
-import UserAvatar from '@/components/common/UserAvatar.vue'
-import { priorityLabel, toPriority } from '@/lib/priorities'
+import StatusPicker from '@/components/common/StatusPicker.vue'
+import { toPriority } from '@/lib/priorities'
+import type { IssuePatch } from '../issue-cache'
 
-defineProps<{ issue: Issue; assignee?: { name: string; avatarUrl: string | null } }>()
+const props = defineProps<{
+  issue: Issue
+  /** The issue team's statuses; until they load, status shows read-only. */
+  statuses: WorkflowStatus[]
+  users: AssigneeOption[]
+  labels: Label[]
+}>()
+const emit = defineEmits<{ update: [patch: IssuePatch] }>()
+
+const labelIds = computed(() => props.issue.labels.map((l) => l.id))
+// The issue's own labels stay pickable even if the workspace list hasn't loaded.
+const labelOptions = computed(() => (props.labels.length ? props.labels : props.issue.labels))
+
+function setStatus(id: string) {
+  const status = props.statuses.find((s) => s.id === id)
+  if (status && status.id !== props.issue.status.id) emit('update', { status })
+}
+function setPriority(priority: number) {
+  if (priority !== props.issue.priority) emit('update', { priority })
+}
+function setAssignee(assigneeId: string | null) {
+  if (assigneeId !== props.issue.assigneeId) emit('update', { assigneeId })
+}
+function setLabels(ids: string[]) {
+  const byId = new Map(labelOptions.value.map((l) => [l.id, l]))
+  emit('update', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
+}
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
 </script>
 
 <template>
-  <RouterLink
-    :to="{ name: 'issue', params: { identifier: issue.identifier } }"
-    class="mx-2 flex h-full items-center gap-2 rounded-md pr-3 pl-5 outline-hidden hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring"
+  <!-- The title link stretches over the whole row; the pickers sit above it. -->
+  <div
+    class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
   >
-    <PriorityIcon :priority="toPriority(issue.priority)" />
-    <span class="sr-only">Priority: {{ priorityLabel(toPriority(issue.priority)) }}</span>
-    <span class="w-16 shrink-0 truncate font-mono text-xs text-ink-subtle">
+    <PriorityPicker
+      compact
+      :model-value="toPriority(issue.priority)"
+      @update:model-value="setPriority"
+    />
+    <span class="ml-1 w-16 shrink-0 truncate font-mono text-xs text-ink-subtle">
       {{ issue.identifier }}
     </span>
-    <StatusIcon :category="issue.status.category" />
-    <span class="sr-only">Status: {{ issue.status.name }}</span>
-    <span class="min-w-0 flex-1 truncate font-medium text-ink">{{ issue.title }}</span>
-    <ul v-if="issue.labels.length" class="hidden shrink-0 items-center gap-1 md:flex">
-      <li
-        v-for="label in issue.labels"
-        :key="label.id"
-        class="flex h-[22px] max-w-32 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-muted"
-      >
-        <!-- The label's own color is user data, not a design token. -->
-        <span
-          class="size-2 shrink-0 rounded-full"
-          :style="{ backgroundColor: label.color }"
-          aria-hidden="true"
-        />
-        <span class="truncate">{{ label.name }}</span>
-      </li>
-    </ul>
-    <span class="flex w-5 shrink-0 justify-center">
-      <UserAvatar v-if="assignee" :name="assignee.name" :src="assignee.avatarUrl" size="xs" />
-      <UnassignedIcon v-else />
+    <StatusPicker
+      v-if="statuses.length"
+      compact
+      :statuses="statuses"
+      :model-value="issue.status.id"
+      @update:model-value="setStatus"
+    />
+    <template v-else>
+      <span class="flex size-7 shrink-0 items-center justify-center">
+        <StatusIcon :category="issue.status.category" />
+      </span>
+      <span class="sr-only">Status: {{ issue.status.name }}</span>
+    </template>
+    <RouterLink
+      :to="{ name: 'issue', params: { identifier: issue.identifier } }"
+      class="ml-1 min-w-0 flex-1 truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
+    >
+      {{ issue.title }}
+    </RouterLink>
+    <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
+      <LabelPicker
+        compact
+        :labels="labelOptions"
+        :model-value="labelIds"
+        @update:model-value="setLabels"
+      />
     </span>
-    <span class="sr-only">Assignee: {{ assignee?.name ?? 'Unassigned' }}</span>
+    <AssigneePicker
+      compact
+      :users="users"
+      :model-value="issue.assigneeId"
+      @update:model-value="setAssignee"
+    />
     <time
       :datetime="issue.createdAt.toISOString()"
-      class="hidden w-12 shrink-0 text-right text-xs text-ink-subtle tabular-nums sm:block"
+      class="ml-1 hidden w-12 shrink-0 text-right text-xs text-ink-subtle tabular-nums sm:block"
     >
       {{ dateFormat.format(issue.createdAt) }}
     </time>
-  </RouterLink>
+  </div>
 </template>

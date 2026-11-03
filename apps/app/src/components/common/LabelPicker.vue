@@ -9,6 +9,7 @@ export type LabelOption = { id: string; name: string; color?: string | null }
 
 const props = defineProps<{
   labels: LabelOption[]
+  compact?: boolean
   /** Fixed trigger text, for when the selected labels are already shown next to it. */
   triggerText?: string
 }>()
@@ -25,8 +26,30 @@ function toggle(id: string) {
 </script>
 
 <template>
-  <PickerPopover label="Change labels" placeholder="Change labels..." hotkey="L">
-    <template #trigger>
+  <PickerPopover
+    label="Change labels"
+    placeholder="Change labels..."
+    hotkey="L"
+    :compact="compact"
+    :align="compact ? 'end' : 'start'"
+    :trigger-class="compact ? 'h-auto w-auto gap-1 px-0 has-[>svg]:px-0' : undefined"
+  >
+    <!-- Compact (list rows): the label chips themselves open the picker. -->
+    <template v-if="compact" #trigger>
+      <span
+        v-for="label in selected"
+        :key="label.id"
+        class="flex h-[22px] max-w-32 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs font-normal text-ink-muted"
+      >
+        <span
+          class="size-2 shrink-0 rounded-full bg-ink-tertiary"
+          :style="label.color ? { backgroundColor: label.color } : undefined"
+          aria-hidden="true"
+        />
+        <span class="truncate">{{ label.name }}</span>
+      </span>
+    </template>
+    <template v-else #trigger>
       <Tag class="size-3.5 text-ink-subtle" aria-hidden="true" />
       <span v-if="triggerText" class="text-ink-subtle">{{ triggerText }}</span>
       <span v-else-if="selected.length === 0" class="text-ink-subtle">Labels</span>

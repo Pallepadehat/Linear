@@ -1,12 +1,23 @@
-import type { Issue, IssuePage } from '@linear/contract'
-import type { InfiniteData, QueryClient } from '@tanstack/vue-query'
-import { orpc } from '@/lib/orpc'
+import type { Issue, IssuePage, ListIssuesInput } from '@linear/contract'
+import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/vue-query'
+import { toValue, type MaybeRefOrGetter } from 'vue'
+import { toast } from 'vue-sonner'
+import { errorMessage } from '@/lib/errors'
+import { projectsKey } from '@/features/projects/queries'
+import { client, orpc } from '@/lib/orpc'
+import {
+  applyIssuePatch,
+  patchIssue,
+  patchIssueInPages,
+  toUpdateIssueInput,
+  type IssuePatch,
+} from './issue-cache'
 
 const PAGE_SIZE = 50
 
-export type IssueListFilter = { teamId?: string; projectId?: string }
+export type IssueListFilter = Pick<ListIssuesInput, 'teamId' | 'projectId' | 'assignee' | 'creator'>
 
-/** Newest-first issue pages for a workspace, narrowed to a team and/or project. */
+/** Newest-first issue pages for a workspace, narrowed by team, project, assignee or creator. */
 export function issueListOptions(workspaceSlug: string, filter: IssueListFilter = {}) {
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({ workspaceSlug, ...filter, cursor, limit: PAGE_SIZE }),
@@ -20,28 +31,70 @@ export const issueListKey = () => orpc.issues.list.key()
 
 export const createIssueMutationOptions = () => orpc.issues.create.mutationOptions()
 
+export type UpdateIssueVariables = { issue: Issue; patch: IssuePatch }
+
+/**
+ * Issue edits (title, description and every property) applied optimistically to
+ * every cached copy of the issue — each list page and the detail entries — rolled
+ * back with a toast if the server rejects them.
+ */
+export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
+  const queryClient = useQueryClient()
+  const listKey = orpc.issues.list.key({ type: 'infinite' })
+  const detailKeys = [orpc.issues.get.key(), orpc.issues.getByIdentifier.key()]
+  const mutationKey = orpc.issues.update.mutationKey()
+
+  // Writes `update` into every cache holding the issue.
+  function patchCaches(id: string, update: (issue: Issue) => Issue) {
+    queryClient.setQueriesData<InfiniteData<IssuePage>>({ queryKey: listKey }, (data) =>
+      patchIssueInPages(data, id, update),
+    )
+    for (const queryKey of detailKeys)
+      queryClient.setQueriesData<Issue>({ queryKey }, (data) => patchIssue(data, id, update))
+  }
+
+  return useMutation({
+    mutationKey,
+    mutationFn: ({ issue, patch }: UpdateIssueVariables) =>
+      client.issues.update(toUpdateIssueInput(toValue(workspaceSlug), issue.id, patch)),
+    onMutate: async ({ issue, patch }) => {
+      // A refetch landing after the patch would overwrite it with stale data.
+      await Promise.all(
+        [listKey, ...detailKeys].map((queryKey) => queryClient.cancelQueries({ queryKey })),
+      )
+      const previous = [
+        ...queryClient.getQueriesData({ queryKey: listKey }),
+        ...detailKeys.flatMap((queryKey) => queryClient.getQueriesData({ queryKey })),
+      ]
+      patchCaches(issue.id, (current) => applyIssuePatch(current, patch))
+      return { previous }
+    },
+    onError: (error, { issue }, context) => {
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
+      toast.error(`Couldn't update ${issue.identifier}`, { description: errorMessage(error) })
+    },
+    onSuccess: (updated) => {
+      patchCaches(updated.id, () => updated)
+    },
+    onSettled: async () => {
+      // With several changes in flight, refetching after the first would briefly
+      // show the server state without the later ones; wait for the last.
+      if (queryClient.isMutating({ mutationKey }) > 1) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: listKey }),
+        ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+        queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
+        // Project progress counts issues by status and project.
+        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+      ])
+    },
+  })
+}
+
 /** One issue by its `TIP-200` identifier (case-insensitive on the server). */
 export const issueByIdentifierOptions = (workspaceSlug: string, identifier: string) =>
   orpc.issues.getByIdentifier.queryOptions({ input: { workspaceSlug, identifier } })
-
-/** Writes a saved issue into its detail cache and every cached list page that holds it. */
-export function storeIssue(queryClient: QueryClient, workspaceSlug: string, issue: Issue) {
-  queryClient.setQueryData(
-    issueByIdentifierOptions(workspaceSlug, issue.identifier).queryKey,
-    issue,
-  )
-  queryClient.setQueriesData<InfiniteData<IssuePage>>({ queryKey: issueListKey() }, (data) =>
-    data
-      ? {
-          ...data,
-          pages: data.pages.map((page) => ({
-            ...page,
-            items: page.items.map((item) => (item.id === issue.id ? issue : item)),
-          })),
-        }
-      : data,
-  )
-}
 
 /** Oldest-first comment pages for one issue. */
 export const commentListOptions = (workspaceSlug: string, issueId: string) =>
