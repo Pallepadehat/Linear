@@ -41,7 +41,6 @@ async function logOut() {
   <DropdownMenu>
     <DropdownMenuTrigger
       class="flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-1.5 text-left hover:bg-surface-2 focus-visible:bg-surface-2"
-      :aria-label="`${user?.name ?? ''} account menu`.trim()"
     >
       <UserAvatar :name="user?.name ?? ''" :src="user?.avatarUrl" />
       <span class="truncate text-ink-muted">{{ user?.name }}</span>
