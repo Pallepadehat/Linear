@@ -3,7 +3,10 @@ import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 
 type QueryValue = LocationQuery[string] | undefined
 
-/** In the URL, `none` stands for "no assignee" / "no project" / "no cycle" / "no estimate". */
+/**
+ * In the URL, `none` stands for "no assignee" / "no project" / "no milestone" / "no cycle" /
+ * "no estimate".
+ */
 export const NONE = 'none'
 /** In the URL, `any` stands for "has an estimate". */
 export const ANY = 'any'
@@ -20,6 +23,8 @@ export type IssueFilters = {
   assigneeIds: (string | null)[]
   /** `null` = no project. */
   projectIds: (string | null)[]
+  /** `null` = no milestone. */
+  milestoneIds: (string | null)[]
   /** `null` = no cycle. */
   cycleIds: (string | null)[]
   labelIds: string[]
@@ -38,6 +43,7 @@ export const EMPTY_FILTERS: IssueFilters = {
   priorities: [],
   assigneeIds: [],
   projectIds: [],
+  milestoneIds: [],
   cycleIds: [],
   labelIds: [],
   estimates: [],
@@ -77,6 +83,7 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
       .map(Number),
     assigneeIds: idsOrNone(query.assignee),
     projectIds: idsOrNone(query.project),
+    milestoneIds: idsOrNone(query.milestone),
     cycleIds: idsOrNone(query.cycle),
     labelIds: ids(query.label),
     estimates: list(query.estimate).flatMap((v): EstimateFilterValue[] =>
@@ -100,6 +107,7 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     priority: join(filters.priorities),
     assignee: join(filters.assigneeIds),
     project: join(filters.projectIds),
+    milestone: join(filters.milestoneIds),
     cycle: join(filters.cycleIds),
     label: join(filters.labelIds),
     estimate: join(filters.estimates),
@@ -117,6 +125,7 @@ export function hasActiveFilters(filters: IssueFilters) {
     filters.priorities.length > 0 ||
     filters.assigneeIds.length > 0 ||
     filters.projectIds.length > 0 ||
+    filters.milestoneIds.length > 0 ||
     filters.cycleIds.length > 0 ||
     filters.labelIds.length > 0 ||
     filters.estimates.length > 0 ||

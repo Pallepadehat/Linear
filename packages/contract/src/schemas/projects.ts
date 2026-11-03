@@ -32,6 +32,10 @@ export const projectSchema = z.object({
   progress: projectProgressSchema,
   /** All issues linked to the project (the same number as `progress.total`). */
   issueCount: z.number().int(),
+  /** The first milestone, in order, that isn't complete; null when there is none. */
+  currentMilestone: z
+    .object({ id: z.uuid(), name: z.string(), progress: z.number().min(0).max(1) })
+    .nullable(),
   createdAt: z.date(),
 })
 export const projectIdInputSchema = workspaceScopedSchema.extend({ id: z.uuid() })
