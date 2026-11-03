@@ -3,6 +3,7 @@ import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/vue-qu
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
+import { projectsKey } from '@/features/projects/queries'
 import { client, orpc } from '@/lib/orpc'
 import {
   applyIssuePatch,
@@ -33,7 +34,7 @@ export const createIssueMutationOptions = () => orpc.issues.create.mutationOptio
 export type UpdateIssueVariables = { issue: Issue; patch: IssuePatch }
 
 /**
- * Property changes (status, priority, assignee, labels) applied optimistically to
+ * Issue edits (title, description and every property) applied optimistically to
  * every cached copy of the issue — each list page and the detail entries — rolled
  * back with a toast if the server rejects them.
  */
@@ -84,7 +85,29 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
         queryClient.invalidateQueries({ queryKey: listKey }),
         ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
+        // Project progress counts issues by status and project.
+        queryClient.invalidateQueries({ queryKey: projectsKey() }),
       ])
     },
   })
 }
+
+/** One issue by its `TIP-200` identifier (case-insensitive on the server). */
+export const issueByIdentifierOptions = (workspaceSlug: string, identifier: string) =>
+  orpc.issues.getByIdentifier.queryOptions({ input: { workspaceSlug, identifier } })
+
+/** Oldest-first comment pages for one issue. */
+export const commentListOptions = (workspaceSlug: string, issueId: string) =>
+  orpc.comments.list.infiniteOptions({
+    input: (cursor: string | null) => ({ workspaceSlug, issueId, cursor, limit: 100 }),
+    initialPageParam: null,
+    getNextPageParam: (page) => page.nextCursor,
+  })
+
+/** Oldest-first activity pages for one issue. */
+export const activityListOptions = (workspaceSlug: string, issueId: string) =>
+  orpc.activity.list.infiniteOptions({
+    input: (cursor: string | null) => ({ workspaceSlug, issueId, cursor, limit: 100 }),
+    initialPageParam: null,
+    getNextPageParam: (page) => page.nextCursor,
+  })

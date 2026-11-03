@@ -41,7 +41,10 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
 </script>
 
 <template>
-  <div class="mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 hover:bg-surface-2">
+  <!-- The title link stretches over the whole row; the pickers sit above it. -->
+  <div
+    class="relative mx-2 flex h-full items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
+  >
     <PriorityPicker
       compact
       :model-value="toPriority(issue.priority)"
@@ -63,7 +66,12 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       </span>
       <span class="sr-only">Status: {{ issue.status.name }}</span>
     </template>
-    <span class="ml-1 min-w-0 flex-1 truncate font-medium text-ink">{{ issue.title }}</span>
+    <RouterLink
+      :to="{ name: 'issue', params: { identifier: issue.identifier } }"
+      class="ml-1 min-w-0 flex-1 truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
+    >
+      {{ issue.title }}
+    </RouterLink>
     <span v-if="issue.labels.length" class="hidden shrink-0 md:flex">
       <LabelPicker
         compact
