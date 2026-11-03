@@ -42,6 +42,13 @@ const { workspace } = useCurrentWorkspace()
       <h2 id="templates-heading" class="text-base font-semibold text-ink">Templates</h2>
       <TemplateSettings />
     </section>
+    <section id="coding-tools" aria-labelledby="coding-tools-heading" class="grid gap-2">
+      <h2 id="coding-tools-heading" class="text-base font-semibold text-ink">Coding tools</h2>
+      <p class="text-ink-subtle">
+        Coding tool integrations are coming later. Until then, use “Copy as prompt” on an issue and
+        paste it into any coding agent.
+      </p>
+    </section>
     <section id="github" aria-labelledby="github-heading" class="grid gap-4">
       <h2 id="github-heading" class="text-base font-semibold text-ink">GitHub</h2>
       <GitHubSettings v-if="workspace?.role === 'owner'" />
