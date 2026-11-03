@@ -86,5 +86,17 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // The API may start the real worker in tests (apps/api/test/acceptance), never at runtime.
+    files: ['apps/api/src/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [{ group: ['@linear/worker*'], message: 'apps/api must not import the worker.' }],
+        },
+      ],
+    },
+  },
   prettier,
 )
