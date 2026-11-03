@@ -449,6 +449,7 @@ function onKeydown(event: KeyboardEvent) {
             v-bind="titleAttrs"
             autocomplete="off"
             placeholder="Issue title"
+            spellcheck="false"
             :aria-invalid="Boolean(errors.title)"
             :aria-describedby="errors.title ? 'new-issue-title-error' : undefined"
             class="w-full bg-transparent text-lg font-semibold tracking-tight text-ink caret-primary outline-hidden placeholder:text-ink-tertiary"
