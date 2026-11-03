@@ -51,6 +51,7 @@ export const SHORTCUTS = {
   // Handled by key code in WorkspaceLayout (⌥F types "ƒ" on macOS); listed here for the sheet.
   'toggle-favorite': { keys: 'alt+f', label: 'Favorite / unfavorite', scope: 'global' },
   'list-filter': { keys: 'f', label: 'Filter issues', scope: 'list' },
+  'list-details': { keys: 'mod+i', label: 'Toggle details panel', scope: 'list' },
   'list-next': { keys: ['j', 'arrowdown'], label: 'Move down', scope: 'list' },
   'list-prev': { keys: ['k', 'arrowup'], label: 'Move up', scope: 'list' },
   'list-open': { keys: 'enter', label: 'Open focused issue', scope: 'list' },
@@ -62,6 +63,12 @@ export const SHORTCUTS = {
   'issue-back': { keys: 'escape', label: 'Go back', scope: 'issue' },
   'issue-delete': { keys: 'mod+backspace', label: 'Delete issue', scope: 'issue' },
   'issue-set-parent': { keys: 'mod+shift+p', label: 'Set parent issue', scope: 'issue' },
+  // Copy actions match on key code in useIssueCopy (⌘⇧, gives "<", ⌥P gives "π" on
+  // macOS); listed here for the sheet and the button / menu hints.
+  'issue-copy-url': { keys: 'mod+shift+,', label: 'Copy issue URL', scope: 'issue' },
+  'issue-copy-id': { keys: 'mod+.', label: 'Copy ID', scope: 'issue' },
+  'issue-copy-branch': { keys: 'mod+shift+.', label: 'Copy git branch name', scope: 'issue' },
+  'issue-copy-prompt': { keys: 'mod+alt+p', label: 'Copy as prompt', scope: 'issue' },
   'issue-status': { keys: 's', label: 'Change status', scope: 'picker', inDialog: true },
   'issue-priority': { keys: 'p', label: 'Change priority', scope: 'picker', inDialog: true },
   'issue-assignee': { keys: 'a', label: 'Assign to', scope: 'picker', inDialog: true },
