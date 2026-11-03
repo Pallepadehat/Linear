@@ -69,7 +69,8 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
       return { previous }
     },
     onError: (error, { issue }, context) => {
-      for (const [queryKey, data] of context?.previous ?? []) queryClient.setQueryData(queryKey, data)
+      for (const [queryKey, data] of context?.previous ?? [])
+        queryClient.setQueryData(queryKey, data)
       toast.error(`Couldn't update ${issue.identifier}`, { description: errorMessage(error) })
     },
     onSuccess: (updated) => {

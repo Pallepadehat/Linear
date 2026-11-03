@@ -1,12 +1,7 @@
 import type { Issue, IssuePage, WorkflowStatus } from '@linear/contract'
 import type { InfiniteData } from '@tanstack/vue-query'
 import { describe, expect, it } from 'vitest'
-import {
-  applyIssuePatch,
-  patchIssue,
-  patchIssueInPages,
-  toUpdateIssueInput,
-} from './issue-cache'
+import { applyIssuePatch, patchIssue, patchIssueInPages, toUpdateIssueInput } from './issue-cache'
 
 const status = (name: string, category: WorkflowStatus['category']): WorkflowStatus => ({
   id: crypto.randomUUID(),

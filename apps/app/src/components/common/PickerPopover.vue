@@ -2,6 +2,7 @@
 import { useEventListener } from '@vueuse/core'
 import { provide, useTemplateRef } from 'vue'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Command, CommandEmpty, CommandGroup, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { pickerShortcutsKey, type PickerShortcuts } from './picker-context'
@@ -11,19 +12,23 @@ import PickerInput from './PickerInput.vue'
 // keyboard-navigable list. Arrow keys move, Enter selects, a number key picks
 // that option while the filter is empty, Escape closes and returns focus.
 // `current` is the selected option's value, highlighted when the list opens.
-// `hotkey` opens the picker from anywhere outside a text field.
+// `hotkey` opens the picker from anywhere outside a text field. `compact` pickers
+// (one per list row) get an icon-sized trigger and only show the hotkey hint:
+// a global key can't tell which of many rows it is meant for.
 const props = defineProps<{
   label: string
   placeholder: string
   hotkey?: string
   current?: string
+  compact?: boolean
+  triggerClass?: string
 }>()
 
 const open = defineModel<boolean>('open', { default: false })
 const trigger = useTemplateRef<{ $el: HTMLElement }>('trigger')
 
 useEventListener(document, 'keydown', (event: KeyboardEvent) => {
-  if (!props.hotkey || open.value || event.defaultPrevented) return
+  if (!props.hotkey || props.compact || open.value || event.defaultPrevented) return
   if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
   if (event.key.toUpperCase() !== props.hotkey) return
   const target = event.target
@@ -64,7 +69,15 @@ function onKeydown(event: KeyboardEvent) {
         variant="ghost"
         :aria-keyshortcuts="hotkey"
         size="sm"
-        class="justify-start rounded-full px-2 text-ink has-[>svg]:px-2 data-[state=open]:bg-surface-2"
+        :class="
+          cn(
+            'rounded-full text-ink data-[state=open]:bg-surface-2',
+            compact
+              ? 'size-7 justify-center px-0 has-[>svg]:px-0'
+              : 'justify-start px-2 has-[>svg]:px-2',
+            triggerClass,
+          )
+        "
       >
         <span class="sr-only">{{ label }}:</span>
         <slot name="trigger" />
