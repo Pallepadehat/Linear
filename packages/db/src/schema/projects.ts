@@ -164,3 +164,34 @@ export const projectMilestones = pgTable(
     index().on(t.projectId, t.sortOrder),
   ],
 )
+
+/**
+ * One row per project per UTC day: its issue counts at the last snapshot that day
+ * (docs/domain.md → Project progress). Written only by the `project-progress-snapshot`
+ * job, which upserts on `(projectId, date)`.
+ */
+export const projectProgressSnapshots = pgTable(
+  'project_progress_snapshots',
+  {
+    id: id(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    date: date({ mode: 'string' }).notNull(),
+    scope: integer().notNull(),
+    started: integer().notNull(),
+    completed: integer().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    unique('project_progress_snapshots_project_id_date_unique').on(t.projectId, t.date),
+    index().on(t.workspaceId),
+    check(
+      'project_progress_snapshots_counts',
+      sql`${t.started} >= 0 and ${t.completed} >= 0 and ${t.started} + ${t.completed} <= ${t.scope}`,
+    ),
+  ],
+)
