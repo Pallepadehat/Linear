@@ -126,6 +126,8 @@ export function createRealtimeEventHandler({
         return void queryClient.invalidateQueries({
           queryKey: orpc.comments.list.key({ input: { issueId: event.issueId } }),
         })
+      case 'presence.changed':
+        return void queryClient.invalidateQueries({ queryKey: orpc.presence.list.key() })
     }
   }
 }

@@ -145,6 +145,13 @@ describe('realtime event handler', () => {
     expect(listed()[0]!.status).toEqual(todo)
   })
 
+  it('refetches presence when a teammate presence changes', () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    handle({ type: 'presence.changed', userId: crypto.randomUUID() })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: orpc.presence.list.key() })
+  })
+
   it('removes a deleted issue from lists', () => {
     const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
     handle({ type: 'issue.deleted', issueId: 'a', ...actor })
