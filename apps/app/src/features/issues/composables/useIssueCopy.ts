@@ -7,38 +7,11 @@ import { toast } from 'vue-sonner'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { projectListOptions } from '@/features/projects/queries'
+import { isTypingTarget } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
+import { copyKindFor, type CopyKind } from '../copy-shortcuts'
 import { issueBranchName } from '../issue-branch'
 import { buildIssuePrompt } from '../issue-prompt'
-
-export type CopyKind = 'url' | 'id' | 'branch' | 'prompt'
-
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-
-/** Linear's copy shortcuts: the key `code` (layout-independent) plus modifiers. */
-const SHORTCUTS: Record<CopyKind, { code: string; shift: boolean; alt: boolean; label: string }> = {
-  url: { code: 'Comma', shift: true, alt: false, label: isMac ? '⌘⇧,' : 'Ctrl Shift ,' },
-  id: { code: 'Period', shift: false, alt: false, label: isMac ? '⌘.' : 'Ctrl .' },
-  branch: { code: 'Period', shift: true, alt: false, label: isMac ? '⌘⇧.' : 'Ctrl Shift .' },
-  prompt: { code: 'KeyP', shift: false, alt: true, label: isMac ? '⌘⌥P' : 'Ctrl Alt P' },
-}
-
-export const COPY_LABELS: Record<CopyKind, string> = {
-  url: 'Copy issue URL',
-  id: 'Copy ID',
-  branch: 'Copy git branch name',
-  prompt: 'Copy as prompt',
-}
-
-export const copyShortcut = (kind: CopyKind) => SHORTCUTS[kind].label
-
-/** Text fields and editors keep their own ⌘. / ⌘⇧, etc. */
-function isEditing(target: EventTarget | null) {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || target.closest('input, textarea, select') !== null)
-  )
-}
 
 /**
  * Copy actions for the open issue (URL, identifier, git branch, prompt for a coding
@@ -91,13 +64,11 @@ export function useIssueCopy(issue: MaybeRefOrGetter<Issue>) {
     }
   }
 
+  // Text fields and editors keep their own ⌘. / ⌘⇧, etc.; dialogs own the keyboard.
   useEventListener(window, 'keydown', (event: KeyboardEvent) => {
-    if (!(isMac ? event.metaKey : event.ctrlKey) || isEditing(event.target)) return
-    const kind = (Object.keys(SHORTCUTS) as CopyKind[]).find((k) => {
-      const s = SHORTCUTS[k]
-      return event.code === s.code && event.shiftKey === s.shift && event.altKey === s.alt
-    })
-    if (!kind) return
+    if (event.defaultPrevented || isTypingTarget(event.target)) return
+    const kind = copyKindFor(event)
+    if (!kind || document.querySelector('[role="dialog"][data-state="open"]')) return
     event.preventDefault()
     void copy(kind)
   })
