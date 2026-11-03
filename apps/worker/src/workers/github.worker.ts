@@ -4,7 +4,12 @@ import type { Redis } from 'ioredis'
 import type { JobDeps } from '../deps'
 import { processGithubWebhook } from '../jobs/github/github-webhook'
 
-export function createGithubWorker(deps: JobDeps, connection: Redis) {
+/** `prefix` must match the queues' prefix (tests use `test`, see apps/api/test/harness.ts). */
+export function createGithubWorker(
+  deps: JobDeps,
+  connection: Redis,
+  options: { prefix?: string } = {},
+) {
   return new Worker(
     QUEUE_NAMES.githubWebhooks,
     async (job) => {
@@ -19,6 +24,6 @@ export function createGithubWorker(deps: JobDeps, connection: Redis) {
       }
     },
     // Row locks keep concurrent deliveries for one PR correct; this just bounds DB load.
-    { connection, concurrency: 5 },
+    { connection, concurrency: 5, prefix: options.prefix },
   )
 }
