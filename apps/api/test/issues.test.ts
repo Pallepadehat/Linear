@@ -1,5 +1,5 @@
 import { createIssue } from '@linear/core'
-import { issues, teams, workflowStatuses } from '@linear/db'
+import { issueAttachments, issues, teams, uploads, workflowStatuses } from '@linear/db'
 import {
   addMember,
   createTeam,
@@ -11,7 +11,7 @@ import { and, eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { rpcClient, setupTestApp, signUp } from './harness'
 
-const { app, db } = await setupTestApp()
+const { app, db, queues, objects } = await setupTestApp()
 
 async function arrange() {
   const user = await createUser(db)
@@ -411,5 +411,141 @@ describe('issues procedures', () => {
     expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toMatchObject({
       title: 'Secret',
     })
+  })
+})
+
+describe('issue attachments', () => {
+  type Client = Awaited<ReturnType<typeof signUp>>['client']
+
+  /** Presigns, "uploads" and confirms a ready attachment in the workspace. */
+  async function readyAttachment(client: Client, workspaceSlug = 'tip') {
+    const { uploadId } = await client.uploads.createPresignedUpload({
+      kind: 'attachment',
+      contentType: 'application/pdf',
+      size: 10,
+      workspaceSlug,
+    })
+    const [upload] = await db.select().from(uploads).where(eq(uploads.id, uploadId))
+    objects.set(upload!.objectKey, { body: new Uint8Array(10), contentType: upload!.contentType })
+    await client.uploads.confirm({ uploadId })
+    return uploadId
+  }
+
+  const ref = (uploadId: string) => `[spec.pdf](attachment:${uploadId})`
+
+  async function linkedUploadIds(issueId: string) {
+    const rows = await db
+      .select({ uploadId: issueAttachments.uploadId })
+      .from(issueAttachments)
+      .where(eq(issueAttachments.issueId, issueId))
+    return rows.map((row) => row.uploadId).sort()
+  }
+
+  async function uploadStatus(uploadId: string) {
+    const [upload] = await db.select().from(uploads).where(eq(uploads.id, uploadId))
+    return upload!.status
+  }
+
+  async function deleteJobs() {
+    const jobs = await queues.maintenance.getJobs(['waiting', 'delayed'])
+    return jobs.filter((job) => job.name === 'delete-objects').map((job) => job.data.uploadId)
+  }
+
+  it('links referenced attachments and deletes them with the issue', async () => {
+    const { owner, team, issues } = await workspaceWithTeam()
+    const [a, b] = [await readyAttachment(owner.client), await readyAttachment(owner.client)]
+
+    const issue = await issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'With files',
+      description: `![shot](attachment:${a})\n\n${ref(b)} and ${ref(a)}`,
+    })
+    expect(await linkedUploadIds(issue.id)).toEqual([a, b].sort())
+
+    await issues.delete({ workspaceSlug: 'tip', id: issue.id })
+    expect(await linkedUploadIds(issue.id)).toEqual([])
+    expect([await uploadStatus(a), await uploadStatus(b)]).toEqual(['deleted', 'deleted'])
+    expect((await deleteJobs()).sort()).toEqual([a, b].sort())
+  })
+
+  it('syncs links on description updates, leaving removed files to the sweep', async () => {
+    const { owner, team, issues } = await workspaceWithTeam()
+    const [a, b] = [await readyAttachment(owner.client), await readyAttachment(owner.client)]
+    const issue = await issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'Edit me',
+      description: ref(a),
+    })
+
+    await issues.update({ workspaceSlug: 'tip', id: issue.id, description: ref(b) })
+    expect(await linkedUploadIds(issue.id)).toEqual([b])
+    // Unlinked but kept for now, so an undo can bring the reference back.
+    expect(await uploadStatus(a)).toBe('ready')
+
+    // Updates that leave the description alone keep the links.
+    await issues.update({ workspaceSlug: 'tip', id: issue.id, title: 'Renamed' })
+    expect(await linkedUploadIds(issue.id)).toEqual([b])
+
+    await issues.update({ workspaceSlug: 'tip', id: issue.id, description: null })
+    expect(await linkedUploadIds(issue.id)).toEqual([])
+    expect(await deleteJobs()).toEqual([])
+  })
+
+  it('keeps an attachment that another issue still references', async () => {
+    const { owner, team, issues } = await workspaceWithTeam()
+    const a = await readyAttachment(owner.client)
+    const input = { workspaceSlug: 'tip', teamId: team.id, description: ref(a) }
+    const first = await issues.create({ ...input, title: 'First' })
+    const second = await issues.create({ ...input, title: 'Second' })
+
+    await issues.delete({ workspaceSlug: 'tip', id: first.id })
+    expect(await uploadStatus(a)).toBe('ready')
+    expect(await deleteJobs()).toEqual([])
+
+    await issues.delete({ workspaceSlug: 'tip', id: second.id })
+    expect(await uploadStatus(a)).toBe('deleted')
+    expect(await deleteJobs()).toEqual([a])
+  })
+
+  it('rejects references to uploads that are not ready attachments in the workspace', async () => {
+    const { owner, team, issues } = await workspaceWithTeam()
+    await owner.client.workspaces.create({ name: 'Other', slug: 'other' })
+    const foreign = await readyAttachment(owner.client, 'other')
+    const { uploadId: pending } = await owner.client.uploads.createPresignedUpload({
+      kind: 'attachment',
+      contentType: 'application/pdf',
+      size: 10,
+      workspaceSlug: 'tip',
+    })
+    const { uploadId: icon } = await owner.client.uploads.createPresignedUpload({
+      kind: 'project_icon',
+      contentType: 'image/png',
+      size: 10,
+      workspaceSlug: 'tip',
+    })
+    await db.update(uploads).set({ status: 'ready' }).where(eq(uploads.id, icon))
+    const unknown = '01890a5d-ac96-774b-bcce-b302099a8057'
+    const issue = await issues.create({ workspaceSlug: 'tip', teamId: team.id, title: 'X' })
+
+    for (const uploadId of [foreign, pending, icon, unknown]) {
+      await expect(
+        issues.create({
+          workspaceSlug: 'tip',
+          teamId: team.id,
+          title: 'Bad',
+          description: ref(uploadId),
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      await expect(
+        issues.update({ workspaceSlug: 'tip', id: issue.id, description: ref(uploadId) }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+    }
+    // Nothing was created or changed by the rejected writes.
+    const page = await issues.list({ workspaceSlug: 'tip', limit: 50 })
+    expect(page.items.map((i) => i.title)).toEqual(['X'])
+    expect((await issues.get({ workspaceSlug: 'tip', id: issue.id })).description).toBeNull()
+    expect(await uploadStatus(foreign)).toBe('ready')
   })
 })
