@@ -61,7 +61,7 @@ Report results honestly: if something fails or was skipped, say so.
 
 | Branch    | Purpose                     | Rules                                                        |
 | --------- | --------------------------- | ------------------------------------------------------------ |
-| `main`    | Production                  | Protected: changes only via PR, CI (`ci`) must pass, no force push, no deletion |
+| `main`    | Production                  | Protected: changes only via PR, checks `ci` and `docker` must pass, no force push, no deletion |
 | `develop` | Development (default branch) | Cannot be deleted                                           |
 | feature   | One roadmap task            | Branch off `develop`, PR back into `develop`                 |
 

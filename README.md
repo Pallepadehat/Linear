@@ -233,7 +233,7 @@ The [Release workflow](.github/workflows/release.yml) builds both images and boo
 
 | Event | Result |
 | --- | --- |
-| Pull request into `main` | Check `docker` must pass: the release builds and boots |
+| Pull request into `main` | Required check `docker` (with `ci`): the release must build and boot before it can merge |
 | Push to `main` (a release) | Same checks, then pushes `ghcr.io/pallepadehat/linear-server` and `linear-app` tagged **`:prod`** and **`:sha-<commit>`** |
 
 GHCR packages start out private. To let anyone `pull` without `docker login ghcr.io`, set each package to public once (GitHub → your profile → Packages → package → Package settings → Change visibility).
