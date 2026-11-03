@@ -8,7 +8,6 @@ defineProps<{ workspaceSlug: string; projectId: string }>()
 <template>
   <div class="min-h-0 flex-1 overflow-y-auto">
     <div class="mx-auto w-full max-w-3xl px-8 py-6">
-      <h2 class="sr-only">Activity</h2>
       <ProjectActivityFeed
         :key="projectId"
         :workspace-slug="workspaceSlug"

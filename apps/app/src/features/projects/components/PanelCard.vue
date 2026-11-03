@@ -3,10 +3,13 @@ import { ChevronDown } from '@lucide/vue'
 import { ref, useId } from 'vue'
 
 // A collapsible card in the project's right panel.
-const props = defineProps<{ title: string; defaultOpen?: boolean }>()
+// An absent boolean prop is `false` in Vue, hence the explicit default.
+const props = withDefaults(defineProps<{ title: string; defaultOpen?: boolean }>(), {
+  defaultOpen: true,
+})
 defineSlots<{ default: () => unknown; actions?: () => unknown }>()
 
-const open = ref(props.defaultOpen ?? true)
+const open = ref(props.defaultOpen)
 const contentId = useId()
 </script>
 
