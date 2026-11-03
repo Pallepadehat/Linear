@@ -69,7 +69,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | ID     | Status | Task                                                       | Depends on |
 | ------ | ------ | ---------------------------------------------------------- | ---------- |
 | M5-01  | [x]    | PRD §12 acceptance tests 1–9 as automated tests            | M4-05      |
-| M5-02  | [ ]    | Playwright E2E: demo scenario (Test 10, with mocked GitHub) | M4-07     |
+| M5-02  | [~]    | Playwright E2E: demo scenario (Test 10, with mocked GitHub) | M4-07     |
 | M5-03  | [x]    | Accessibility + both-theme UI pass                         | M3-*       |
 | M5-04  | [x]    | README: setup, env, Docker, GitHub App, demo script        | M4-06      |
 
