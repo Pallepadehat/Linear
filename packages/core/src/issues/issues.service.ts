@@ -14,6 +14,7 @@ import { diffIssue } from '../activity/diff'
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
 import { pickDefaultStatus } from '../teams/default-status'
+import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
 import { ISSUE_PRIORITIES, type IssuePriority } from './priorities'
 
@@ -131,6 +132,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       .returning()
     if (!issue) throw new Error('issue insert returned no row')
     await setIssueLabels(tx, input.workspaceId, issue.id, labelIds)
+    await syncIssueAttachments(tx, input.workspaceId, issue.id, issue.description)
     await recordActivity(tx, {
       workspaceId: input.workspaceId,
       issueId: issue.id,
@@ -241,6 +243,9 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     )
 
     await tx.update(issues).set(changes).where(eq(issues.id, current.id))
+    if (input.description !== undefined) {
+      await syncIssueAttachments(tx, input.workspaceId, current.id, input.description)
+    }
     if (labelIds !== undefined) {
       await tx
         .delete(issueLabels)
@@ -259,13 +264,22 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
   return getIssue(db, input.workspaceId, input.id)
 }
 
+/**
+ * Deletes the issue (labels, links, comments cascade) and marks its attachments
+ * deleted unless another issue still references them. The caller enqueues
+ * `delete-objects` for each `deletedUploadIds` entry after the commit.
+ */
 export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
-  const [issue] = await db
-    .delete(issues)
-    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
-    .returning({ id: issues.id })
-  if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
-  return issue
+  return db.transaction(async (tx) => {
+    const attachmentIds = await listIssueAttachmentIds(tx, workspaceId, id)
+    const [issue] = await tx
+      .delete(issues)
+      .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
+      .returning({ id: issues.id })
+    if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
+    const deletedUploadIds = await releaseAttachments(tx, workspaceId, attachmentIds)
+    return { id: issue.id, deletedUploadIds }
+  })
 }
 
 /** Issues with their team key, status and labels, scoped to the workspace. */

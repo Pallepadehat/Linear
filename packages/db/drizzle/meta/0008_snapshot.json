@@ -1,5 +1,5 @@
 {
-  "id": "3ac3a04f-edd3-44b7-8fdf-e085c9335456",
+  "id": "fa3b6004-0cab-4542-b062-8f1bf95ef140",
   "prevId": "1b28a1e5-8bed-41c0-a661-c2319ddafa24",
   "version": "7",
   "dialect": "postgresql",
@@ -547,25 +547,6 @@
           "notNull": true,
           "default": 0
         },
-        "default_status_id": {
-          "name": "default_status_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "default_priority": {
-          "name": "default_priority",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "default_assignee_id": {
-          "name": "default_assignee_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -611,34 +592,6 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "teams_default_assignee_id_users_id_fk": {
-          "name": "teams_default_assignee_id_users_id_fk",
-          "tableFrom": "teams",
-          "tableTo": "users",
-          "columnsFrom": [
-            "default_assignee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "teams_default_status_fk": {
-          "name": "teams_default_status_fk",
-          "tableFrom": "teams",
-          "tableTo": "workflow_statuses",
-          "columnsFrom": [
-            "id",
-            "default_status_id"
-          ],
-          "columnsTo": [
-            "team_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -654,10 +607,6 @@
       },
       "policies": {},
       "checkConstraints": {
-        "teams_default_priority_range": {
-          "name": "teams_default_priority_range",
-          "value": "\"teams\".\"default_priority\" between 0 and 4"
-        },
         "teams_key_format": {
           "name": "teams_key_format",
           "value": "\"teams\".\"key\" ~ '^[A-Z][A-Z0-9]{1,9}$'"
@@ -793,14 +742,6 @@
           "columns": [
             "team_id",
             "name"
-          ]
-        },
-        "workflow_statuses_team_id_id_unique": {
-          "name": "workflow_statuses_team_id_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "team_id",
-            "id"
           ]
         }
       },
@@ -1194,6 +1135,137 @@
           "nullsNotDistinct": false,
           "columns": [
             "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.issue_attachments": {
+      "name": "issue_attachments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issue_id": {
+          "name": "issue_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "upload_id": {
+          "name": "upload_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "issue_attachments_workspace_id_index": {
+          "name": "issue_attachments_workspace_id_index",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "issue_attachments_upload_id_index": {
+          "name": "issue_attachments_upload_id_index",
+          "columns": [
+            {
+              "expression": "upload_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "issue_attachments_workspace_id_workspaces_id_fk": {
+          "name": "issue_attachments_workspace_id_workspaces_id_fk",
+          "tableFrom": "issue_attachments",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "issue_attachments_issue_id_issues_id_fk": {
+          "name": "issue_attachments_issue_id_issues_id_fk",
+          "tableFrom": "issue_attachments",
+          "tableTo": "issues",
+          "columnsFrom": [
+            "issue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "issue_attachments_upload_id_uploads_id_fk": {
+          "name": "issue_attachments_upload_id_uploads_id_fk",
+          "tableFrom": "issue_attachments",
+          "tableTo": "uploads",
+          "columnsFrom": [
+            "upload_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "issue_attachments_issue_id_upload_id_unique": {
+          "name": "issue_attachments_issue_id_upload_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "issue_id",
+            "upload_id"
           ]
         }
       },
