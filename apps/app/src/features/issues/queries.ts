@@ -368,7 +368,7 @@ export function useBulkUpdateIssues(workspaceSlug: MaybeRefOrGetter<string>) {
         queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
         ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
         queryClient.invalidateQueries({ queryKey: cyclesKey() }),
       ])
     },
@@ -400,7 +400,7 @@ export function useBulkDeleteIssues(workspaceSlug: MaybeRefOrGetter<string>) {
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: issueInfiniteListKey() }),
-        queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        invalidateProjects(queryClient),
       ])
     },
   })
