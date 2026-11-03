@@ -8,6 +8,7 @@ export type CreateIssueDefaults = {
   teamId?: string
   statusId?: string
   projectId?: string
+  cycleId?: string
   assigneeId?: string
 }
 

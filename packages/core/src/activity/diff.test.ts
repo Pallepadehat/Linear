@@ -8,6 +8,7 @@ const current: IssueSnapshot = {
   priority: 0,
   assigneeId: null,
   projectId: null,
+  cycleId: null,
   estimate: null,
   labelIds: ['bug', 'ui'],
   dueDate: null,
@@ -30,12 +31,14 @@ describe('diffIssue', () => {
         priority: 2,
         assigneeId: 'u1',
         projectId: null,
+        cycleId: 'c1',
       }),
     ).toEqual([
       { kind: 'title', from: 'Fix login', to: 'Fix sign-in' },
       { kind: 'status', from: 'todo', to: 'done' },
       { kind: 'priority', from: 0, to: 2 },
       { kind: 'assignee', from: null, to: 'u1' },
+      { kind: 'cycle', from: null, to: 'c1' },
     ])
   })
 

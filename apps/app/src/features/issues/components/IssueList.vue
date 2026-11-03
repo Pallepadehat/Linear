@@ -30,6 +30,7 @@ const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
+  cycleId?: string
   assignee?: 'me'
   creator?: 'me'
   /** The view tab (team and All issues pages); My issues and project lists have none. */
@@ -45,17 +46,27 @@ const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
-const { query, queryKey, issues, users, labels, statusesByTeam, estimatesByTeam, updateIssue } =
-  useIssueViewData(
-    () => props.workspaceSlug,
-    () => ({
-      teamId: props.teamId,
-      projectId: props.projectId,
-      assignee: props.assignee,
-      creator: props.creator,
-      statusCategories: viewStatusCategories(props.view),
-    }),
-  )
+const {
+  query,
+  queryKey,
+  issues,
+  users,
+  labels,
+  statusesByTeam,
+  cyclesByTeam,
+  estimatesByTeam,
+  updateIssue,
+} = useIssueViewData(
+  () => props.workspaceSlug,
+  () => ({
+    teamId: props.teamId,
+    projectId: props.projectId,
+    cycleId: props.cycleId,
+    assignee: props.assignee,
+    creator: props.creator,
+    statusCategories: viewStatusCategories(props.view),
+  }),
+)
 const viewEmpty = computed(() =>
   props.view === 'active'
     ? { title: 'No active issues', description: 'Issues in Todo or In Progress show up here.' }
@@ -168,6 +179,7 @@ watchEffect(() => {
       :workspace-slug="workspaceSlug"
       :team-id="teamId"
       :project-id="projectId"
+      :cycle-id="cycleId"
       :hide-filter-menu="!!view"
     />
     <div v-if="query.isPending.value" class="grid" aria-busy="true" aria-label="Loading issues">
@@ -213,7 +225,9 @@ watchEffect(() => {
           title="No issues yet"
           description="Create an issue to start tracking work."
         >
-          <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
+          <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId, cycleId })"
+            >New issue</Button
+          >
         </EmptyState>
       </slot>
     </template>
@@ -261,7 +275,9 @@ watchEffect(() => {
               variant="ghost"
               size="icon-xs"
               :aria-label="`New issue in ${row.group.status.name}`"
-              @click="ui.openCreateIssue({ teamId, projectId, statusId: row.group.status.id })"
+              @click="
+                ui.openCreateIssue({ teamId, projectId, cycleId, statusId: row.group.status.id })
+              "
             >
               <Plus aria-hidden="true" />
             </Button>
@@ -275,6 +291,7 @@ watchEffect(() => {
             :focused="row.issue.id === focusedId"
             :selected="selectedIds.has(row.issue.id)"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
+            :cycles="cyclesByTeam.get(row.issue.teamId) ?? []"
             :users="users"
             :labels="labels"
             :estimates="estimatesByTeam.get(row.issue.teamId)"

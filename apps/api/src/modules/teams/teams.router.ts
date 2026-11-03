@@ -3,6 +3,7 @@ import {
   getTeamByKey,
   listTeams,
   listWorkflowStatuses,
+  updateTeamCycleSettings,
   updateTeamDefaults,
 } from '@linear/core'
 import { authed } from '../../orpc/base'
@@ -46,20 +47,37 @@ export const teamsRouter = {
       return teams.map((team) => toTeamWithStatusesDto(team, statuses))
     }),
 
-  // Issue defaults and estimates are team settings, so owner-only (docs/domain.md → Roles).
+  // Issue defaults, estimates and cycle settings are team settings, so owner-only (docs/domain.md → Roles).
   update: authed.teams.update
     .use(requireWorkspace('owner'), (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
       const current = await getTeamByKey(context.db, context.workspace.id, input.key)
-      const team = await updateTeamDefaults(context.db, {
+      const {
+        workspaceSlug: _,
+        key: __,
+        defaultStatusId,
+        defaultPriority,
+        defaultAssigneeId,
+        estimateScale,
+        estimateAllowZero,
+        ...cycleSettings
+      } = input
+      let team = await updateTeamDefaults(context.db, {
         workspaceId: context.workspace.id,
         teamId: current.id,
-        defaultStatusId: input.defaultStatusId,
-        defaultPriority: input.defaultPriority,
-        defaultAssigneeId: input.defaultAssigneeId,
-        estimateScale: input.estimateScale,
-        estimateAllowZero: input.estimateAllowZero,
+        defaultStatusId,
+        defaultPriority,
+        defaultAssigneeId,
+        estimateScale,
+        estimateAllowZero,
       })
+      if (Object.values(cycleSettings).some((value) => value !== undefined)) {
+        team = await updateTeamCycleSettings(context.db, {
+          ...cycleSettings,
+          workspaceId: context.workspace.id,
+          teamId: current.id,
+        })
+      }
       const statuses = await listWorkflowStatuses(context.db, context.workspace.id, [team.id])
       return toTeamWithStatusesDto(team, statuses)
     }),

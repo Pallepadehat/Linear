@@ -10,6 +10,7 @@ import { presenceContract } from './routers/presence'
 import { realtimeContract } from './routers/realtime'
 import { activityContract } from './routers/activity'
 import { commentsContract } from './routers/comments'
+import { cyclesContract } from './routers/cycles'
 import { githubContract } from './routers/github'
 import { issuesContract } from './routers/issues'
 import { labelsContract } from './routers/labels'
@@ -28,6 +29,7 @@ export const contract = {
   issues: issuesContract,
   issueRelations: issueRelationsContract,
   projects: projectsContract,
+  cycles: cyclesContract,
   projectLabels: projectLabelsContract,
   github: githubContract,
   activity: activityContract,
@@ -53,6 +55,7 @@ export * from './schemas/users'
 export * from './schemas/workspaces'
 export * from './schemas/activity'
 export * from './schemas/comments'
+export * from './schemas/cycles'
 export * from './schemas/realtime'
 export * from './schemas/templates'
 export * from './schemas/relations'

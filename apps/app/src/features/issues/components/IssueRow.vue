@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import type { Issue, Label, WorkflowStatus } from '@linear/contract'
+import type { Cycle, Issue, Label, WorkflowStatus } from '@linear/contract'
 import { Ban, OctagonAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import AssigneePicker, { type AssigneeOption } from '@/components/common/AssigneePicker.vue'
+import CyclePicker from '@/components/common/CyclePicker.vue'
 import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import { assignableCycles } from '@/features/cycles/cycles'
 import type { EstimateSettings } from '@/lib/estimates'
 import { toPriority } from '@/lib/priorities'
 import type { IssuePatch } from '../issue-cache'
@@ -20,6 +22,8 @@ const props = defineProps<{
   statuses: WorkflowStatus[]
   users: AssigneeOption[]
   labels: Label[]
+  /** The issue team's cycles; empty when the team has cycles off. */
+  cycles?: Cycle[]
   /** The issue team's estimate scale; no chip while unknown or off. */
   estimates?: EstimateSettings
   /** Nesting level when shown under its parent (each level indents the row). */
@@ -33,6 +37,12 @@ const emit = defineEmits<{
   /** The issue link was followed, so the list can hand the detail page its prev/next context. */
   open: []
 }>()
+
+const cycleOptions = computed(() => assignableCycles(props.cycles ?? []))
+const issueCycle = computed(() => props.cycles?.find((c) => c.id === props.issue.cycleId) ?? null)
+function setCycle(cycleId: string | null) {
+  if (cycleId !== props.issue.cycleId) emit('update', { cycleId })
+}
 
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
 // The issue's own labels stay pickable even if the workspace list hasn't loaded.
@@ -134,6 +144,15 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
         :team-id="issue.teamId"
         :model-value="labelIds"
         @update:labels="setLabels"
+      />
+    </span>
+    <span v-if="issueCycle" class="hidden shrink-0 md:flex">
+      <CyclePicker
+        compact
+        :cycles="cycleOptions"
+        :selected="issueCycle"
+        :model-value="issue.cycleId"
+        @update:model-value="setCycle"
       />
     </span>
     <EstimatePicker

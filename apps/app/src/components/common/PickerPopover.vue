@@ -41,6 +41,7 @@ const PICKER_HOTKEYS: Record<string, ShortcutId> = {
   a: 'issue-assignee',
   l: 'issue-labels',
   'shift+d': 'issue-due-date',
+  'shift+c': 'issue-cycle',
 }
 const hotkeyHint = computed(() => (props.hotkey && props.shift ? `⇧${props.hotkey}` : props.hotkey))
 const ariaHotkey = computed(() =>

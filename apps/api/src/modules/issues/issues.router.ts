@@ -81,11 +81,11 @@ export const issuesRouter = {
         workspaceId: context.workspace.id,
         actor: { type: 'user', id: context.user.id },
       })
-      await publishChange(context, {
-        type: 'issue.updated',
-        issueId: issue.id,
-        fields: changedIssueFields(fields),
-      })
+      const changed = changedIssueFields(fields)
+      // A status change may have auto-added the issue to the current cycle.
+      if (changed.includes('status') && !changed.includes('cycle') && issue.cycleId)
+        changed.push('cycle')
+      await publishChange(context, { type: 'issue.updated', issueId: issue.id, fields: changed })
       // Parents show their sub-issues' progress: tell the old and new parent, and the
       // current one when a sub-issue's status changed.
       const parents = issue.parentChange

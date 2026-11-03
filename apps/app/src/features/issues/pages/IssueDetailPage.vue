@@ -10,6 +10,8 @@ import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { cycleListOptions } from '@/features/cycles/queries'
+import { cycleName } from '@/features/cycles/cycles'
 import { useHotkeys } from '@/composables/useHotkeys'
 import { useCurrentUser } from '@/features/auth/composables/useSession'
 import { issuePullRequestsOptions } from '@/features/github/queries'
@@ -87,6 +89,12 @@ const { data: labels } = useQuery(
   computed(() => orpc.labels.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
 const { data: projects } = useQuery(computed(() => projectListOptions(slug.value)))
+const { data: cycles } = useQuery(
+  computed(() => ({
+    ...cycleListOptions(slug.value, issue.value?.teamId ?? ''),
+    enabled: Boolean(teamWithStatuses.value?.cyclesEnabled || issue.value?.cycleId),
+  })),
+)
 
 const names = computed<ActivityNames>(() => {
   const byId = <T extends { id: string; name: string }>(list: T[] | undefined) => {
@@ -97,6 +105,7 @@ const names = computed<ActivityNames>(() => {
     status: byId(statuses.value),
     user: byId(users.value),
     project: byId(projects.value),
+    cycle: byId(cycles.value?.map((c) => ({ id: c.id, name: cycleName(c) }))),
     label: byId(labels.value),
     estimate:
       team.value?.estimateScale === 'tshirt' ? (v) => estimateLabel(v, 'tshirt') : undefined,
@@ -413,6 +422,8 @@ onBeforeUnmount(commitDescription)
       :users="users"
       :labels="labels ?? []"
       :projects="projects ?? []"
+      :cycles="cycles ?? []"
+      :cycles-enabled="teamWithStatuses?.cyclesEnabled"
       :estimates="estimates"
       :pull-requests="pullRequests"
       :subscribers="subscribers ?? []"

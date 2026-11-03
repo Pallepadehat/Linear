@@ -5,6 +5,7 @@ import {
   CircleUser,
   FolderKanban,
   Inbox,
+  IterationCcw,
   Layers,
   Search,
   SquarePen,
@@ -126,6 +127,13 @@ const commandMenuKeys = shortcutKeys('command-menu').flat().join('')
               :to="at('team-issues', { teamKey: team.key })"
               label="Issues"
               :icon="Layers"
+              inset
+            />
+            <SidebarItem
+              v-if="team.cyclesEnabled"
+              :to="at('cycles', { teamKey: team.key })"
+              label="Cycles"
+              :icon="IterationCcw"
               inset
             />
             <SidebarItem

@@ -28,6 +28,8 @@ Exact rules behind PRD FR-02 – FR-14. If code and this doc disagree, one of th
 | Connect / disconnect GitHub installations and repos |  ✅   |   ❌   |
 | Create / edit teams                                 |  ✅   |   ✅   |
 | Change team issue defaults                          |  ✅   |   ❌   |
+| Change team cycle settings                          |  ✅   |   ❌   |
+| View cycles, rename a cycle, move issues in/out     |  ✅   |   ✅   |
 | Create / edit / delete issues, projects, labels     |  ✅   |   ✅   |
 | Comment; edit/delete own comments                   |  ✅   |   ✅   |
 | Delete others' comments                             |  ✅   |   ❌   |
@@ -322,6 +324,23 @@ Who is online and which issue they're looking at. Ephemeral: Redis only, no tabl
 - **Events:** `presence.changed { userId }` on `workspace:<id>` when a user's merged state or viewed issue changes, when a socket closes and that changes it, and for users pruned as expired on read. Clients refetch `presence.list`; it also refetches every 60 s to catch tabs that died without closing.
 - **`presence.list`:** members only (`requireWorkspace`); returns `{ userId, state: 'active' | 'away' | 'offline', viewingIssueId, lastSeenAt }` for **current members** with a live connection or a known last-seen time. Entries for non-members (e.g. removed members) are never returned.
 - **UI:** avatars show a green (`success`) dot for active, a hollow `ink-subtle` dot for away, nothing for offline; the dot is ringed in the surrounding surface color (`--avatar-ring`, default `panel`; the spec's "canvas ring" taken as "the surface behind the avatar"). The issue detail header shows the other members viewing the issue (you are excluded): up to 3 stacked avatars + "+N", tooltip "<name> is viewing". Settings → Members shows "Online" / "Away" / "Last seen …" / "Offline".
+
+## Cycles
+
+Time-boxed iterations per team (M8-06). Off by default; owners turn them on in team settings (`teams.update`).
+
+- **Settings** (team columns): `cyclesEnabled`, `cycleDurationWeeks` 1–8 (default 2), `cycleStartWeekday` 0–6 with 0 = Sunday (default Monday), `cycleCooldownWeeks` 0–2 (default 0), `cycleUpcomingCount` 1–6 (default 2), `cycleAutoAddStarted` and `cycleRolloverUnfinished` (both default on). Out-of-range values are `BAD_REQUEST`; members get `FORBIDDEN`.
+- **Date math** (`packages/core/src/cycles/schedule.ts`): cycles run on **UTC calendar days**. A cycle starts at 00:00 UTC on the start weekday and is the half-open window `[startsAt, endsAt)`, exactly `duration` weeks long, so DST never stretches or shifts it. The UI shows the first and last day in UTC ("Nov 2 – Nov 15"). A team's first cycle starts on the latest start weekday at or before today, so it has a current cycle at once. Each next cycle starts at the previous end plus the cooldown, aligned forward to the start weekday; a chain that ended more than a full cycle ago restarts in the current week. Scheduling keeps a current cycle (none during a cooldown) plus `upcomingCount` cycles starting after now. Changing the settings never moves existing cycles; new ones follow the new settings. Numbers are per team (`cycles_team_id_number_unique`), 1, 2, 3… in date order.
+- **Scheduling**: turning cycles on (or saving any cycle setting while they are on) schedules the missing cycles in the same request. After that, the `cycles-maintain` job (maintenance queue, every hour on the hour in UTC) runs one transaction per team with cycles on, holding the team row lock:
+  1. create missing upcoming cycles;
+  2. for each open cycle that has started, record today's point in `scopeSnapshot` / `completedSnapshot` (index = cycle day, missing days are `null`; a rerun on the same day replaces the point);
+  3. close ended cycles (`completedAt` = run time), first recording their last-day point, then, with rollover on, moving their unfinished issues (status not completed/canceled) to the team's next open cycle, publishing `issue.updated` with `fields: ['cycle']` and `actorId: null` per moved issue.
+  Every step is idempotent, so a rerun in the same hour (team + hour) changes nothing but the snapshot values. Rollover is not written to the activity log. A team with cycles turned off is skipped; its cycles stay as they are.
+- **Assigning**: `issues.create` / `issues.update` accept `cycleId` (`null` removes it). The cycle must be an open (not completed) cycle of the issue's own team; another team's cycle, a completed one, or one from another workspace is `BAD_REQUEST`. Changes are logged as activity kind `cycle` (from/to cycle ids).
+- **Auto-add**: with cycles and `cycleAutoAddStarted` on, an issue that moves to a different status in the `started` category (or is created in one) and has no cycle joins the current cycle, unless the same request sets `cycleId`. No current cycle (cooldown) means nothing happens. GitHub automation goes through the same update, so a PR opening also auto-adds.
+- **Progress**: `scope` counts every issue in the cycle except canceled ones; `started` and `completed` count the `started` / `completed` categories. Counts are live; the chart uses the daily snapshots.
+- **API**: `cycles.list({ teamId })` returns a plain array ordered current, upcoming (soonest first), past (newest first); a team outside the workspace is `NOT_FOUND`. `cycles.get` adds the snapshots; `cycles.update` renames (blank clears; the UI then shows "Cycle <n>"). Cross-workspace ids are `NOT_FOUND`. `issues.list` takes `cycleId` (page scope) and `cycleIds` (filter, `null` = no cycle; `?cycle=<ids|none>` in the URL).
+- **App**: the sidebar shows team › **Cycles** only for teams with cycles on. The cycle picker (`⇧C`, issue properties; row picker on rows already in a cycle; create dialog when the team has cycles on) offers No cycle, the current cycle and upcoming ones as "Cycle 4 · Nov 2 – Nov 15", optimistic with rollback. The filter menu offers Cycle on a team's issue views (team with cycles on). The settings preview shows the current or next scheduled cycle, or what the first cycle would be (a client mirror of the first-cycle rule).
 
 ## Subscribers
 

@@ -32,6 +32,7 @@ import {
 } from 'drizzle-orm'
 import { recordActivity, type ActivityActor } from '../activity/activity.service'
 import { diffIssue } from '../activity/diff'
+import { assignCycle, autoAddCycleId } from '../cycles/cycles.service'
 import { DomainError } from '../errors'
 import { CLOSED_STATUS_CATEGORIES } from '../relations/roles'
 import { subscribeUsers } from '../subscriptions/subscriptions.service'
@@ -63,6 +64,8 @@ export type CreateIssueInput = {
   /** `null` leaves the issue unassigned even when the team has a default assignee. */
   assigneeId?: string | null
   projectId?: string | null
+  /** Must be an open cycle of the issue's team. */
+  cycleId?: string | null
   /** Must be on the team's estimate scale; `null` = no estimate. */
   estimate?: number | null
   labelIds?: string[]
@@ -83,6 +86,7 @@ export type UpdateIssueInput = {
   priority?: number
   assigneeId?: string | null
   projectId?: string | null
+  cycleId?: string | null
   estimate?: number | null
   labelIds?: string[]
   /** `null` removes the parent. */
@@ -96,6 +100,7 @@ export type ListIssuesInput = {
   workspaceId: string
   teamId?: string
   projectId?: string
+  cycleId?: string
   assigneeId?: string
   creatorId?: string
   statusIds?: string[]
@@ -106,6 +111,8 @@ export type ListIssuesInput = {
   assigneeIds?: (string | null)[]
   /** `null` matches issues without a project. */
   projectIds?: (string | null)[]
+  /** `null` matches issues without a cycle. */
+  cycleIds?: (string | null)[]
   /** Any of these labels. */
   labelIds?: string[]
   /** Estimate values; `null` matches no estimate, `'any'` any estimate. */
@@ -187,6 +194,10 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
     await assertWorkspaceMember(db, input.workspaceId, assigneeId)
   }
   if (input.projectId) await assertProject(db, input.workspaceId, input.projectId)
+  let cycleId = input.cycleId ?? null
+  if (cycleId) await assignCycle(db, input.workspaceId, input.teamId, cycleId)
+  else if (input.cycleId === undefined && status.category === 'started')
+    cycleId = await autoAddCycleId(db, input.workspaceId, input.teamId)
   const labelIds = await resolveLabelIds(db, input.workspaceId, input.teamId, input.labelIds ?? [])
 
   return db.transaction(async (tx) => {
@@ -215,6 +226,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
         assigneeId,
         creatorId: input.creatorId,
         projectId: input.projectId ?? null,
+        cycleId,
         estimate,
         parentId: parent?.id ?? null,
         dueDate: input.dueDate ?? null,
@@ -332,6 +344,7 @@ function listFilter(input: ListIssuesInput) {
   return and(
     input.teamId ? eq(issues.teamId, input.teamId) : undefined,
     input.projectId ? eq(issues.projectId, input.projectId) : undefined,
+    input.cycleId ? eq(issues.cycleId, input.cycleId) : undefined,
     input.assigneeId ? eq(issues.assigneeId, input.assigneeId) : undefined,
     input.creatorId ? eq(issues.creatorId, input.creatorId) : undefined,
     input.statusIds?.length ? inArray(issues.statusId, input.statusIds) : undefined,
@@ -342,6 +355,7 @@ function listFilter(input: ListIssuesInput) {
     input.priorities?.length ? inArray(issues.priority, input.priorities) : undefined,
     anyOf(issues.assigneeId, input.assigneeIds),
     anyOf(issues.projectId, input.projectIds),
+    anyOf(issues.cycleId, input.cycleIds),
     estimateFilter(input.estimates),
     input.showSubIssues === false ? isNull(issues.parentId) : undefined,
     input.excludeSubtreeOf
@@ -487,18 +501,13 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       assertPriority(input.priority)
       changes.priority = input.priority
     }
+    let status: Awaited<ReturnType<typeof resolveStatus>> | undefined
     if (input.dueDate !== undefined) {
       assertDueDate(input.dueDate)
       changes.dueDate = input.dueDate
     }
     if (input.statusId !== undefined) {
-      const status = await resolveStatus(
-        tx,
-        input.workspaceId,
-        current.teamId,
-        input.statusId,
-        null,
-      )
+      status = await resolveStatus(tx, input.workspaceId, current.teamId, input.statusId, null)
       changes.statusId = status.id
       changes.completedAt = nextCompletedAt(status.category, current.completedAt)
     }
@@ -512,6 +521,18 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
     if (input.projectId !== undefined) {
       if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
       changes.projectId = input.projectId
+    }
+    if (input.cycleId !== undefined) {
+      if (input.cycleId) await assignCycle(tx, input.workspaceId, current.teamId, input.cycleId)
+      changes.cycleId = input.cycleId
+    } else if (
+      status?.category === 'started' &&
+      status.id !== current.statusId &&
+      !current.cycleId
+    ) {
+      // Auto-add (docs/domain.md → Cycles): only when the cycle isn't being set by hand.
+      const cycleId = await autoAddCycleId(tx, input.workspaceId, current.teamId)
+      if (cycleId) changes.cycleId = cycleId
     }
     // Only a changed value is checked, so an issue keeps an estimate that is no
     // longer on the scale (after a scale change) while other fields are edited.

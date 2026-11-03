@@ -16,6 +16,7 @@ export type IssuePatch = Partial<
       | 'priority'
       | 'assigneeId'
       | 'projectId'
+      | 'cycleId'
       | 'labels'
       | 'parentId'
       | 'estimate'
@@ -114,6 +115,7 @@ export function toUpdateIssueInput(
     ...(patch.priority !== undefined && { priority: patch.priority }),
     ...(patch.assigneeId !== undefined && { assigneeId: patch.assigneeId }),
     ...(patch.projectId !== undefined && { projectId: patch.projectId }),
+    ...(patch.cycleId !== undefined && { cycleId: patch.cycleId }),
     ...(patch.estimate !== undefined && { estimate: patch.estimate }),
     ...(patch.labels && { labelIds: patch.labels.map((label) => label.id) }),
     ...(patch.parentId !== undefined && { parentId: patch.parentId }),

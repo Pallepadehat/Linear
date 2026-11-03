@@ -18,6 +18,7 @@ import {
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { toast } from 'vue-sonner'
 import { errorMessage } from '@/lib/errors'
+import { cyclesKey } from '@/features/cycles/queries'
 import { projectsKey } from '@/features/projects/queries'
 import { todayIso } from '@/lib/due-dates'
 import { client, orpc } from '@/lib/orpc'
@@ -37,7 +38,7 @@ const PAGE_SIZE = 50
 
 export type IssueListFilter = Pick<
   ListIssuesInput,
-  'teamId' | 'projectId' | 'assignee' | 'creator' | 'statusCategories'
+  'teamId' | 'projectId' | 'cycleId' | 'assignee' | 'creator' | 'statusCategories'
 >
 
 /**
@@ -204,8 +205,9 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
         queryClient.invalidateQueries({ queryKey: listKey }),
         ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
-        // Project progress counts issues by status and project.
+        // Project and cycle progress count issues by status, project and cycle.
         queryClient.invalidateQueries({ queryKey: projectsKey() }),
+        queryClient.invalidateQueries({ queryKey: cyclesKey() }),
       ])
     },
   })
