@@ -68,7 +68,7 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 
 | ID     | Status | Task                                                       | Depends on |
 | ------ | ------ | ---------------------------------------------------------- | ---------- |
-| M5-01  | [ ]    | PRD §12 acceptance tests 1–9 as automated tests            | M4-05      |
+| M5-01  | [x]    | PRD §12 acceptance tests 1–9 as automated tests            | M4-05      |
 | M5-02  | [ ]    | Playwright E2E: demo scenario (Test 10, with mocked GitHub) | M4-07     |
 | M5-03  | [ ]    | Accessibility + both-theme UI pass                         | M3-*       |
 | M5-04  | [ ]    | README: setup, env, Docker, GitHub App, demo script        | M4-06      |
@@ -118,4 +118,5 @@ Append one line per finished task: `YYYY-MM-DD · ID · short note`.
 2026-11-03 · LIN-35 / M3-03 · My Issues page with Assigned/Created tabs (URL-synced `?tab=`, keyboard tablist) reusing `IssueList` with a per-tab empty state and "Create issue" (preassigned from Assigned). Contract: `issues.list` takes `assignee: 'me'` / `creator: 'me'`, resolved to the session user; API test covers cross-user and cross-workspace isolation.
 2026-11-03 · LIN-11 / M2-04 · comments table (cascade with issue, migration 0007), `comments.list` (oldest first, cursor) / `create` / `update` (author only) / `delete` (author or owner, per domain.md Roles); DTO carries author name + avatar URL. Integration tests cover create/list, paging, FORBIDDEN edits/deletes, cascade and cross-workspace NOT_FOUND. Lint, typecheck and all tests pass.
 2026-11-03 · LIN-15 / M2-09 · `useUpdateIssue()` patches the infinite list and detail caches optimistically (cancel → snapshot → patch, rollback + toast on error, invalidate after the last in-flight change); compact status/priority/assignee/label pickers on issue rows; pure cache helpers in `issue-cache.ts` with unit tests. Checked with a 3 s delayed and a failing `issues.update` in the browser, light and dark. Lint, typecheck and all tests pass.
+2026-11-03 · LIN-46 / M5-01 · PRD §12 Tests 1–9 as `acceptance: <n> <title>` files in `apps/api/test/acceptance/`; Tests 3–9 post signed GitHub fixtures to `/webhooks/github` and run the real GitHub worker (`@linear/worker/testing`, test-only) on the `test` queue prefix. Map in `docs/testing.md`. All 9 green in CI with lint, typecheck and the full suite.
 2026-11-03 · LIN-50 · attachment lifecycle: `issue_attachments` link table (migration 0008 with backfill from existing descriptions), synced from `attachment:` refs on issue create/update (non-ready, foreign or non-attachment uploads → BAD_REQUEST), issue delete marks unshared attachments deleted and enqueues `delete-objects`, hourly `cleanup-attachments` sweep for attachments unlinked 24 h. Core parse unit test, API + worker tests.
