@@ -14,7 +14,9 @@ import PickerInput from './PickerInput.vue'
 // `current` is the selected option's value, highlighted when the list opens.
 // `hotkey` opens the picker from anywhere outside a text field. `compact` pickers
 // (one per list row) get an icon-sized trigger and only show the hotkey hint:
-// a global key can't tell which of many rows it is meant for.
+// a global key can't tell which of many rows it is meant for. `multiple` pickers
+// (labels) toggle the highlighted row with Space too while the filter is empty,
+// and render their own empty state (it shares space with "Create new label").
 const props = defineProps<{
   label: string
   placeholder: string
@@ -23,6 +25,7 @@ const props = defineProps<{
   compact?: boolean
   triggerClass?: string
   align?: 'start' | 'end'
+  multiple?: boolean
 }>()
 
 const open = defineModel<boolean>('open', { default: false })
@@ -55,6 +58,13 @@ function onKeydown(event: KeyboardEvent) {
   if (event.metaKey || event.ctrlKey || event.altKey) return
   const input = event.target
   if (input instanceof HTMLInputElement && input.value !== '') return
+  if (event.key === ' ' && props.multiple && event.currentTarget instanceof HTMLElement) {
+    const row = event.currentTarget.querySelector<HTMLElement>('[data-highlighted]')
+    if (!row) return
+    event.preventDefault()
+    row.click()
+    return
+  }
   const pick = shortcuts.get(event.key)
   if (!pick) return
   event.preventDefault()
@@ -91,7 +101,7 @@ function onKeydown(event: KeyboardEvent) {
       <Command :model-value="current ?? ''" class="bg-transparent" @keydown="onKeydown">
         <PickerInput :placeholder="placeholder" :hotkey="hotkey" />
         <CommandList class="max-h-80 p-1.5" :aria-label="label">
-          <CommandEmpty class="py-4 text-ink-subtle">No results</CommandEmpty>
+          <CommandEmpty v-if="!multiple" class="py-4 text-ink-subtle">No results</CommandEmpty>
           <!-- Pickers with sections (assignee: you, then team members) supply their own groups. -->
           <slot name="groups">
             <CommandGroup class="p-0">
