@@ -34,6 +34,7 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('comment.created'), ...base, commentId: z.uuid() }),
   z.object({ type: z.literal('comment.updated'), ...base, commentId: z.uuid() }),
   z.object({ type: z.literal('comment.deleted'), ...base, commentId: z.uuid() }),
+  z.object({ type: z.literal('presence.changed'), userId: z.uuid() }),
 ])
 
 /** Sent with every request (header) and with the subscription, so a tab skips its own echoes. */
@@ -44,5 +45,25 @@ export const subscribeRealtimeInputSchema = workspaceScopedSchema.extend({
   clientId: realtimeClientIdSchema.optional(),
 })
 
+// Presence (docs/domain.md → Presence).
+export const presenceStateSchema = z.enum(['active', 'away'])
+
+/** Sent over the realtime WebSocket every 20 s, on route change and on visibility change. */
+export const presenceHeartbeatInputSchema = workspaceScopedSchema.extend({
+  viewingIssueId: z.uuid().nullable(),
+  state: presenceStateSchema,
+})
+
+export const presenceEntrySchema = z.object({
+  userId: z.uuid(),
+  /** `offline` when the member has no live connection (then `viewingIssueId` is null). */
+  state: z.enum(['active', 'away', 'offline']),
+  viewingIssueId: z.uuid().nullable(),
+  /** Last heartbeat; null if never seen. */
+  lastSeenAt: z.date().nullable(),
+})
+
 export type RealtimeEvent = z.infer<typeof realtimeEventSchema>
 export type RealtimeIssueField = z.infer<typeof realtimeIssueFieldSchema>
+export type PresenceState = z.infer<typeof presenceStateSchema>
+export type PresenceEntry = z.infer<typeof presenceEntrySchema>
