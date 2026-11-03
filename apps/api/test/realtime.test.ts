@@ -103,6 +103,32 @@ describe('realtime', () => {
     )
   })
 
+  it('tells each project once when a bulk update moves issues into it', async () => {
+    const { owner, member, team, issue } = await workspaceWithIssue()
+    const other = await owner.client.issues.create({
+      workspaceSlug: 'tip',
+      teamId: team.id,
+      title: 'Second',
+    })
+    const project = await owner.client.projects.create({ workspaceSlug: 'tip', name: 'Launch' })
+    const { events } = await subscribe(member.cookie, 'tip')
+
+    await owner.client.issues.bulkUpdate({
+      workspaceSlug: 'tip',
+      ids: [issue.id, other.id],
+      patch: { projectId: project.id },
+    })
+
+    const actorId = owner.userId
+    await eventually(() =>
+      expect(events).toEqual([
+        { type: 'issue.updated', issueId: issue.id, fields: ['project'], actorId },
+        { type: 'issue.updated', issueId: other.id, fields: ['project'], actorId },
+        { type: 'project.updated', projectId: project.id, actorId },
+      ]),
+    )
+  })
+
   it("streams a teammate's issue and comment changes to members", async () => {
     const { owner, member, issue, statuses } = await workspaceWithIssue()
     const { events } = await subscribe(member.cookie, 'tip')

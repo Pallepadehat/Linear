@@ -91,6 +91,27 @@ describe('projects.activity', () => {
     ])
   })
 
+  it('logs each issue a bulk update adds to the project', async () => {
+    const { owner, team, project, feed } = await projectInTip()
+    const created = await Promise.all(
+      ['One', 'Two'].map((title) =>
+        owner.client.issues.create({ ...scope, teamId: team.id, title }),
+      ),
+    )
+    await owner.client.issues.bulkUpdate({
+      ...scope,
+      ids: created.map((issue) => issue.id),
+      patch: { projectId: project.id },
+    })
+    const added = (await feed()).items.filter((item) => item.kind === 'project.issue_added')
+    expect(added.map((item) => item.payload)).toEqual(
+      expect.arrayContaining(
+        created.map((issue) => expect.objectContaining({ issueId: issue.id, title: issue.title })),
+      ),
+    )
+    expect(added).toHaveLength(2)
+  })
+
   it('pages newest first with a cursor', async () => {
     const { owner, project, feed } = await projectInTip()
     for (const priority of [1, 2, 3, 4]) {
