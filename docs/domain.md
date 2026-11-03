@@ -284,6 +284,21 @@ Lifecycle: `pending` (presigned, not confirmed) → `ready` (confirmed, processi
 - "Set parent issue…" (⇧⌘P, Ctrl+Shift+P off macOS) searches the workspace with `issues.list` (`excludeSubtreeOf` drops the issue and its descendants); "Remove parent" clears it. Both go through the optimistic `useUpdateIssue()`.
 - Lists: `showSubIssues` (default on; URL `?subIssues=hide` turns it off) decides whether issues with a parent are listed. When shown, a sub-issue renders indented right after its parent if the parent is in the same status group and loaded; otherwise at the top level. Until the display options popover (M7-03) exists, the toggle lives in the order-by menu; "Clear" keeps it, like the sort.
 
+## Project progress
+
+- The project Progress card plots three counts per day: **scope** (every issue in the project, canceled ones included, like project progress), **started** (issues in a `started` status) and **completed** (issues in a `completed` status). Rules: `packages/core/src/projects/progress` (`countProgress`).
+- **Decision: daily snapshots, not derive-on-read.** `project_progress_snapshots` holds one row per project per UTC day (`project_progress_snapshots_project_id_date_unique`). Rebuilding history from `activity_log` would mean replaying status, project, create and delete entries per issue, and it can't answer for deleted issues or statuses, so the history is stored instead. History therefore starts when snapshots start: a project has no points before its first snapshot.
+- Only the `project-progress-snapshot` job (`maintenance` queue, payload `{ projectId }`) writes snapshots. It upserts today's row on `(projectId, date)`, so reruns are idempotent and a deleted project is a no-op. Two triggers run it:
+  - **On demand.** Issue create and delete, and status or project changes (single and bulk), queue a snapshot for the issue's old and new project. These runs are debounced: one pending job per project and day (BullMQ deduplication id `project-progress-<projectId>-<date>`; BullMQ ids can't contain `:`), run 10 s later, so a burst of edits snapshots once. Enqueueing is best effort and never fails the change. GitHub automation doesn't queue one.
+  - **Daily.** The repeatable `project-progress-daily` job at 23:55 UTC snapshots every `planned` and `in_progress` project, so each day's row holds that day's closing counts.
+- `projects.progress({ projectId })` returns:
+  - `series`: the stored snapshots, oldest first, with today's point always computed live. The card is current before any job runs, and today's stored row is only used once the day has passed.
+  - `totals`: today's counts.
+  - `byAssignee` / `byLabel`: done (`completed`) / total, computed live and not snapshotted. Unassigned issues are a "No assignee" row (`userId` null). An issue with several labels counts under each; unlabeled issues have no label row. Rows are sorted by total, most first.
+  - A project in another workspace is `NOT_FOUND`.
+- Chart: completed is stacked under started, with scope as the outline, in `status-completed` / `status-started` / `status-neutral`. The x axis runs from the first point (at least a week back) to the target date, or to today if there is no target or it has passed. A dashed line projects completion from today to the target date at the average daily pace so far (first to last point), capped at scope. It needs a future target and at least two days of history. A dotted line marks today. Hovering, or using the arrow keys while the chart has focus, shows a tooltip with the date and the three counts; a visually hidden table lists every day.
+- The card is `ProjectProgressCard.vue`, a self-contained component loaded with `defineAsyncComponent`. It mounts on the project page next to the details, and M9-03 moves it into the right panel / Overview Progress slot. It refetches under `projects.key()`, so the existing issue and `project.updated` invalidations (including realtime) refresh it.
+
 ## Activity
 
 - Every issue change is logged in `activity_log`, in the same transaction as the change: `created` on create, then one entry per field whose value actually changed. Setting a field to the value it already had (including the same label set in another order, or a title that trims to the current one) writes nothing.
