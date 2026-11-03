@@ -7,6 +7,7 @@ import ProjectIcon from '@/components/common/ProjectIcon.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
+import { useRouteTeam } from '@/features/teams/composables/useRouteTeam'
 import { orpc } from '@/lib/orpc'
 import ProjectProgress from '../components/ProjectProgress.vue'
 import { projectStatusMeta } from '../project-status'
@@ -23,6 +24,15 @@ const { data: teams } = useQuery(
 )
 const teamsById = computed(() => new Map(teams.value?.map((t) => [t.id, t])))
 
+// Also the team projects page (`team/:teamKey/projects`): only that team's projects.
+const { team, notFound } = useRouteTeam('Projects')
+const projects = computed(() => {
+  const all = query.data.value
+  if (!all || !team.value) return all
+  const teamId = team.value.id
+  return all.filter((p) => p.teamIds.includes(teamId))
+})
+
 const createOpen = ref(false)
 // Mount the dialog on first use, then keep it so it can animate closed.
 const createLoaded = ref(false)
@@ -35,9 +45,11 @@ function openCreate() {
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
     <div class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline px-4">
-      <span class="font-medium text-ink">All projects</span>
-      <span v-if="query.data.value" class="text-ink-subtle tabular-nums">
-        {{ query.data.value.length }}
+      <span class="font-medium text-ink">{{
+        team ? `${team.name} projects` : 'All projects'
+      }}</span>
+      <span v-if="projects" class="text-ink-subtle tabular-nums">
+        {{ projects.length }}
       </span>
       <Button size="sm" class="ml-auto" @click="openCreate">
         <Plus aria-hidden="true" />
@@ -45,8 +57,9 @@ function openCreate() {
       </Button>
     </div>
 
+    <EmptyState v-if="notFound" title="Team not found" />
     <div
-      v-if="query.isPending.value"
+      v-else-if="query.isPending.value"
       class="grid pt-2"
       aria-busy="true"
       aria-label="Loading projects"
@@ -69,7 +82,7 @@ function openCreate() {
       <Button variant="secondary" size="sm" @click="query.refetch()">Retry</Button>
     </EmptyState>
     <EmptyState
-      v-else-if="query.data.value?.length === 0"
+      v-else-if="projects?.length === 0"
       :icon="FolderKanban"
       title="No projects yet"
       description="Projects group related issues across teams."
@@ -91,7 +104,7 @@ function openCreate() {
         </thead>
         <tbody>
           <tr
-            v-for="project in query.data.value"
+            v-for="project in projects"
             :key="project.id"
             class="group relative h-11 [&>td]:border-t [&>td]:border-hairline [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md hover:[&>td]:bg-surface-2"
           >

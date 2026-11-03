@@ -2,8 +2,9 @@
 import type { IssueSort, SortDirection } from '@linear/contract'
 import { Search, X } from '@lucide/vue'
 import { useDebounceFn } from '@vueuse/core'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { Button } from '@/components/ui/button'
+import { useUiStore } from '@/stores/ui'
 import { useFilterDimensions } from '../composables/useFilterDimensions'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import IssueFilterMenu from './IssueFilterMenu.vue'
@@ -38,6 +39,19 @@ watch(
   },
 )
 
+// The sidebar's Search button asks the visible filter bar to focus its field.
+const ui = useUiStore()
+const searchInput = useTemplateRef<HTMLInputElement>('searchInput')
+watch(
+  [() => ui.searchFocusRequested, searchInput],
+  ([requested, input]) => {
+    if (!requested || !input) return
+    ui.searchFocusRequested = false
+    input.focus()
+  },
+  { flush: 'post' },
+)
+
 function clearSearch(event: KeyboardEvent) {
   if (search.value) search.value = ''
   else (event.target as HTMLInputElement).blur()
@@ -65,7 +79,7 @@ function clearSearch(event: KeyboardEvent) {
       </span>
       <button
         type="button"
-        class="flex h-full items-center border-l border-hairline px-1.5 text-ink-subtle hover:bg-surface-2 hover:text-ink focus-visible:bg-surface-2 focus-visible:outline-hidden"
+        class="flex h-full items-center border-l border-hairline px-1.5 text-ink-subtle hover:bg-surface-2 hover:text-ink focus-visible:bg-surface-2 focus-visible:text-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         :aria-label="`Remove ${dimension.label} filter`"
         @click="dimension.clear()"
       >
@@ -82,6 +96,7 @@ function clearSearch(event: KeyboardEvent) {
       >
         <Search class="size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
         <input
+          ref="searchInput"
           v-model="search"
           type="search"
           aria-label="Search issues"
