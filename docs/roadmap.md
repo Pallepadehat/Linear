@@ -79,9 +79,61 @@ Task breakdown of PRD §11. Work top to bottom inside a milestone; a task is rea
 | ------ | ------ | -------------------------------------------------------------------------------------- | ------------ |
 | M6-01  | [x]    | Realtime updates over WebSockets: issue/comment events via Redis pub/sub, live caches | M2-08, M3-04 |
 
+## M7 — Issue views and app shell
+
+| ID     | Status | Task                                                                                          | Depends on   |
+| ------ | ------ | --------------------------------------------------------------------------------------------- | ------------ |
+| M7-01  | [ ]    | App shell: Linear sidebar sections + page header (LIN-53)                                     | —            |
+| M7-02  | [ ]    | Issue view tabs: Active / Backlog / All issues (LIN-54)                                       | M7-01        |
+| M7-03  | [ ]    | Display options popover: grouping, sub-grouping, ordering, completed, empty groups, properties (LIN-56) | M7-02 |
+| M7-04  | [ ]    | Issue row parity: project, PR, due date, estimate chips and overflow (LIN-59)                 | M7-03, M4-07 |
+| M7-05  | [ ]    | Details side panel (⌘I): breakdown by assignees / labels / priority / projects (LIN-62)       | M7-02        |
+| M7-06  | [ ]    | Filter menu parity: Add filter… (F), creator, dates, content, links, operators (LIN-67)       | M7-02        |
+| M7-07  | [ ]    | Issue detail header: breadcrumb, favorite, "…" menu, 1 / N prev/next navigation (LIN-72)      | —            |
+| M7-08  | [ ]    | Copy actions: issue URL, identifier, git branch, Copy as prompt (LIN-76)                      | M7-07        |
+| M7-09  | [ ]    | Label picker: create labels by typing, team + workspace sections, label settings (LIN-52)     | —            |
+| M7-10  | [ ]    | Assignee picker parity: No assignee, me first, team members, digit shortcuts (LIN-78)         | —            |
+| M7-11  | [ ]    | Command menu (⌘K) + keyboard shortcuts + shortcut help (LIN-80)                               | M7-01        |
+| M7-12  | [ ]    | Multi-select and bulk actions on issue list and board (LIN-82)                                | M7-11        |
+
+## M8 — Issue planning properties
+
+| ID     | Status | Task                                                                                   | Depends on   |
+| ------ | ------ | -------------------------------------------------------------------------------------- | ------------ |
+| M8-01  | [ ]    | Estimates: team estimate scale, estimate picker, sums in groups (LIN-55)               | —            |
+| M8-02  | [ ]    | Due dates: due date picker (⇧D), overdue styling, filter + sort (LIN-58)               | —            |
+| M8-03  | [ ]    | Sub-issues: parent/child, sub-issue list with progress, create sub-issue (LIN-60)      | —            |
+| M8-04  | [ ]    | Issue relations: blocks / blocked by / related / duplicate of (LIN-63)                 | —            |
+| M8-05  | [ ]    | Issue links: add link (Ctrl L), resources list, GitHub PR rows (LIN-66)                | M4-07        |
+| M8-06  | [ ]    | Cycles: team settings, auto-scheduled cycles, cycle picker, cycle page (LIN-70)        | —            |
+| M8-07  | [ ]    | Favorites: star issues, projects, views; sidebar Favorites section (LIN-73)            | M7-01        |
+
+## M9 — Projects parity
+
+| ID     | Status | Task                                                                                   | Depends on   |
+| ------ | ------ | -------------------------------------------------------------------------------------- | ------------ |
+| M9-01  | [ ]    | Project properties + projects list table: priority, lead, members, dates, labels (LIN-57) | —         |
+| M9-02  | [ ]    | Project milestones: create/reorder, assign issues, progress per milestone (LIN-61)     | M9-01        |
+| M9-03  | [ ]    | Project detail: Overview / Activity / Issues tabs with right properties panel (LIN-65) | M9-02        |
+| M9-04  | [ ]    | Project updates + health (On track / At risk / Off track) (LIN-68)                     | M9-03        |
+| M9-05  | [ ]    | Project progress chart: scope / started / completed + breakdowns (LIN-71)              | M9-02        |
+| M9-06  | [ ]    | Project activity feed (LIN-75)                                                         | M9-01        |
+
+## M10 — Collaboration and views
+
+| ID     | Status | Task                                                                                   | Depends on   |
+| ------ | ------ | -------------------------------------------------------------------------------------- | ------------ |
+| M10-01 | [ ]    | Subscribers: auto-subscribe, subscribe toggle, subscribers on issue (LIN-64)           | —            |
+| M10-02 | [ ]    | Inbox + notifications (LIN-69)                                                         | M10-01, M7-01 |
+| M10-03 | [ ]    | @mentions of users and issues in descriptions and comments (LIN-74)                    | M10-01, M10-02 |
+| M10-04 | [ ]    | Comment reactions and threaded replies (LIN-77)                                        | —            |
+| M10-05 | [ ]    | Custom views: save filters + display options as workspace or team views (LIN-79)       | M7-01, M7-03 |
+| M10-06 | [ ]    | Issue templates (LIN-81)                                                               | —            |
+| M10-07 | [ ]    | Presence: who is viewing an issue, online status on avatars (LIN-83)                   | M6-01        |
+
 ## P1 backlog (after P0)
 
-Keyboard shortcuts · command menu · rich-text editor · notifications · realtime presence (who's online / viewing) · due dates · sub-issues · project progress · issue relations · issue/comment attachments · draft/review PR indicators.
+Most of this list is now scheduled in M7–M10 (shortcuts, command menu, notifications, presence, due dates, sub-issues, project progress, relations). Still unscheduled: draft/review PR indicators.
 
 ## Log
 
