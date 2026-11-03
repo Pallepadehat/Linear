@@ -2,6 +2,7 @@ import type {
   Comment,
   Issue,
   IssueDetail,
+  IssueFiltersInput,
   IssuePage,
   IssueRelationType,
   ListIssuesInput,
@@ -52,6 +53,30 @@ export type IssueListFilter = Pick<
 >
 
 /**
+ * The shared list filters (`issueFiltersSchema`) for the page's scope and view tab plus
+ * the user's filters, so the list and the Details panel always ask for the same issues.
+ */
+function issueFiltersInput(
+  workspaceSlug: string,
+  filter: IssueListFilter,
+  filters: IssueFilters,
+): IssueFiltersInput {
+  const { q, due, ...rest } = filters
+  // The sort only orders the list; it isn't a filter.
+  const { sort: _sort, direction: _direction, ...scope } = filter
+  // Relative due filters are evaluated against the viewer's local day (domain.md).
+  const relative = due.some((bucket) => bucket !== 'noDueDate')
+  return {
+    workspaceSlug,
+    ...scope,
+    ...rest,
+    ...(due.length && { due }),
+    ...(relative && { today: todayIso() }),
+    q: q || undefined,
+  }
+}
+
+/**
  * Issue pages for a workspace, narrowed by the page's scope (team, project,
  * assignee or creator) and view tab, then by the user's filters and sort.
  */
@@ -60,17 +85,11 @@ export function issueListOptions(
   filter: IssueListFilter = {},
   filters: IssueFilters = EMPTY_FILTERS,
 ) {
-  const { q, due, ...rest } = filters
-  // Relative due filters are evaluated against the viewer's local day (domain.md).
-  const relative = due.some((bucket) => bucket !== 'noDueDate')
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
-      workspaceSlug,
-      ...filter,
-      ...rest,
-      ...(due.length && { due }),
-      ...(relative && { today: todayIso() }),
-      q: q || undefined,
+      ...issueFiltersInput(workspaceSlug, filter, filters),
+      sort: filter.sort,
+      direction: filter.direction,
       cursor,
       limit: PAGE_SIZE,
     }),
@@ -80,6 +99,24 @@ export function issueListOptions(
     placeholderData: keepPreviousData,
   })
 }
+
+/**
+ * The Details panel's counts for the same scope, view and filters as the list
+ * (sort doesn't change counts, so it isn't part of the key).
+ */
+export function issueFacetsOptions(
+  workspaceSlug: string,
+  filter: IssueListFilter = {},
+  filters: IssueFilters = EMPTY_FILTERS,
+) {
+  return orpc.issues.facets.queryOptions({
+    input: issueFiltersInput(workspaceSlug, filter, filters),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Every Details panel count; invalidated wherever issue lists are. */
+export const issueFacetsKey = () => orpc.issues.facets.key()
 
 /** Matches every issue list (all teams, every page), for invalidation. */
 export const issueListKey = () => orpc.issues.list.key()
@@ -213,6 +250,7 @@ export function useUpdateIssue(workspaceSlug: MaybeRefOrGetter<string>) {
       if (queryClient.isMutating({ mutationKey }) > 1) return
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: listKey }),
+        queryClient.invalidateQueries({ queryKey: issueFacetsKey() }),
         ...detailKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
         // Project and cycle progress count issues by status, project and cycle.

@@ -731,6 +731,103 @@ describe('issues.list filters, sorting and search', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })
   })
 
+  it('counts issues per assignee, label, priority and project for the same filters', async () => {
+    const { owner, member, project, bug, ui, team, issues } = await seeded()
+    const facets = (filter: Partial<ListIssuesInput> = {}) =>
+      issues.facets({ workspaceSlug: 'tip', ...filter })
+
+    // Most common first; ties by id. Unassigned / no project are `null` rows, and
+    // TIP-4 (Bug + UI) counts once under each label.
+    expect(await facets()).toEqual({
+      assignees: [
+        { id: null, count: 3 },
+        { id: owner.userId, count: 1 },
+        { id: member.userId, count: 1 },
+      ],
+      labels: [
+        { id: bug.id, count: 2 },
+        { id: ui.id, count: 2 },
+      ],
+      priorities: [0, 1, 2, 3, 4].map((value) => ({ value, count: 1 })),
+      projects: [
+        { id: null, count: 3 },
+        { id: project.id, count: 2 },
+      ],
+    })
+
+    // Filters narrow the counts exactly like they narrow the list (TIP-1, TIP-4).
+    // On a tie, the `null` row comes last.
+    expect(await facets({ labelIds: [bug.id], teamId: team.id })).toEqual({
+      assignees: [
+        { id: owner.userId, count: 1 },
+        { id: null, count: 1 },
+      ],
+      labels: [
+        { id: bug.id, count: 2 },
+        { id: ui.id, count: 1 },
+      ],
+      priorities: [
+        { value: 3, count: 1 },
+        { value: 4, count: 1 },
+      ],
+      projects: [
+        { id: project.id, count: 1 },
+        { id: null, count: 1 },
+      ],
+    })
+    // The Active tab: TIP-2 and TIP-5 are Todo, without labels or a project.
+    expect(await facets({ statusCategories: ['unstarted'] })).toMatchObject({
+      assignees: [
+        { id: member.userId, count: 1 },
+        { id: null, count: 1 },
+      ],
+      labels: [],
+      projects: [{ id: null, count: 2 }],
+    })
+    expect((await facets({ assignee: 'me' })).assignees).toEqual([{ id: owner.userId, count: 1 }])
+    // `'me'` in subscriberIds is the session user, like in `issues.list`.
+    const subscribed = await issues.list({ workspaceSlug: 'tip', subscriberIds: ['me'] })
+    expect(subscribed.items.length).toBeGreaterThan(0)
+    const subscribedCounts = (await facets({ subscriberIds: ['me'] })).assignees
+    expect(subscribedCounts.reduce((sum, row) => sum + row.count, 0)).toBe(subscribed.items.length)
+    expect((await facets({ projectId: project.id })).projects).toEqual([
+      { id: project.id, count: 2 },
+    ])
+    expect(await facets({ q: 'nothing matches' })).toEqual({
+      assignees: [],
+      labels: [],
+      priorities: [],
+      projects: [],
+    })
+  })
+
+  it('rejects facets for another workspace and its team, project or cycle scope', async () => {
+    const { owner, team, project } = await seeded()
+    await owner.client.teams.update({ workspaceSlug: 'tip', key: 'TIP', cyclesEnabled: true })
+    const [cycle] = await owner.client.cycles.list({ workspaceSlug: 'tip', teamId: team.id })
+    const stranger = await signUp(app, 'Stranger')
+    await stranger.client.workspaces.create({ name: 'Mine', slug: 'mine' })
+    const notFound = { code: 'NOT_FOUND' }
+
+    await expect(stranger.client.issues.facets({ workspaceSlug: 'tip' })).rejects.toMatchObject(
+      notFound,
+    )
+    await expect(
+      stranger.client.issues.facets({ workspaceSlug: 'mine', teamId: team.id }),
+    ).rejects.toMatchObject(notFound)
+    await expect(
+      stranger.client.issues.facets({ workspaceSlug: 'mine', projectId: project.id }),
+    ).rejects.toMatchObject(notFound)
+    await expect(
+      stranger.client.issues.facets({ workspaceSlug: 'mine', cycleId: cycle!.id }),
+    ).rejects.toMatchObject(notFound)
+    // Unscoped, the stranger's own workspace has nothing to count.
+    expect((await stranger.client.issues.facets({ workspaceSlug: 'mine' })).assignees).toEqual([])
+    await expect(rpcClient(app).issues.facets({ workspaceSlug: 'tip' })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    })
+  })
+
   it('sorts by created, updated and priority in both directions, with stable cursors', async () => {
     const { issues, created, ids } = await seeded()
 
