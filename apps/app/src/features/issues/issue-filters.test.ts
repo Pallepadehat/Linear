@@ -21,7 +21,7 @@ const A = '0192f5a0-0000-7000-8000-000000000001'
 const B = '0192f5a0-0000-7000-8000-000000000002'
 
 describe('issue filters in the URL', () => {
-  it('round-trips every filter and sort', () => {
+  it('round-trips every filter', () => {
     const filters: IssueFilters = {
       statusIds: [A, B],
       priorities: [1, 0],
@@ -40,9 +40,6 @@ describe('issue filters in the URL', () => {
       content: 'redirect loop',
       hasPullRequests: true,
       q: 'login',
-      sort: 'priority' as const,
-      direction: 'asc' as const,
-      showSubIssues: false,
       hasLinks: true,
     }
     const query = serializeIssueFilters(filters)
@@ -63,9 +60,6 @@ describe('issue filters in the URL', () => {
       content: 'redirect loop',
       pr: 'yes',
       q: 'login',
-      sort: 'priority',
-      dir: 'asc',
-      subIssues: 'hide',
       links: 'has',
     })
     expect(parseIssueFilters(query as Record<string, string>)).toEqual(filters)
@@ -83,8 +77,6 @@ describe('issue filters in the URL', () => {
         priority: ['9', '2', '2'],
         assignee: 'me',
         subscriber: 'you,me',
-        sort: 'title',
-        dir: 'sideways',
         estimate: 'x,1000,5,-1',
         q: '  spaced  ',
       }),
@@ -100,7 +92,6 @@ describe('issue filters in the URL', () => {
 
   it('knows when a filter is active', () => {
     expect(hasActiveFilters(EMPTY_FILTERS)).toBe(false)
-    expect(hasActiveFilters({ ...EMPTY_FILTERS, sort: 'priority' })).toBe(false)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, q: 'x' })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, cycleIds: [null] })).toBe(true)
     expect(hasActiveFilters({ ...EMPTY_FILTERS, assigneeIds: [null] })).toBe(true)
@@ -244,8 +235,8 @@ describe('date filters', () => {
 describe('toListInput', () => {
   const now = new Date(2026, 10, 3, 15, 30)
 
-  it('sends nothing but the display option without filters', () => {
-    expect(toListInput(EMPTY_FILTERS, now)).toEqual({ showSubIssues: true })
+  it('sends nothing without filters', () => {
+    expect(toListInput(EMPTY_FILTERS, now)).toEqual({})
   })
 
   it('routes values to the plain or `Not` lists by operator', () => {
@@ -270,11 +261,10 @@ describe('toListInput', () => {
       creatorIdsNot: ['me'],
       labelIds: [A, B],
       labelMode: 'all',
-      showSubIssues: true,
     })
     expect(
       toListInput({ ...EMPTY_FILTERS, labelIds: [A], operators: { label: 'not' } }, now),
-    ).toEqual({ labelIdsNot: [A], showSubIssues: true })
+    ).toEqual({ labelIdsNot: [A] })
   })
 
   it('sends dates, content, links, due with today, and search', () => {
@@ -290,7 +280,6 @@ describe('toListInput', () => {
           hasLinks: true,
           due: ['overdue'],
           q: 'tip',
-          showSubIssues: false,
         },
         now,
       ),
@@ -304,7 +293,6 @@ describe('toListInput', () => {
       due: ['overdue'],
       today: '2026-11-03',
       q: 'tip',
-      showSubIssues: false,
     })
     // "No due date" needs no today.
     expect(toListInput({ ...EMPTY_FILTERS, due: ['noDueDate'] }, now)).not.toHaveProperty('today')

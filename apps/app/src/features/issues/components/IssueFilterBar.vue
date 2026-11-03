@@ -1,20 +1,23 @@
 <script setup lang="ts">
-import type { IssueSort, SortDirection } from '@linear/contract'
 import { Search, X } from '@lucide/vue'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { useFilterDimensions } from '../composables/useFilterDimensions'
 import { useIssueFilters } from '../composables/useIssueFilters'
+import { displayViewKey } from '../display-options'
+import IssueDisplayOptions from './IssueDisplayOptions.vue'
 import IssueFilterMenu from './IssueFilterMenu.vue'
-import IssueSortMenu from './IssueSortMenu.vue'
 
 const props = defineProps<{
   workspaceSlug: string
   teamId?: string
   projectId?: string
   cycleId?: string
-  /** The view toolbar above shows the Filter button instead. */
+  /** My issues: the display options are that view's. */
+  assignee?: 'me'
+  creator?: 'me'
+  /** The view toolbar above shows the Filter and Display options buttons instead. */
   hideFilterMenu?: boolean
 }>()
 
@@ -23,19 +26,6 @@ const SEARCH_DEBOUNCE_MS = 250
 const { filters, active, update, clear } = useIssueFilters()
 const dimensions = useFilterDimensions(() => props, filters, update)
 const activeDimensions = computed(() => dimensions.value.filter((d) => d.active))
-
-const sort = computed({
-  get: () => filters.value.sort,
-  set: (value: IssueSort) => update({ sort: value }),
-})
-const showSubIssues = computed({
-  get: () => filters.value.showSubIssues,
-  set: (value: boolean) => update({ showSubIssues: value }),
-})
-const direction = computed({
-  get: () => filters.value.direction,
-  set: (value: SortDirection) => update({ direction: value }),
-})
 
 // The input updates at once; the URL (and the query) after a pause in typing.
 const search = ref(filters.value.q)
@@ -118,11 +108,7 @@ function clearSearch(event: KeyboardEvent) {
           @keydown.esc.prevent="clearSearch"
         />
       </div>
-      <IssueSortMenu
-        v-model:sort="sort"
-        v-model:direction="direction"
-        v-model:show-sub-issues="showSubIssues"
-      />
+      <IssueDisplayOptions v-if="!hideFilterMenu" :view-key="displayViewKey(props)" />
     </div>
   </div>
 </template>

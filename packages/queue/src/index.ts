@@ -1,14 +1,35 @@
 export { createRedisConnection } from './connection'
 export { QUEUE_NAMES, type QueueKey } from './names'
-export { jobSchemas, parseJobPayload, type JobName, type JobPayload } from './payloads'
-export { closeQueues, createQueues, defaultJobOptions, enqueue, type Queues } from './queues'
+export {
+  jobSchemas,
+  notificationEventSchema,
+  notificationSourceKey,
+  parseJobPayload,
+  type JobName,
+  type JobPayload,
+  type NotifyPayload,
+} from './payloads'
+export {
+  closeQueues,
+  createQueues,
+  defaultJobOptions,
+  enqueue,
+  enqueueNotification,
+  type Queues,
+} from './queues'
 export {
   createRealtimePublisher,
+  createUserEventPublisher,
   issueFieldSchema,
   realtimeChannel,
   realtimeEventSchema,
+  userChannel,
+  userEventSchema,
+  userIdOfChannel,
   workspaceIdOfChannel,
   type IssueField,
   type RealtimeEvent,
   type RealtimePublisher,
+  type UserEvent,
+  type UserEventPublisher,
 } from './realtime'

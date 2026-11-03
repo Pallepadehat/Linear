@@ -3,8 +3,12 @@ import {
   createRealtimePublisher,
   realtimeChannel,
   realtimeEventSchema,
+  userChannel,
+  userEventSchema,
+  userIdOfChannel,
   workspaceIdOfChannel,
   type RealtimeEvent,
+  type UserEvent,
 } from '@linear/queue'
 import { EventPublisher } from '@orpc/server'
 import type { FastifyBaseLogger } from 'fastify'
@@ -12,42 +16,52 @@ import type { Redis } from 'ioredis'
 
 export type RealtimeHub = ReturnType<typeof createRealtimeHub>
 
+/** What one socket's stream carries: its workspace's events plus its user's own. */
+export type StreamEvent = RealtimeEvent | UserEvent
+
 /**
  * One per API instance: publishes domain events to Redis and forwards events from
- * `workspace:<id>` channels to this instance's subscribers. A channel is subscribed
- * only while at least one local socket listens to that workspace.
+ * `workspace:<id>` and `user:<id>` channels to this instance's subscribers. A channel
+ * is subscribed only while at least one local socket listens to it.
  */
 export function createRealtimeHub(redis: Redis, logger: FastifyBaseLogger) {
   const publishToRedis = createRealtimePublisher(redis)
   // Subscriber connections can't run other commands; lazy so buildApp() opens nothing.
   const subscriber = redis.duplicate({ lazyConnect: true })
-  const local = new EventPublisher<Record<string, RealtimeEvent>>()
+  // Both keyed by channel name.
+  const workspaceLocal = new EventPublisher<Record<string, RealtimeEvent>>()
+  const userLocal = new EventPublisher<Record<string, UserEvent>>()
   const listeners = new Map<string, number>()
 
   subscriber.on('message', (channel: string, message: string) => {
-    const workspaceId = workspaceIdOfChannel(channel)
-    if (!workspaceId) return
-    const parsed = realtimeEventSchema.safeParse(safeJson(message))
+    const schema = workspaceIdOfChannel(channel)
+      ? realtimeEventSchema
+      : userIdOfChannel(channel)
+        ? userEventSchema
+        : null
+    if (!schema) return
+    const parsed = schema.safeParse(safeJson(message))
     if (!parsed.success) {
       logger.warn({ channel }, 'realtime: dropped malformed event')
       return
     }
-    local.publish(workspaceId, parsed.data)
+    if (parsed.data.type === 'notification.created') userLocal.publish(channel, parsed.data)
+    else workspaceLocal.publish(channel, parsed.data)
   })
   subscriber.on('error', (err) => logger.error({ err }, 'realtime: subscriber error'))
 
-  async function retain(workspaceId: string) {
-    const count = listeners.get(workspaceId) ?? 0
-    listeners.set(workspaceId, count + 1)
-    if (count === 0) await subscriber.subscribe(realtimeChannel(workspaceId))
+  async function retain(channel: string) {
+    const count = listeners.get(channel) ?? 0
+    listeners.set(channel, count + 1)
+    if (count === 0) await subscriber.subscribe(channel)
   }
 
-  async function release(workspaceId: string) {
-    const count = (listeners.get(workspaceId) ?? 1) - 1
-    if (count > 0) return listeners.set(workspaceId, count)
-    listeners.delete(workspaceId)
+  async function release(channel: string) {
+    const count = (listeners.get(channel) ?? 1) - 1
+    if (count > 0) return listeners.set(channel, count)
+    listeners.delete(channel)
     // ioredis runs commands in order, so a later retain() re-subscribes after this.
-    await subscriber.unsubscribe(realtimeChannel(workspaceId)).catch(() => {})
+    await subscriber.unsubscribe(channel).catch(() => {})
   }
 
   return {
@@ -63,16 +77,28 @@ export function createRealtimeHub(redis: Redis, logger: FastifyBaseLogger) {
       }
     },
 
-    /** The workspace's events until `signal` aborts (the socket closed or the call ended). */
-    async *events(workspaceId: string, signal: AbortSignal | undefined) {
+    /**
+     * The workspace's events plus `userId`'s own events for that workspace, until
+     * `signal` aborts (the socket closed or the call ended).
+     */
+    async *events(workspaceId: string, userId: string, signal: AbortSignal | undefined) {
+      const channels = [realtimeChannel(workspaceId), userChannel(userId)]
       // Listen locally before subscribing in Redis so nothing in between is lost.
-      const iterator = local.subscribe(workspaceId, { signal, maxBufferedEvents: 200 })
-      await retain(workspaceId)
+      const merged = new EventPublisher<{ event: StreamEvent }>()
+      const iterator = merged.subscribe('event', { signal, maxBufferedEvents: 200 })
+      const unsubscribe = [
+        workspaceLocal.subscribe(channels[0]!, (event) => merged.publish('event', event)),
+        userLocal.subscribe(channels[1]!, (event) => {
+          if (event.workspaceId === workspaceId) merged.publish('event', event)
+        }),
+      ]
+      await Promise.all(channels.map(retain))
       try {
         yield* iterator
       } finally {
+        for (const off of unsubscribe) off()
         await iterator.return(undefined)
-        await release(workspaceId)
+        await Promise.all(channels.map(release))
       }
     },
 
@@ -83,11 +109,15 @@ export function createRealtimeHub(redis: Redis, logger: FastifyBaseLogger) {
 }
 
 /**
- * The client DTO: the bus event without its internal `originId`. Typed against the
- * contract, so the two schemas can't drift apart silently.
+ * The client DTO: the bus event without its internal `originId` (and a user event without
+ * its routing `workspaceId`). Typed against the contract, so the schemas can't drift apart.
  */
-export function toClientEvent({ originId: _, ...event }: RealtimeEvent): ClientRealtimeEvent {
-  return event
+export function toClientEvent(event: StreamEvent): ClientRealtimeEvent {
+  if (event.type === 'notification.created') {
+    return { type: event.type, notificationId: event.notificationId }
+  }
+  const { originId: _, ...rest } = event
+  return rest
 }
 
 function safeJson(message: string): unknown {

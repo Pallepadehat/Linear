@@ -56,7 +56,17 @@ function minuteNow() {
 
 export type IssueListFilter = Pick<
   ListIssuesInput,
-  'teamId' | 'projectId' | 'cycleId' | 'assignee' | 'creator' | 'statusCategories'
+  | 'teamId'
+  | 'projectId'
+  | 'cycleId'
+  | 'assignee'
+  | 'creator'
+  | 'statusCategories'
+  // From the view's display options.
+  | 'completedAfter'
+  | 'sort'
+  | 'direction'
+  | 'showSubIssues'
 >
 
 /**
@@ -68,7 +78,9 @@ function issueFiltersInput(
   filter: IssueListFilter,
   filters: IssueFilters,
 ): IssueFiltersInput {
-  return { workspaceSlug, ...filter, ...toListInput(filters, minuteNow()) }
+  // The sort only orders the list; it isn't a filter.
+  const { sort: _sort, direction: _direction, ...scope } = filter
+  return { workspaceSlug, ...scope, ...toListInput(filters, minuteNow()) }
 }
 
 /**
@@ -83,8 +95,8 @@ export function issueListOptions(
   return orpc.issues.list.infiniteOptions({
     input: (cursor: string | null) => ({
       ...issueFiltersInput(workspaceSlug, filter, filters),
-      sort: filters.sort,
-      direction: filters.direction,
+      sort: filter.sort,
+      direction: filter.direction,
       cursor,
       limit: PAGE_SIZE,
     }),

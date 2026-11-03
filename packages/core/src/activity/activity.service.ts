@@ -15,26 +15,33 @@ export type ListActivityInput = {
 }
 
 export type ActivityRecord = typeof activityLog.$inferSelect
+export type RecordedActivity = Pick<ActivityRecord, 'id' | 'kind'>
 
-/** Call inside the transaction that made the changes, so both commit or neither does. */
+/**
+ * Call inside the transaction that made the changes, so both commit or neither does.
+ * Returns the new entries' ids (notifications use them as their source).
+ */
 export async function recordActivity(
   tx: DbOrTx,
   input: { workspaceId: string; issueId: string; actor: ActivityActor; changes: ActivityChange[] },
-) {
-  if (input.changes.length === 0) return
+): Promise<RecordedActivity[]> {
+  if (input.changes.length === 0) return []
   const { actor } = input
   const actorId = actor.type === 'user' ? actor.id : null
   const pullRequestId = actor.type === 'github' ? actor.pullRequestId : null
-  await tx.insert(activityLog).values(
-    input.changes.map((change) => ({
-      workspaceId: input.workspaceId,
-      issueId: input.issueId,
-      actorType: actor.type,
-      actorId,
-      pullRequestId,
-      ...change,
-    })),
-  )
+  return tx
+    .insert(activityLog)
+    .values(
+      input.changes.map((change) => ({
+        workspaceId: input.workspaceId,
+        issueId: input.issueId,
+        actorType: actor.type,
+        actorId,
+        pullRequestId,
+        ...change,
+      })),
+    )
+    .returning({ id: activityLog.id, kind: activityLog.kind })
 }
 
 /**

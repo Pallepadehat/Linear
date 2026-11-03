@@ -1,4 +1,4 @@
-import type { IssueDueFilter, IssueFiltersInput, IssueSort, SortDirection } from '@linear/contract'
+import type { IssueDueFilter, IssueFiltersInput } from '@linear/contract'
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 import { todayIso } from '@/lib/due-dates'
 
@@ -55,17 +55,9 @@ export type IssueFilters = {
   /** Has (`true`) or lacks (`false`) a linked pull request; `null` = no filter. */
   hasPullRequests: boolean | null
   q: string
-  sort: IssueSort
-  direction: SortDirection
-  /** Only issues with a web link or a linked PR (domain.md → Links). */
   /** Has (`true`) or lacks (`false`) any link: a web link or a linked PR; `null` = no filter. */
   hasLinks: boolean | null
-  /** Display option: whether issues with a parent are listed (nested under it when loaded). */
-  showSubIssues: boolean
 }
-
-export const DEFAULT_SORT: IssueSort = 'createdAt'
-export const DEFAULT_DIRECTION: SortDirection = 'desc'
 
 export const EMPTY_FILTERS: IssueFilters = {
   statusIds: [],
@@ -85,14 +77,10 @@ export const EMPTY_FILTERS: IssueFilters = {
   content: '',
   hasPullRequests: null,
   q: '',
-  sort: DEFAULT_SORT,
-  direction: DEFAULT_DIRECTION,
-  showSubIssues: true,
   hasLinks: null,
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const SORTS: readonly IssueSort[] = ['createdAt', 'updatedAt', 'priority', 'estimate', 'dueDate']
 export const DUE_FILTERS: readonly IssueDueFilter[] = ['overdue', 'dueThisWeek', 'noDueDate']
 export const DATE_PERIODS: readonly DatePeriod[] = ['day', 'week', 'month', '3months']
 const DATE_DIMENSIONS: readonly DateDimension[] = ['created', 'updated', 'completed']
@@ -120,9 +108,6 @@ export const FILTER_QUERY_KEYS = [
   'pr',
   'links',
   'q',
-  'sort',
-  'dir',
-  'subIssues',
 ]
 
 function first(value: QueryValue) {
@@ -196,8 +181,6 @@ function readOperator<T>(
  * rather than failing, so a hand-edited or stale URL still opens a view.
  */
 export function parseIssueFilters(query: LocationQuery): IssueFilters {
-  const sort = first(query.sort)
-  const direction = first(query.dir)
   const status = readOperator(query, 'status', ids)
   const priority = readOperator(query, 'priority', priorities)
   const assignee = readOperator(query, 'assignee', idsOrNone)
@@ -239,9 +222,6 @@ export function parseIssueFilters(query: LocationQuery): IssueFilters {
     content: first(query.content).trim().slice(0, 255),
     hasPullRequests: pr === 'yes' ? true : pr === 'no' ? false : null,
     q: first(query.q).trim(),
-    sort: SORTS.includes(sort as IssueSort) ? (sort as IssueSort) : DEFAULT_SORT,
-    direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_DIRECTION,
-    showSubIssues: first(query.subIssues) !== 'hide',
     hasLinks: links === 'has' ? true : links === 'none' ? false : null,
   }
 }
@@ -274,9 +254,6 @@ export function serializeIssueFilters(filters: IssueFilters): LocationQueryRaw {
     content: filters.content.trim() || undefined,
     pr: filters.hasPullRequests === null ? undefined : filters.hasPullRequests ? 'yes' : 'no',
     q: filters.q.trim() || undefined,
-    sort: filters.sort === DEFAULT_SORT ? undefined : filters.sort,
-    dir: filters.direction === DEFAULT_DIRECTION ? undefined : filters.direction,
-    subIssues: filters.showSubIssues ? undefined : 'hide',
     links: filters.hasLinks === null ? undefined : filters.hasLinks ? 'has' : 'none',
   }
   return Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined))
@@ -414,7 +391,6 @@ export function toListInput(
     hasPullRequests: filters.hasPullRequests ?? undefined,
     hasLinks: filters.hasLinks ?? undefined,
     q: filters.q || undefined,
-    showSubIssues: filters.showSubIssues,
   }
   // Undefined keys would still be part of the query key.
   return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as Omit<

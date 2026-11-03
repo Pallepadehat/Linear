@@ -19,6 +19,7 @@ import { enqueue } from '@linear/queue'
 import { imageUrl } from '../../lib/upload-urls'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
+import { issueUpdateEvents, notify } from '../notifications/notify'
 import { changedIssueFields, publishChange } from '../realtime/publish'
 import { toIssueDetailDto, toIssueDto } from './issues.dto'
 
@@ -70,6 +71,11 @@ export const issuesRouter = {
       })
       await publishChange(context, { type: 'issue.created', issueId: issue.id })
       if (issue.parentId) await publishSubIssuesChanged(context, [issue.parentId])
+      const source = { issueId: issue.id, activityId: issue.createdActivityId }
+      await notify(context, [
+        { ...source, event: 'issue_created_in_team' },
+        ...(issue.assigneeId ? [{ ...source, event: 'assigned' as const }] : []),
+      ])
       return toIssueDto(await getIssue(context.db, context.workspace.id, issue.id, context.user.id))
     }),
 
@@ -124,6 +130,7 @@ export const issuesRouter = {
           ? [issue.parentId]
           : []
       await publishSubIssuesChanged(context, parents)
+      await notify(context, issueUpdateEvents(issue.id, issue.activity, issue.assigneeId))
       return toIssueDto(issue)
     }),
 

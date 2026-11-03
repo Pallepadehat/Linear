@@ -6,16 +6,23 @@ import { computed, nextTick, ref, watch, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import EstimateIcon from '@/components/common/EstimateIcon.vue'
-import StatusIcon from '@/components/common/StatusIcon.vue'
 import { Button } from '@/components/ui/button'
 import { pointsText, sumEstimates } from '@/lib/estimates'
 import { useIssueNavStore } from '@/stores/issue-nav'
 import { useUiStore } from '@/stores/ui'
+import { useDisplayOptions } from '../composables/useDisplayOptions'
 import { useIssueFilters } from '../composables/useIssueFilters'
 import {
-  groupIssuesByStatus,
+  displayListInput,
+  displayViewKey,
+  effectiveSubGrouping,
+  visibleCategories,
+} from '../display-options'
+import {
+  groupIssues,
   listOrder,
   toListRows,
+  uniqueIssues,
   type IssueGroup,
   type IssueListRow,
 } from '../group-issues'
@@ -23,6 +30,7 @@ import { useIssueListKeyboard } from '../composables/useIssueListKeyboard'
 import { useIssueSelection } from '../composables/useIssueSelection'
 import { useIssueViewData } from '../composables/useIssueViewData'
 import { viewStatusCategories } from '../issue-view'
+import GroupIcon from './GroupIcon.vue'
 import BulkActionBar from './BulkActionBar.vue'
 import IssueFilterBar from './IssueFilterBar.vue'
 import IssueRow from './IssueRow.vue'
@@ -49,12 +57,15 @@ const PREFETCH_ROWS = 20
 
 const ui = useUiStore()
 const { filters, active: filtered, clear: clearFilters } = useIssueFilters()
+const viewKey = computed(() => displayViewKey(props))
+const { options } = useDisplayOptions(viewKey)
 const {
   query,
   queryKey,
   issues,
   users,
   labels,
+  projects,
   statusesByTeam,
   cyclesByTeam,
   estimatesByTeam,
@@ -67,9 +78,10 @@ const {
     cycleId: props.cycleId,
     assignee: props.assignee,
     creator: props.creator,
-    statusCategories: viewStatusCategories(props.view),
+    ...displayListInput(options.value, viewStatusCategories(props.view)),
   }),
 )
+const properties = computed(() => options.value.properties)
 const viewEmpty = computed(() =>
   props.view === 'active'
     ? { title: 'No active issues', description: 'Issues in Todo or In Progress show up here.' }
@@ -81,7 +93,42 @@ const collapsed = ref(new Set<string>())
 // Sums come from the cached issues, so optimistic estimate changes show at once.
 const groupEstimate = (group: IssueGroup) =>
   sumEstimates(group.issues, (teamId) => estimatesByTeam.value.get(teamId)?.scale)
-const rows = computed(() => toListRows(groupIssuesByStatus(issues.value), collapsed.value))
+// Grouping runs on the loaded pages, in the app (domain.md → Display options).
+const group = (list: Issue[]) =>
+  groupIssues(
+    list,
+    {
+      groupBy: options.value.grouping,
+      subGroupBy: effectiveSubGrouping(options.value),
+      direction: options.value.groupDirection,
+      showEmpty: options.value.showEmptyGroups,
+      ordering: { completedByRecency: options.value.orderCompletedByRecency },
+    },
+    {
+      statusesByTeam: statusesByTeam.value,
+      categories: visibleCategories(options.value, viewStatusCategories(props.view)),
+      users: users.value,
+      projects: projects.value,
+      labels: labels.value,
+    },
+  )
+const groups = computed(() => group(issues.value))
+const rows = computed(() => toListRows(groups.value, collapsed.value))
+// Empty groups alone ("Show empty groups") still mean an empty list.
+const hasIssues = computed(() => rows.value.some((row) => row.type === 'issue'))
+const hasGroups = computed(() => issues.value.length > 0 || rows.value.length > 0)
+
+// The "+" on a group header creates an issue with that group's value.
+function createInGroup(target: IssueGroup) {
+  const base = { teamId: props.teamId, projectId: props.projectId, cycleId: props.cycleId }
+  const value = target.value
+  if (value.by === 'status') ui.openCreateIssue({ ...base, statusId: value.status.id })
+  else if (value.by === 'assignee')
+    ui.openCreateIssue({ ...base, assigneeId: value.assigneeId ?? undefined })
+  else if (value.by === 'project')
+    ui.openCreateIssue({ ...base, projectId: value.projectId ?? base.projectId })
+  else ui.openCreateIssue(base)
+}
 
 function toggleGroup(key: string) {
   const next = new Set(collapsed.value)
@@ -94,7 +141,7 @@ const router = useRouter()
 const nav = useIssueNavStore()
 function openIssue(issue: Issue) {
   const hidden = new Set(collapsed.value)
-  const order = (list: Issue[]) => listOrder(list, hidden)
+  const order = (list: Issue[]) => listOrder(group(list), hidden)
   nav.open(
     {
       queryKey: queryKey.value,
@@ -147,15 +194,14 @@ watch(rows, async (next, prev) => {
   el.scrollTop += after - before
 })
 
-// A new filter, sort or view is a different list; start it from the top.
-watch([filters, () => props.view], () => {
+// A new filter, sort, grouping or view is a different list; start it from the top.
+watch([filters, () => props.view, options], () => {
   if (scrollEl.value) scrollEl.value.scrollTop = 0
 })
 
-// J/K move through the visible rows (collapsed groups are skipped).
-const listedIssues = computed(() =>
-  rows.value.flatMap((row) => (row.type === 'issue' ? [row.issue] : [])),
-)
+// J/K move through the visible rows (collapsed groups are skipped); an issue
+// listed under several labels is visited once.
+const listedIssues = computed(() => uniqueIssues(rows.value))
 const {
   selectedIds,
   click: select,
@@ -189,6 +235,8 @@ watchEffect(() => {
       :team-id="teamId"
       :project-id="projectId"
       :cycle-id="cycleId"
+      :assignee="assignee"
+      :creator="creator"
       :hide-filter-menu="!!view"
     />
     <div v-if="query.isPending.value" class="grid" aria-busy="true" aria-label="Loading issues">
@@ -212,7 +260,7 @@ watchEffect(() => {
       <Button variant="secondary" size="sm" @click="query.refetch()">Retry</Button>
     </EmptyState>
     <EmptyState
-      v-else-if="rows.length === 0 && filtered"
+      v-else-if="!hasIssues && filtered"
       :icon="ListFilter"
       title="No matching issues"
       description="Try a different search or remove some filters."
@@ -220,14 +268,14 @@ watchEffect(() => {
       <Button variant="secondary" size="sm" @click="clearFilters">Clear filters</Button>
     </EmptyState>
     <EmptyState
-      v-else-if="rows.length === 0 && viewEmpty"
+      v-else-if="!hasIssues && viewEmpty"
       :icon="Layers"
       :title="viewEmpty.title"
       :description="viewEmpty.description"
     >
       <Button size="sm" @click="ui.openCreateIssue({ teamId, projectId })">New issue</Button>
     </EmptyState>
-    <template v-else-if="rows.length === 0">
+    <template v-else-if="!hasGroups">
       <slot name="empty">
         <EmptyState
           :icon="Layers"
@@ -251,13 +299,14 @@ watchEffect(() => {
         >
           <div
             v-if="row.type === 'group'"
-            class="group/band mx-2 flex h-8 flex-1 items-center gap-1 rounded-md bg-group-band pr-1 pl-1"
+            class="group/band mx-2 flex h-8 flex-1 items-center gap-1 rounded-md pr-1"
+            :class="row.depth ? 'pl-6' : 'bg-group-band pl-1'"
           >
             <SelectionCheckbox
               class="opacity-0 group-hover/band:opacity-100 focus-visible:opacity-100"
               :class="{ 'opacity-100': groupState(row.group.issues) }"
               :checked="groupState(row.group.issues)"
-              :label="`Select all issues in ${row.group.status.name}`"
+              :label="`Select all issues in ${row.group.label}`"
               @toggle="toggleGroupSelection(row.group.issues)"
             />
             <button
@@ -271,8 +320,8 @@ watchEffect(() => {
                 :class="{ '-rotate-90': collapsed.has(row.group.key) }"
                 aria-hidden="true"
               />
-              <StatusIcon :category="row.group.status.category" />
-              <span class="font-medium text-ink">{{ row.group.status.name }}</span>
+              <GroupIcon :icon="row.group.icon" />
+              <span class="truncate font-medium text-ink">{{ row.group.label }}</span>
               <span class="text-ink-subtle tabular-nums">{{ row.group.issues.length }}</span>
               <span
                 v-if="groupEstimate(row.group) > 0"
@@ -287,13 +336,11 @@ watchEffect(() => {
               </span>
             </button>
             <Button
-              v-if="teamId"
+              v-if="teamId && !row.depth"
               variant="ghost"
               size="icon-xs"
-              :aria-label="`New issue in ${row.group.status.name}`"
-              @click="
-                ui.openCreateIssue({ teamId, projectId, cycleId, statusId: row.group.status.id })
-              "
+              :aria-label="`New issue in ${row.group.label}`"
+              @click="createInGroup(row.group)"
             >
               <Plus aria-hidden="true" />
             </Button>
@@ -311,6 +358,7 @@ watchEffect(() => {
             :users="users"
             :labels="labels"
             :estimates="estimatesByTeam.get(row.issue.teamId)"
+            :properties="properties"
             @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
             @open="openIssue(row.issue)"
             @select="(event) => select(row.issue, event)"
