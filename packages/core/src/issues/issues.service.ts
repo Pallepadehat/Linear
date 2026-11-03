@@ -7,6 +7,7 @@ import {
   issueSubscriptions,
   issues,
   projects,
+  projectMilestones,
   labels,
   teams,
   workflowStatuses,
@@ -831,6 +832,11 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
     workspaceId,
     rows.flatMap((row) => (row.issue.projectId ? [row.issue.projectId] : [])),
   )
+  const milestonesById = await milestoneSummaries(
+    db,
+    workspaceId,
+    rows.flatMap((row) => (row.issue.milestoneId ? [row.issue.milestoneId] : [])),
+  )
   const prs = await pullRequestChips(db, workspaceId, issueIds)
   const linkCounts = await webLinkCounts(db, workspaceId, issueIds)
 
@@ -844,6 +850,7 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
     labels: attached.filter((row) => row.issueId === issue.id).map((row) => row.label),
     subIssueProgress: progress.get(issue.id) ?? null,
     project: (issue.projectId && projectsById.get(issue.projectId)) || null,
+    milestone: (issue.milestoneId && milestonesById.get(issue.milestoneId)) || null,
     pullRequests: prs.get(issue.id) ?? [],
     linkCount: linkCounts.get(issue.id) ?? 0,
   }))
@@ -856,6 +863,20 @@ async function projectSummaries(db: DbOrTx, workspaceId: string, projectIds: str
     .from(projects)
     .where(
       and(eq(projects.workspaceId, workspaceId), inArray(projects.id, [...new Set(projectIds)])),
+    )
+  return new Map(rows.map((row) => [row.id, row]))
+}
+
+/** Names of the rows' milestones, for the milestone chip. */
+async function milestoneSummaries(db: DbOrTx, workspaceId: string, milestoneIds: string[]) {
+  const rows = await db
+    .select({ id: projectMilestones.id, name: projectMilestones.name })
+    .from(projectMilestones)
+    .where(
+      and(
+        eq(projectMilestones.workspaceId, workspaceId),
+        inArray(projectMilestones.id, [...new Set(milestoneIds)]),
+      ),
     )
   return new Map(rows.map((row) => [row.id, row]))
 }
