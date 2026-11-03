@@ -21,6 +21,8 @@ const emit = defineEmits<{
   update: [patch: IssuePatch]
   dragstart: [event: DragEvent]
   dragend: []
+  /** The issue link was followed, so the board can hand the detail page its prev/next context. */
+  open: []
 }>()
 
 const labelIds = computed(() => props.issue.labels.map((l) => l.id))
@@ -68,6 +70,7 @@ function setLabels(labels: Label[]) {
       :to="{ name: 'issue', params: { identifier: issue.identifier } }"
       draggable="false"
       class="line-clamp-2 cursor-[inherit] pr-1 font-medium break-words text-ink outline-hidden after:absolute after:inset-0 after:rounded-lg after:content-['']"
+      @click="emit('open')"
     >
       {{ issue.title }}
     </RouterLink>
