@@ -8,6 +8,7 @@ import CyclePicker from '@/components/common/CyclePicker.vue'
 import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import LabelPicker from '@/components/common/LabelPicker.vue'
+import MilestoneIcon from '@/components/common/MilestoneIcon.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectPicker, { type ProjectOption } from '@/components/common/ProjectPicker.vue'
 import StatusIcon from '@/components/common/StatusIcon.vue'
@@ -218,6 +219,16 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
           :model-value="issue.projectId"
           @update:model-value="setProject"
         />
+      </span>
+      <span
+        v-if="shows('milestone') && issue.milestone"
+        :title="`Milestone: ${issue.milestone.name}`"
+        class="relative z-10 flex h-6 max-w-40 shrink-0 cursor-default items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-muted"
+        @click="onChipClick"
+      >
+        <MilestoneIcon :progress="0" />
+        <span class="truncate">{{ issue.milestone.name }}</span>
+        <span class="sr-only">milestone</span>
       </span>
       <span v-if="issueCycle" class="flex shrink-0">
         <CyclePicker
