@@ -1,5 +1,6 @@
 import {
   issueLabels,
+  issueRelations,
   issues,
   projects,
   labels,
@@ -20,12 +21,14 @@ import {
   lt,
   or,
   sql,
+  aliasedTable,
   type AnyColumn,
   type SQL,
 } from 'drizzle-orm'
 import { recordActivity, type ActivityActor } from '../activity/activity.service'
 import { diffIssue } from '../activity/diff'
 import { DomainError } from '../errors'
+import { CLOSED_STATUS_CATEGORIES } from '../relations/roles'
 import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
@@ -400,12 +403,31 @@ type IssueRowsQuery = {
   limit?: number
 }
 
+/**
+ * `blocks` relations of the listed issue whose other side is still open: as the
+ * blocked issue (`relatedIssueId`) these are its blockers, as the source its blockees.
+ */
+function openBlockCount(side: 'issueId' | 'relatedIssueId') {
+  const name = side === 'issueId' ? 'blocked_issue' : 'blocking_issue'
+  const other = aliasedTable(issues, name)
+  const otherStatus = aliasedTable(workflowStatuses, `${name}_status`)
+  const otherSide = side === 'issueId' ? issueRelations.relatedIssueId : issueRelations.issueId
+  return sql<number>`(select count(*)::int from ${issueRelations}
+    inner join ${issues} as ${sql.identifier(name)} on ${other.id} = ${otherSide}
+    inner join ${workflowStatuses} as ${sql.identifier(`${name}_status`)} on ${otherStatus.id} = ${other.statusId}
+    where ${issueRelations[side]} = ${issues.id}
+      and ${issueRelations.type} = 'blocks'
+      and ${otherStatus.category} not in ${CLOSED_STATUS_CATEGORIES})`
+}
+
 async function selectIssueRows(db: DbOrTx, workspaceId: string, query: IssueRowsQuery) {
   const select = db
     .select({
       issue: issues,
       teamKey: teams.key,
       status: workflowStatuses,
+      blockedByCount: openBlockCount('relatedIssueId'),
+      blockingCount: openBlockCount('issueId'),
       cursorValue: query.cursorValue ?? sql<string>`''`,
     })
     .from(issues)
@@ -435,10 +457,12 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
     )
     .orderBy(asc(labels.name))
 
-  return rows.map(({ issue, teamKey, status }) => ({
+  return rows.map(({ issue, teamKey, status, blockedByCount, blockingCount }) => ({
     ...issue,
     identifier: `${teamKey}-${issue.number}`,
     status,
+    blockedByCount,
+    blockingCount,
     labels: attached.filter((row) => row.issueId === issue.id).map((row) => row.label),
   }))
 }

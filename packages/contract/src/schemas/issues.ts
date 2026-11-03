@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { workspaceScopedSchema } from './common'
 import { labelSchema } from './labels'
+import { issueRelationsSchema } from './relations'
 import { workflowStatusSchema } from './teams'
 
 /** 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low (docs/domain.md → Priorities). */
@@ -35,7 +36,13 @@ export const issueSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
   completedAt: z.date().nullable(),
+  /** Open (not completed or canceled) issues blocking this one / blocked by it. */
+  blockedByCount: z.number().int().min(0),
+  blockingCount: z.number().int().min(0),
 })
+
+/** `issues.get` / `getByIdentifier`: the issue plus its relations. */
+export const issueDetailSchema = issueSchema.extend({ relations: issueRelationsSchema })
 
 const labelIdsSchema = z.array(z.uuid()).max(50)
 
@@ -111,6 +118,7 @@ export const issuePageSchema = z.object({
 
 export type IssuePriority = z.infer<typeof issuePrioritySchema>
 export type Issue = z.infer<typeof issueSchema>
+export type IssueDetail = z.infer<typeof issueDetailSchema>
 export type IssuePage = z.infer<typeof issuePageSchema>
 export type CreateIssueInput = z.input<typeof createIssueInputSchema>
 export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>

@@ -194,13 +194,20 @@ describe('issues procedures', () => {
       projectId: null,
       labels: [bug],
       completedAt: null,
+      blockedByCount: 0,
+      blockingCount: 0,
     })
     expect(issue.createdAt).toBeInstanceOf(Date)
 
-    expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual(issue)
-    expect(await issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'tip-1' })).toEqual(
-      issue,
-    )
+    const relations = { blocks: [], blockedBy: [], related: [], duplicateOf: [], duplicates: [] }
+    expect(await issues.get({ workspaceSlug: 'tip', id: issue.id })).toEqual({
+      ...issue,
+      relations,
+    })
+    expect(await issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'tip-1' })).toEqual({
+      ...issue,
+      relations,
+    })
     await expect(
       issues.getByIdentifier({ workspaceSlug: 'tip', identifier: 'TIP-2' }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })

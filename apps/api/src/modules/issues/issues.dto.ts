@@ -1,6 +1,7 @@
-import type { Issue } from '@linear/contract'
-import type { IssueRecord } from '@linear/core'
+import type { Issue, IssueDetail } from '@linear/contract'
+import type { IssueRecord, IssueRelationsRecord } from '@linear/core'
 import { toLabelDto } from '../labels/labels.dto'
+import { toIssueRelationsDto } from '../relations/relations.dto'
 
 export function toIssueDto(record: IssueRecord): Issue {
   return {
@@ -24,5 +25,14 @@ export function toIssueDto(record: IssueRecord): Issue {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     completedAt: record.completedAt,
+    blockedByCount: record.blockedByCount,
+    blockingCount: record.blockingCount,
   }
+}
+
+export function toIssueDetailDto(
+  record: IssueRecord,
+  relations: IssueRelationsRecord,
+): IssueDetail {
+  return { ...toIssueDto(record), relations: toIssueRelationsDto(relations) }
 }

@@ -3,6 +3,7 @@ import {
   deleteIssue,
   getIssue,
   getIssueByIdentifier,
+  getIssueRelations,
   listIssues,
   updateIssue,
 } from '@linear/core'
@@ -10,7 +11,7 @@ import { enqueue } from '@linear/queue'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
 import { changedIssueFields, publishChange } from '../realtime/publish'
-import { toIssueDto } from './issues.dto'
+import { toIssueDetailDto, toIssueDto } from './issues.dto'
 
 const inWorkspace = requireWorkspace()
 
@@ -31,16 +32,22 @@ export const issuesRouter = {
 
   get: authed.issues.get
     .use(inWorkspace, (input) => input.workspaceSlug)
-    .handler(async ({ context, input }) =>
-      toIssueDto(await getIssue(context.db, context.workspace.id, input.id)),
-    ),
+    .handler(async ({ context, input }) => {
+      const issue = await getIssue(context.db, context.workspace.id, input.id)
+      return toIssueDetailDto(
+        issue,
+        await getIssueRelations(context.db, context.workspace.id, issue.id),
+      )
+    }),
 
   getByIdentifier: authed.issues.getByIdentifier
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
       const { teamKey, number } = input.identifier
-      return toIssueDto(
-        await getIssueByIdentifier(context.db, context.workspace.id, teamKey, number),
+      const issue = await getIssueByIdentifier(context.db, context.workspace.id, teamKey, number)
+      return toIssueDetailDto(
+        issue,
+        await getIssueRelations(context.db, context.workspace.id, issue.id),
       )
     }),
 
