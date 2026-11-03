@@ -28,9 +28,10 @@ const sizeClass = {
 }
 </script>
 
+<!-- Decorative: every avatar sits next to the person's name, so screen readers skip the initials. -->
 <template>
-  <Avatar :class="cn(sizeClass[size], 'bg-surface-3')">
-    <AvatarImage v-if="src" :src="src" :alt="name" />
+  <Avatar :class="cn(sizeClass[size], 'bg-surface-3')" aria-hidden="true">
+    <AvatarImage v-if="src" :src="src" alt="" />
     <AvatarFallback class="bg-surface-3 font-medium text-ink-muted">{{ initials }}</AvatarFallback>
   </Avatar>
 </template>
