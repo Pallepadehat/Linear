@@ -181,6 +181,13 @@ export const issuesRouter = {
           context,
           updated.map((issue) => issue.parentId),
         )
+      // Each project whose feed got an entry (removed / added) hears about it once.
+      const projectIds = new Set(
+        updated.flatMap((issue) => [issue.projectChange?.from, issue.projectChange?.to]),
+      )
+      for (const projectId of projectIds) {
+        if (projectId) await publishChange(context, { type: 'project.updated', projectId })
+      }
       return { items: updated.map(toIssueDto) }
     }),
 
