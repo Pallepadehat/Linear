@@ -9,7 +9,7 @@ import type { AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/errors'
 import { client, orpc } from '@/lib/orpc'
-import { projectsKey } from '@/features/projects/queries'
+import { invalidateProjects } from '@/features/projects/queries'
 import { issueDetailKeys, issueListKey, useUpdateIssue } from '../queries'
 import IssueRow from './IssueRow.vue'
 import SubIssueProgressRing from './SubIssueProgressRing.vue'
@@ -86,7 +86,7 @@ const create = useMutation({
       ...issueDetailKeys().map((queryKey) => queryClient.invalidateQueries({ queryKey })),
       queryClient.invalidateQueries({ queryKey: issueListKey() }),
       queryClient.invalidateQueries({ queryKey: orpc.activity.list.key() }),
-      queryClient.invalidateQueries({ queryKey: projectsKey() }),
+      invalidateProjects(queryClient),
     ]),
 })
 

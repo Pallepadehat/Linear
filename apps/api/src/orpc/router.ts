@@ -10,6 +10,7 @@ import { favoritesRouter } from '../modules/favorites/favorites.router'
 import { githubRouter } from '../modules/github/github.router'
 import { issuesRouter } from '../modules/issues/issues.router'
 import { labelsRouter } from '../modules/labels/labels.router'
+import { milestonesRouter } from '../modules/milestones/milestones.router'
 import { meRouter } from '../modules/me/me.router'
 import { notificationsRouter } from '../modules/notifications/notifications.router'
 import { teamsRouter } from '../modules/teams/teams.router'
@@ -28,6 +29,7 @@ export const router = os.router({
   issueRelations: issueRelationsRouter,
   issueLinks: issueLinksRouter,
   projects: projectsRouter,
+  milestones: milestonesRouter,
   cycles: cyclesRouter,
   projectLabels: projectLabelsRouter,
   github: githubRouter,

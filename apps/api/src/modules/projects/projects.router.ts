@@ -40,6 +40,13 @@ async function toDto(db: DbOrTx, storage: Storage, row: ProjectRow): Promise<Pro
     labelIds: row.labelIds,
     progress: row.progress,
     issueCount: row.issueCount,
+    currentMilestone: row.currentMilestone
+      ? {
+          id: row.currentMilestone.id,
+          name: row.currentMilestone.name,
+          progress: row.currentMilestone.progress,
+        }
+      : null,
     createdAt: row.createdAt,
   }
 }

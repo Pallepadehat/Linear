@@ -8,7 +8,17 @@ import {
   type IssueFilters,
 } from '../issue-filters'
 
-const FILTER_KEYS = ['status', 'priority', 'assignee', 'project', 'cycle', 'label', 'due', 'q']
+const FILTER_KEYS = [
+  'status',
+  'priority',
+  'assignee',
+  'project',
+  'milestone',
+  'cycle',
+  'label',
+  'due',
+  'q',
+]
 
 /**
  * Issue list filters, stored in the route query so a reload or a

@@ -17,6 +17,7 @@ import ProjectDatePicker from '../components/ProjectDatePicker.vue'
 import ProjectLabelsPicker from '../components/ProjectLabelsPicker.vue'
 import ProjectLeadPicker from '../components/ProjectLeadPicker.vue'
 import ProjectMembersPicker from '../components/ProjectMembersPicker.vue'
+import ProjectMilestones from '../components/ProjectMilestones.vue'
 import ProjectProgress from '../components/ProjectProgress.vue'
 import ProjectStatusPicker from '../components/ProjectStatusPicker.vue'
 import ProjectTeamsPicker from '../components/ProjectTeamsPicker.vue'
@@ -192,6 +193,7 @@ const labelIds = computed({
         <ProjectLabelsPicker v-model="labelIds" :labels="labels ?? []" :workspace-slug="slug" />
         <ProjectProgress class="ml-2" :progress="project.progress" />
       </div>
+      <ProjectMilestones :workspace-slug="slug" :project-id="project.id" />
     </section>
     <h2 class="sr-only">Issues</h2>
     <IssueList :key="project.id" :workspace-slug="slug" :project-id="project.id" />
