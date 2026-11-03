@@ -1,5 +1,6 @@
 import {
   issueLabels,
+  issueSubscriptions,
   issues,
   projects,
   labels,
@@ -27,6 +28,7 @@ import {
 import { recordActivity, type ActivityActor } from '../activity/activity.service'
 import { diffIssue } from '../activity/diff'
 import { DomainError } from '../errors'
+import { subscribeUsers } from '../subscriptions/subscriptions.service'
 import { pickDefaultStatus } from '../teams/default-status'
 import { listIssueAttachmentIds, releaseAttachments, syncIssueAttachments } from './attachments'
 import { nextCompletedAt } from './completed-at'
@@ -85,6 +87,10 @@ export type ListIssuesInput = {
   projectIds?: (string | null)[]
   /** Any of these labels. */
   labelIds?: string[]
+  /** Any of these users is subscribed. */
+  subscriberIds?: string[]
+  /** Who is asking; `isSubscribed` on each issue is for this user. */
+  viewerId?: string
   q?: string
   sort?: IssueSort
   direction?: SortDirection
@@ -167,6 +173,7 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
       .returning()
     if (!issue) throw new Error('issue insert returned no row')
     await setIssueLabels(tx, input.workspaceId, issue.id, labelIds)
+    await subscribeUsers(tx, issue.id, [input.creatorId, assigneeId])
     await syncIssueAttachments(tx, input.workspaceId, issue.id, issue.description)
     await recordActivity(tx, {
       workspaceId: input.workspaceId,
@@ -178,8 +185,9 @@ export async function createIssue(db: DbOrTx, input: CreateIssueInput) {
   })
 }
 
-export async function getIssue(db: DbOrTx, workspaceId: string, id: string) {
-  const [issue] = await loadIssues(db, workspaceId, eq(issues.id, id))
+/** `viewerId` decides `isSubscribed`; without it the field is `false`. */
+export async function getIssue(db: DbOrTx, workspaceId: string, id: string, viewerId?: string) {
+  const [issue] = await loadIssues(db, workspaceId, eq(issues.id, id), viewerId)
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
   return issue
 }
@@ -200,11 +208,13 @@ export async function getIssueByIdentifier(
   workspaceId: string,
   teamKey: string,
   number: number,
+  viewerId?: string,
 ) {
   const [issue] = await loadIssues(
     db,
     workspaceId,
     and(eq(teams.key, teamKey.toUpperCase()), eq(issues.number, number)),
+    viewerId,
   )
   if (!issue) throw new DomainError('NOT_FOUND', 'Issue not found')
   return issue
@@ -226,6 +236,7 @@ export async function listIssues(db: DbOrTx, input: ListIssuesInput) {
     orderBy: order.orderBy,
     cursorValue: order.cursorValue,
     limit: input.limit + 1,
+    viewerId: input.viewerId,
   })
   const page = rows.slice(0, input.limit)
   const last = page.at(-1)
@@ -254,6 +265,9 @@ function listFilter(input: ListIssuesInput) {
     anyOf(issues.projectId, input.projectIds),
     input.labelIds?.length
       ? sql`exists (select 1 from ${issueLabels} where ${issueLabels.issueId} = ${issues.id} and ${inArray(issueLabels.labelId, input.labelIds)})`
+      : undefined,
+    input.subscriberIds?.length
+      ? sql`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.workspaceId, input.workspaceId)} and ${inArray(issueSubscriptions.userId, input.subscriberIds)})`
       : undefined,
     search
       ? or(
@@ -344,6 +358,9 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       if (input.assigneeId) await assertWorkspaceMember(tx, input.workspaceId, input.assigneeId)
       changes.assigneeId = input.assigneeId
     }
+    // Re-saving the same assignee doesn't re-subscribe someone who unsubscribed.
+    const newAssigneeId =
+      input.assigneeId && input.assigneeId !== current.assigneeId ? input.assigneeId : null
     if (input.projectId !== undefined) {
       if (input.projectId) await assertProject(tx, input.workspaceId, input.projectId)
       changes.projectId = input.projectId
@@ -376,6 +393,7 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
         )
       await setIssueLabels(tx, input.workspaceId, current.id, labelIds)
     }
+    if (newAssigneeId) await subscribeUsers(tx, current.id, [newAssigneeId])
     await recordActivity(tx, {
       workspaceId: input.workspaceId,
       issueId: current.id,
@@ -383,7 +401,12 @@ export async function updateIssue(db: DbOrTx, input: UpdateIssueInput) {
       changes: activity,
     })
   })
-  return getIssue(db, input.workspaceId, input.id)
+  return getIssue(
+    db,
+    input.workspaceId,
+    input.id,
+    input.actor.type === 'user' ? input.actor.id : undefined,
+  )
 }
 
 /**
@@ -405,8 +428,13 @@ export async function deleteIssue(db: DbOrTx, workspaceId: string, id: string) {
 }
 
 /** Issues with their team key, status and labels, scoped to the workspace. */
-async function loadIssues(db: DbOrTx, workspaceId: string, where: SQL | undefined) {
-  return withLabels(db, workspaceId, await selectIssueRows(db, workspaceId, { where }))
+async function loadIssues(
+  db: DbOrTx,
+  workspaceId: string,
+  where: SQL | undefined,
+  viewerId: string | undefined,
+) {
+  return withLabels(db, workspaceId, await selectIssueRows(db, workspaceId, { where, viewerId }))
 }
 
 type IssueRowsQuery = {
@@ -415,6 +443,7 @@ type IssueRowsQuery = {
   /** Selected alongside each row so the last one can become the next cursor. */
   cursorValue?: SQL<string>
   limit?: number
+  viewerId?: string
 }
 
 async function selectIssueRows(db: DbOrTx, workspaceId: string, query: IssueRowsQuery) {
@@ -424,6 +453,9 @@ async function selectIssueRows(db: DbOrTx, workspaceId: string, query: IssueRows
       teamKey: teams.key,
       status: workflowStatuses,
       cursorValue: query.cursorValue ?? sql<string>`''`,
+      isSubscribed: query.viewerId
+        ? sql<boolean>`exists (select 1 from ${issueSubscriptions} where ${issueSubscriptions.issueId} = ${issues.id} and ${eq(issueSubscriptions.userId, query.viewerId)})`
+        : sql<boolean>`false`,
     })
     .from(issues)
     .innerJoin(teams, eq(teams.id, issues.teamId))
@@ -452,10 +484,11 @@ async function withLabels(db: DbOrTx, workspaceId: string, rows: IssueRow[]) {
     )
     .orderBy(asc(labels.name))
 
-  return rows.map(({ issue, teamKey, status }) => ({
+  return rows.map(({ issue, teamKey, status, isSubscribed }) => ({
     ...issue,
     identifier: `${teamKey}-${issue.number}`,
     status,
+    isSubscribed,
     labels: attached.filter((row) => row.issueId === issue.id).map((row) => row.label),
   }))
 }

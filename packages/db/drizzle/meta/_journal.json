@@ -92,6 +92,13 @@
       "when": 1793707094697,
       "tag": "0012_team_labels",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793707461536,
+      "tag": "0013_issue_subscriptions",
+      "breakpoints": true
     }
   ]
 }
