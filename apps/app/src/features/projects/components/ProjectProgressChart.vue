@@ -69,7 +69,8 @@ const markers = computed(() => {
     <div
       class="relative h-30 rounded-md outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
       tabindex="0"
-      role="img"
+      role="group"
+      aria-roledescription="chart"
       :aria-label="`Progress from ${formatDay(chart.start)} to ${formatDay(chart.end)}. Use the arrow keys to read each day.`"
       @pointermove="onPointerMove"
       @pointerleave="active = null"
