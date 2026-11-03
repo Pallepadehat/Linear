@@ -36,9 +36,8 @@ function setPriority(priority: number) {
 function setAssignee(assigneeId: string | null) {
   if (assigneeId !== props.issue.assigneeId) emit('update', { assigneeId })
 }
-function setLabels(ids: string[]) {
-  const byId = new Map(labelOptions.value.map((l) => [l.id, l]))
-  emit('update', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
+function setLabels(labels: Label[]) {
+  emit('update', { labels })
 }
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
@@ -81,8 +80,9 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'nu
       <LabelPicker
         compact
         :labels="labelOptions"
+        :team-id="issue.teamId"
         :model-value="labelIds"
-        @update:model-value="setLabels"
+        @update:labels="setLabels"
       />
     </span>
     <AssigneePicker

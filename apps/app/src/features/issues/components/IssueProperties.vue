@@ -41,14 +41,15 @@ const assigneeId = computed({
     if (id !== props.issue.assigneeId) emit('change', { assigneeId: id })
   },
 })
-const labelIds = computed({
-  get: () => props.issue.labels.map((l) => l.id),
-  // The issue's own labels stay resolvable even if the workspace list hasn't loaded.
-  set: (ids: string[]) => {
-    const byId = new Map([...props.issue.labels, ...props.labels].map((l) => [l.id, l]))
-    emit('change', { labels: ids.flatMap((id) => byId.get(id) ?? []) })
-  },
+const labelIds = computed(() => props.issue.labels.map((l) => l.id))
+// The issue's own labels stay pickable even if the workspace list hasn't loaded.
+const labelOptions = computed(() => {
+  const known = new Set(props.labels.map((l) => l.id))
+  return [...props.labels, ...props.issue.labels.filter((l) => !known.has(l.id))]
 })
+function setLabels(labels: Label[]) {
+  emit('change', { labels })
+}
 const projectId = computed({
   get: () => props.issue.projectId,
   set: (id: string | null) => {
@@ -85,7 +86,13 @@ const projectId = computed({
           <span class="truncate">{{ label.name }}</span>
         </li>
       </ul>
-      <LabelPicker v-model="labelIds" :labels="labels" trigger-text="Add label" />
+      <LabelPicker
+        :model-value="labelIds"
+        :labels="labelOptions"
+        :team-id="issue.teamId"
+        trigger-text="Add label"
+        @update:labels="setLabels"
+      />
     </section>
     <section class="grid gap-1">
       <h2 class="px-2 text-xs font-medium text-ink-subtle">Project</h2>
