@@ -39,7 +39,6 @@ import {
   type SortDirection,
 } from './list-query'
 
-
 export type CreateIssueInput = {
   workspaceId: string
   teamId: string

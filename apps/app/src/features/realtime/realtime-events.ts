@@ -26,7 +26,7 @@ function listDependsOn(input: Partial<ListIssuesInput>, fields: Set<RealtimeIssu
   )
 }
 const listInput = (query: Query) =>
-  ((query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input ?? {})
+  (query.queryKey[1] as { input?: Partial<ListIssuesInput> } | undefined)?.input ?? {}
 // Fields that change project progress counts.
 const PROGRESS_FIELDS: RealtimeIssueField[] = ['status', 'project']
 // Bursts (a PR merge touching several issues) coalesce into one list refetch.

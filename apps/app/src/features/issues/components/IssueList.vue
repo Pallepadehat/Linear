@@ -186,9 +186,9 @@ watchEffect(() => {
             class="flex-1"
             :issue="row.issue"
             :statuses="statusesByTeam.get(row.issue.teamId) ?? []"
-          :users="users"
-          :labels="labels"
-          @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
+            :users="users"
+            :labels="labels"
+            @update="(patch) => updateIssue.mutate({ issue: row.issue, patch })"
           />
         </div>
       </div>
