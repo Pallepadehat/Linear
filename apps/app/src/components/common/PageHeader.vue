@@ -27,9 +27,7 @@ const hasUnread = computed(() => (unread.value?.count ?? 0) > 0)
 </script>
 
 <template>
-  <header
-    class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline pr-2 pl-2 md:pl-4"
-  >
+  <header class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline pr-2 pl-2 md:pl-4">
     <Button
       variant="ghost"
       size="icon-sm"
@@ -48,12 +46,7 @@ const hasUnread = computed(() => (unread.value?.count ?? 0) > 0)
     <h1 class="flex min-w-0 items-center gap-1.5 font-medium">
       <slot name="title">
         <template v-for="(crumb, i) in items" :key="i">
-          <span
-            v-if="i > 0"
-            class="text-ink-tertiary max-md:hidden"
-            aria-hidden="true"
-            >›</span
-          >
+          <span v-if="i > 0" class="text-ink-tertiary max-md:hidden" aria-hidden="true">›</span>
           <component
             :is="crumb.to ? RouterLink : 'span'"
             :to="crumb.to"

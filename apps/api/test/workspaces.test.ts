@@ -181,9 +181,9 @@ describe('workspace invites', () => {
     const stranger = await signUp(app, 'Stranger')
 
     for (const call of ['getInvite', 'resetInvite', 'disableInvite'] as const) {
-      await expect(member.client.workspaces[call]({ workspaceSlug: 'tip' })).rejects.toMatchObject(
-        { code: 'FORBIDDEN' },
-      )
+      await expect(member.client.workspaces[call]({ workspaceSlug: 'tip' })).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      })
       await expect(
         stranger.client.workspaces[call]({ workspaceSlug: 'tip' }),
       ).rejects.toMatchObject({ code: 'NOT_FOUND' })

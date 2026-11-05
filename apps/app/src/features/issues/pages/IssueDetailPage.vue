@@ -50,7 +50,6 @@ import {
 } from '../queries'
 import { RELATION_KINDS, relationFor, type RelationKind } from '../relation-kinds'
 
-
 const route = useRoute()
 const router = useRouter()
 const ui = useUiStore()
