@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Layers } from '@lucide/vue'
+import { SquareStack } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -61,9 +61,9 @@ const issuesRoute = computed(() =>
   </EmptyState>
   <EmptyState
     v-else-if="query.data.value?.length === 0"
-    :icon="Layers"
+    :icon="SquareStack"
     title="No views yet"
-    description="Filter an issue list, then use the layers button to save it as a view."
+    description="Filter an issue list, then choose “Save as view” in its toolbar."
   >
     <Button variant="secondary" size="sm" @click="$router.push(issuesRoute)">Go to issues</Button>
   </EmptyState>
@@ -75,8 +75,8 @@ const issuesRoute = computed(() =>
       <thead>
         <tr class="h-9 text-left text-xs text-ink-subtle">
           <th scope="col" class="px-3 font-normal">Name</th>
-          <th scope="col" class="w-20 px-3 font-normal">Owner</th>
-          <th scope="col" class="w-36 px-3 font-normal">Scope</th>
+          <th scope="col" class="w-16 px-3 font-normal md:w-20">Owner</th>
+          <th scope="col" class="w-36 px-3 font-normal max-md:hidden">Scope</th>
           <th scope="col" class="w-12"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -103,7 +103,7 @@ const issuesRoute = computed(() =>
               :title="view.owner.name"
             />
           </td>
-          <td class="truncate px-3 text-ink-muted">{{ teamName(view.teamId) }}</td>
+          <td class="truncate px-3 text-ink-muted max-md:hidden">{{ teamName(view.teamId) }}</td>
           <td class="px-1">
             <div class="relative z-10 flex justify-end">
               <ViewMenu :view="view" />

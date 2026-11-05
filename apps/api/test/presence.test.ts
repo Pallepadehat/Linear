@@ -221,3 +221,75 @@ describe('presence over the realtime socket', () => {
     ])
   })
 })
+
+describe('comment typing over the realtime socket', () => {
+  it("tells teammates who's writing a comment on an issue", async () => {
+    const { owner, member, issue } = await workspaceWithIssue()
+    const ownerTab = await openTab(owner.cookie, 'tip')
+    const memberTab = await openTab(member.cookie, 'tip')
+
+    await memberTab.client.presence.typing({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      typing: true,
+    })
+    await eventually(() =>
+      expect(ownerTab.events).toContainEqual({
+        type: 'comment.typing',
+        issueId: issue.id,
+        userId: member.userId,
+        typing: true,
+      }),
+    )
+
+    await memberTab.client.presence.typing({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      typing: false,
+    })
+    await eventually(() =>
+      expect(ownerTab.events).toContainEqual({
+        type: 'comment.typing',
+        issueId: issue.id,
+        userId: member.userId,
+        typing: false,
+      }),
+    )
+  })
+
+  it("ignores typing over HTTP and on another workspace's issue", async () => {
+    const { owner, member, issue } = await workspaceWithIssue()
+    const outsider = await signUp(app, 'Outsider')
+    await outsider.client.workspaces.create({ name: 'Other', slug: 'other' })
+    const otherTeam = await outsider.client.teams.create({
+      workspaceSlug: 'other',
+      name: 'Other',
+      key: 'OTH',
+    })
+    const foreign = await outsider.client.issues.create({
+      workspaceSlug: 'other',
+      teamId: otherTeam.id,
+      title: 'Secret',
+    })
+    const ownerTab = await openTab(owner.cookie, 'tip')
+    const memberTab = await openTab(member.cookie, 'tip')
+
+    // Over HTTP there is no socket subscribed to the workspace.
+    await member.client.presence.typing({ workspaceSlug: 'tip', issueId: issue.id, typing: true })
+    await memberTab.client.presence.typing({
+      workspaceSlug: 'tip',
+      issueId: foreign.id,
+      typing: true,
+    })
+    // A later event proves the earlier ones would have arrived by now.
+    await memberTab.client.presence.heartbeat({
+      workspaceSlug: 'tip',
+      viewingIssueId: null,
+      state: 'active',
+    })
+    await eventually(() =>
+      expect(ownerTab.events.some((e) => e.type === 'presence.changed')).toBe(true),
+    )
+    expect(ownerTab.events.filter((e) => e.type === 'comment.typing')).toEqual([])
+  })
+})

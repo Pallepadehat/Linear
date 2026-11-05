@@ -5,7 +5,14 @@ import { priorityLabel, toPriority } from '@/lib/priorities'
 
 export type TimelineEntry =
   | { type: 'comment'; key: string; at: Date; comment: CommentThread }
-  | { type: 'activity'; key: string; at: Date; activity: Activity }
+  | {
+      type: 'activity'
+      key: string
+      at: Date
+      activity: Activity
+      /** How many back-to-back changes were merged into this one (see `mergeActivity`). */
+      merged?: number
+    }
 
 /**
  * Comment threads (placed by their root) and activity in one list, oldest first.

@@ -70,7 +70,7 @@ function createIssue() {
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <div class="flex h-11 shrink-0 items-center border-b border-hairline px-4">
+    <div class="flex h-11 shrink-0 items-center border-b border-hairline px-2 md:px-4">
       <div role="tablist" aria-label="My issues" class="flex items-center gap-1">
         <button
           v-for="tab in TABS"
@@ -82,7 +82,7 @@ function createIssue() {
           :aria-selected="tab.key === active.key"
           aria-controls="my-issues-panel"
           :tabindex="tab.key === active.key ? 0 : -1"
-          class="h-7 rounded-full border px-3 font-medium outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+          class="h-7 shrink-0 rounded-full border px-2.5 font-medium whitespace-nowrap outline-hidden md:px-3 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
           :class="
             tab.key === active.key
               ? 'border-hairline bg-surface-2 text-ink'

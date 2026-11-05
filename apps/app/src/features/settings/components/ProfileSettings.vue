@@ -68,7 +68,7 @@ async function removeAvatar() {
 
 <template>
   <div class="grid gap-6">
-    <div class="flex items-center gap-4">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
       <UserAvatar :name="user?.name ?? ''" :src="user?.avatarUrl" size="lg" />
       <ImageUploadButton
         kind="avatar"
@@ -83,14 +83,15 @@ async function removeAvatar() {
     <form class="grid max-w-sm gap-4" novalidate @submit="onSubmit">
       <FormField name="name" label="Name" autocomplete="name" />
       <div class="grid gap-1.5">
-        <span class="text-sm font-medium text-ink-muted">Email</span>
+        <span class="font-medium text-ink-muted">Email</span>
         <span class="text-ink-subtle">{{ user?.email }}</span>
       </div>
       <Button
         type="submit"
+        size="sm"
         class="justify-self-start"
         :disabled="!meta.dirty || update.isPending.value"
-        >Save</Button
+        >Save profile</Button
       >
     </form>
   </div>

@@ -218,6 +218,20 @@
       "when": 1793747920251,
       "tag": "0030_project_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793864880454,
+      "tag": "0031_comment_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793865434651,
+      "tag": "0032_workspace_invite_codes",
+      "breakpoints": true
     }
   ]
 }

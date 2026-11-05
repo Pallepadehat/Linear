@@ -65,7 +65,9 @@ const onSubmit = handleSubmit(async (form) => {
   >
     <FormField name="name" label="Team name" placeholder="Tip Development" />
     <FormField name="key" label="Identifier" placeholder="TIP" mono />
-    <Button type="submit" class="sm:mt-[22px]" :disabled="isSubmitting">Create team</Button>
+    <Button type="submit" size="sm" class="justify-self-start sm:mt-[24px]" :disabled="isSubmitting"
+      >Create team</Button
+    >
     <p v-if="formError" class="text-sm text-danger sm:col-span-3" role="alert">{{ formError }}</p>
   </form>
 </template>

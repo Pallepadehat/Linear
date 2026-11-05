@@ -60,12 +60,13 @@ const rows = computed(() => {
   })
 })
 
-// Column order and widths; Name takes the rest.
+// Column order and widths; Name takes the rest. Phones keep name and progress (with the
+// health icon); the pickers and dates are still editable on the project page.
 const COLUMNS: { key: ProjectSortKey; class: string }[] = [
   { key: 'name', class: '' },
   { key: 'health', class: 'hidden w-32 lg:table-cell' },
-  { key: 'priority', class: 'w-20' },
-  { key: 'lead', class: 'w-16' },
+  { key: 'priority', class: 'hidden w-20 sm:table-cell' },
+  { key: 'lead', class: 'hidden w-16 sm:table-cell' },
   { key: 'targetDate', class: 'hidden w-32 md:table-cell' },
   { key: 'issues', class: 'hidden w-20 md:table-cell' },
   { key: 'status', class: 'w-28' },
@@ -90,19 +91,19 @@ const openCreate = () => (ui.createProjectOpen = true)
         New project
       </Button>
     </Teleport>
-    <div class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline px-4">
-      <nav aria-label="Project views">
+    <div class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline pr-2 pl-2 md:pl-4">
+      <nav aria-label="Project views" class="min-w-0">
         <span
           aria-current="page"
-          class="flex h-7 items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 text-ink"
+          class="flex h-7 min-w-0 items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 text-ink"
         >
-          {{ team ? `${team.name} projects` : 'All projects' }}
+          <span class="truncate">{{ team ? `${team.name} projects` : 'All projects' }}</span>
           <span v-if="projects" class="text-ink-subtle tabular-nums">
             {{ projects.length }}
           </span>
         </span>
       </nav>
-      <div class="ml-auto flex items-center gap-1">
+      <div class="ml-auto flex shrink-0 items-center gap-1">
         <ProjectFilterMenu v-model="statusFilter" />
         <ProjectDisplayMenu v-model="sort" />
       </div>
@@ -195,7 +196,7 @@ const openCreate = () => (ui.createProjectOpen = true)
                 <!-- The current milestone: the first one that isn't complete. -->
                 <span
                   v-if="project.currentMilestone"
-                  class="flex h-5 max-w-40 shrink-0 items-center gap-1 rounded-full border border-hairline px-1.5 text-xs text-ink-muted"
+                  class="flex h-5 max-w-40 shrink-0 max-sm:hidden items-center gap-1 rounded-full border border-hairline px-1.5 text-xs text-ink-muted"
                   :title="`Current milestone: ${project.currentMilestone.name}`"
                 >
                   <MilestoneIcon :progress="project.currentMilestone.progress" />
@@ -213,7 +214,7 @@ const openCreate = () => (ui.createProjectOpen = true)
               </span>
             </td>
             <!-- Pickers sit above the row link so they open instead of navigating. -->
-            <td class="px-1">
+            <td class="hidden px-1 sm:table-cell">
               <div class="relative z-10 w-fit">
                 <PriorityPicker
                   :model-value="toPriority(project.priority)"
@@ -223,7 +224,7 @@ const openCreate = () => (ui.createProjectOpen = true)
                 />
               </div>
             </td>
-            <td class="px-1">
+            <td class="hidden px-1 sm:table-cell">
               <div class="relative z-10 w-fit">
                 <ProjectLeadPicker
                   :model-value="project.leadId"
@@ -251,6 +252,11 @@ const openCreate = () => (ui.createProjectOpen = true)
                 class="flex items-center gap-2 text-ink-muted tabular-nums"
                 :title="projectStatusMeta(project.status).label"
               >
+                <!-- The health column is hidden below lg; its icon rides along here. -->
+                <span class="flex lg:hidden" :title="healthLabel(project.health)">
+                  <HealthIcon :health="project.health" />
+                  <span class="sr-only">{{ healthLabel(project.health) }},</span>
+                </span>
                 <StatusIcon :category="projectStatusMeta(project.status).icon" />
                 <span class="sr-only">{{ projectStatusMeta(project.status).label }},</span>
                 {{ progressPercent(project.progress) }}%

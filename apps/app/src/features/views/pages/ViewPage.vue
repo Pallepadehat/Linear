@@ -101,8 +101,8 @@ function onDeleted() {
   <template v-else-if="view && seeded === view.id">
     <Teleport defer :to="PANEL_HEADER_ACTIONS">
       <div v-if="dirty" class="flex items-center gap-2 text-[13px]" role="status">
-        <span class="text-ink-subtle">Unsaved changes</span>
-        <span class="text-ink-tertiary" aria-hidden="true">·</span>
+        <span class="text-ink-subtle max-md:sr-only">Unsaved changes</span>
+        <span class="text-ink-tertiary max-md:hidden" aria-hidden="true">·</span>
         <Button v-if="editable" size="sm" :disabled="updateView.isPending.value" @click="save">
           Save
         </Button>
@@ -118,7 +118,7 @@ function onDeleted() {
     >
       <template #toolbar>
         <span
-          class="flex h-7 min-w-0 items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 text-ink"
+          class="flex h-7 min-w-0 items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 text-ink max-md:hidden"
         >
           <ViewIcon :icon="view.icon" :color="view.color" />
           <span class="truncate">{{ view.name }}</span>

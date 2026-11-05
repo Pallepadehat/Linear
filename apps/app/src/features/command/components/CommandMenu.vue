@@ -4,11 +4,11 @@ import {
   ArrowRight,
   CircleDashed,
   CircleUser,
-  Copy,
   FolderKanban,
   FolderPlus,
   GitBranch,
-  Inbox,
+  Hash,
+  Bell,
   Keyboard,
   Layers,
   Link,
@@ -38,6 +38,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
 import { useCurrentUser } from '@/features/auth/composables/useSession'
+import { COPY_LABELS } from '@/features/issues/copy-shortcuts'
 import { issueBranchName, issueUrl } from '@/features/issues/issue-links'
 import { issueByIdentifierOptions, useUpdateIssue } from '@/features/issues/queries'
 import type { IssuePatch } from '@/features/issues/issue-cache'
@@ -337,25 +338,28 @@ const groupClass =
                 Change labels...
               </CommandMenuItem>
               <CommandMenuItem
-                value="copy-id"
-                :icon="Copy"
-                @select="copyText(issue.identifier, 'Issue ID')"
-              >
-                Copy issue ID
-              </CommandMenuItem>
-              <CommandMenuItem
                 value="copy-url"
                 :icon="Link"
+                shortcut="issue-copy-url"
                 @select="copyText(issueUrl(origin, slug, issue.identifier), 'Issue URL')"
               >
-                Copy issue URL
+                {{ COPY_LABELS.url }}
+              </CommandMenuItem>
+              <CommandMenuItem
+                value="copy-id"
+                :icon="Hash"
+                shortcut="issue-copy-id"
+                @select="copyText(issue.identifier, 'Issue ID')"
+              >
+                {{ COPY_LABELS.id }}
               </CommandMenuItem>
               <CommandMenuItem
                 value="copy-branch"
                 :icon="GitBranch"
+                shortcut="issue-copy-branch"
                 @select="copyText(issueBranchName(issue.identifier, issue.title), 'Branch name')"
               >
-                Copy git branch name
+                {{ COPY_LABELS.branch }}
               </CommandMenuItem>
               <CommandMenuItem
                 value="issue-delete"
@@ -388,11 +392,11 @@ const groupClass =
             <CommandGroup heading="Navigation" :class="groupClass">
               <CommandMenuItem
                 value="go-inbox"
-                :icon="Inbox"
+                :icon="Bell"
                 shortcut="go-inbox"
-                @select="go('inbox')"
+                @select="run(() => (ui.notificationsOpen = true))"
               >
-                Go to Inbox
+                Open notifications
               </CommandMenuItem>
               <CommandMenuItem
                 value="go-my-issues"

@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import type { IssueLink, LinkedPullRequest } from '@linear/contract'
-import { Copy, Link2, Pencil, Plus, X } from '@lucide/vue'
+import { Copy, Ellipsis, Link2, Pencil, Plus, X } from '@lucide/vue'
 import { computed } from 'vue'
 import { toast } from 'vue-sonner'
 import IconButton from '@/components/common/IconButton.vue'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import PullRequestIcon from '@/features/github/components/PullRequestIcon.vue'
 import { pullRequestStates } from '@/features/github/pull-requests'
 import { useDeleteIssueLink } from '../queries'
@@ -37,12 +44,16 @@ const rowClass =
 const anchorClass =
   'min-w-0 shrink truncate text-ink outline-hidden after:absolute after:inset-0 after:content-[""]'
 const actionsClass =
-  'relative z-10 ml-auto flex shrink-0 items-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+  'relative z-10 ml-auto flex shrink-0 items-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 pointer-coarse:opacity-100'
 const actionClass = 'size-6 [&_svg]:size-3.5'
 </script>
 
 <template>
-  <section v-if="hasItems" aria-labelledby="resources-heading" class="mt-6 grid gap-0.5">
+  <section
+    v-if="hasItems"
+    aria-labelledby="resources-heading"
+    class="mt-6 grid min-w-0 grid-cols-1 gap-0.5"
+  >
     <div class="flex h-7 items-center gap-2 px-2">
       <h2 id="resources-heading" class="text-xs font-medium text-ink-subtle">Resources</h2>
       <IconButton
@@ -54,7 +65,7 @@ const actionClass = 'size-6 [&_svg]:size-3.5'
         @click="emit('add')"
       />
     </div>
-    <ul class="grid">
+    <ul class="grid min-w-0 grid-cols-1">
       <li v-for="pr in pullRequests" :key="pr.id" :class="rowClass">
         <PullRequestIcon :state="pr.state" />
         <span class="sr-only">{{ pullRequestStates[pr.state].label }} pull request</span>
@@ -90,27 +101,33 @@ const actionClass = 'size-6 [&_svg]:size-3.5'
           {{ link.hostname }}
         </span>
         <span :class="actionsClass">
-          <IconButton
-            :icon="Copy"
-            label="Copy link"
-            :aria-label="`Copy link ${link.title}`"
-            :class="actionClass"
-            @click="copy(link.url)"
-          />
-          <IconButton
-            :icon="Pencil"
-            label="Edit link"
-            :aria-label="`Edit link ${link.title}`"
-            :class="actionClass"
-            @click="emit('edit', link)"
-          />
-          <IconButton
-            :icon="X"
-            label="Remove link"
-            :aria-label="`Remove link ${link.title}`"
-            :class="actionClass"
-            @click="deleteLink.mutate({ issueId, linkId: link.id })"
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <IconButton
+                :icon="Ellipsis"
+                label="Link actions"
+                :aria-label="`Actions for link ${link.title}`"
+                aria-haspopup="menu"
+                :class="actionClass"
+                class="data-[state=open]:bg-surface-3"
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-44">
+              <DropdownMenuItem @select="copy(link.url)">
+                <Copy aria-hidden="true" />
+                Copy link
+              </DropdownMenuItem>
+              <DropdownMenuItem @select="emit('edit', link)">
+                <Pencil aria-hidden="true" />
+                Edit link…
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @select="deleteLink.mutate({ issueId, linkId: link.id })">
+                <X aria-hidden="true" />
+                Remove link
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </span>
       </li>
     </ul>

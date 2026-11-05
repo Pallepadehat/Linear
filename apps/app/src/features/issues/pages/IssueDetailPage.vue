@@ -24,7 +24,9 @@ import { estimateLabel } from '@/lib/estimates'
 import { errorCode } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
+import ActivityFilterMenu from '../components/ActivityFilterMenu.vue'
 import CommentComposer from '../components/CommentComposer.vue'
+import TypingIndicator from '../components/TypingIndicator.vue'
 import IssueDetailHeader from '../components/IssueDetailHeader.vue'
 import IssueProperties from '../components/IssueProperties.vue'
 import IssueLinkDialog from '../components/IssueLinkDialog.vue'
@@ -48,15 +50,11 @@ import {
 } from '../queries'
 import { RELATION_KINDS, relationFor, type RelationKind } from '../relation-kinds'
 
-// The Inbox embeds this page for the selected notification's issue; standalone, the
-// identifier comes from the route.
-const props = defineProps<{ identifier?: string; embedded?: boolean }>()
-
 const route = useRoute()
 const router = useRouter()
 const ui = useUiStore()
 const { slug } = useCurrentWorkspace()
-const identifier = computed(() => props.identifier ?? String(route.params.identifier))
+const identifier = computed(() => String(route.params.identifier))
 
 const issueQuery = useQuery(computed(() => issueByIdentifierOptions(slug.value, identifier.value)))
 const issue = issueQuery.data
@@ -145,7 +143,6 @@ useHotkeys([
   {
     id: 'issue-back',
     run: () => {
-      if (props.embedded) return false
       // Back to where the issue was opened from; a direct link falls back to its team.
       if (window.history.state?.back) router.back()
       else if (team.value)
@@ -375,7 +372,9 @@ onBeforeUnmount(commitDescription)
       <SubscribeButton :subscribed="issue.isSubscribed" @toggle="toggleMySubscription" />
     </IssueDetailHeader>
     <article class="min-w-0 lg:overflow-y-auto">
-      <div class="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-2 px-8 pt-8 pb-12">
+      <div
+        class="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-2 px-4 pt-4 pb-12 md:px-8 md:pt-8"
+      >
         <div class="flex h-7 items-center gap-2">
           <p class="font-mono text-xs text-ink-subtle">{{ issue.identifier }}</p>
           <span class="flex-1" aria-hidden="true" />
@@ -436,10 +435,14 @@ onBeforeUnmount(commitDescription)
           :labels="labels ?? []"
         />
 
-        <section aria-labelledby="activity-heading" class="mt-8 grid gap-4">
-          <h2 id="activity-heading" class="border-t border-hairline pt-6 font-medium text-ink">
-            Activity
-          </h2>
+        <section
+          aria-labelledby="activity-heading"
+          class="mt-6 grid min-w-0 grid-cols-1 gap-2 border-t border-hairline pt-4"
+        >
+          <header class="flex items-center justify-between gap-2">
+            <h2 id="activity-heading" class="font-medium text-ink">Activity</h2>
+            <ActivityFilterMenu />
+          </header>
           <div
             v-if="comments.isPending.value || activity.isPending.value"
             class="h-12 animate-pulse rounded-lg bg-surface-2"
@@ -456,12 +459,19 @@ onBeforeUnmount(commitDescription)
             :current-user-id="currentUser.data.value?.id"
             :pull-request-of="pullRequestOf"
           />
-          <CommentComposer :workspace-slug="slug" :issue-id="issue.id" />
+          <div>
+            <TypingIndicator
+              :issue-id="issue.id"
+              :current-user-id="currentUser.data.value?.id"
+              :name-of="(id) => users.find((u) => u.id === id)?.name"
+            />
+            <CommentComposer :workspace-slug="slug" :issue-id="issue.id" />
+          </div>
         </section>
       </div>
     </article>
     <IssueProperties
-      class="lg:overflow-y-auto"
+      class="max-lg:order-first lg:overflow-y-auto"
       :issue="issue"
       :statuses="statuses"
       :users="users"

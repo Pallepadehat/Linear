@@ -125,7 +125,7 @@ const repliesLabel = computed(
         <p v-if="hiddenReplies > 0" class="ml-10 px-3 py-1 text-xs text-ink-subtle">
           {{ hiddenReplies }} more {{ hiddenReplies === 1 ? 'reply' : 'replies' }} not shown
         </p>
-        <div class="ml-10 px-2 pt-1 pb-2">
+        <div class="ml-10 px-2 pb-1.5">
           <CommentComposer
             v-if="replying"
             :workspace-slug="workspaceSlug"
@@ -139,7 +139,7 @@ const repliesLabel = computed(
             v-else
             type="button"
             aria-keyshortcuts="R"
-            class="h-8 w-full rounded-md px-3 text-left text-[13px] text-ink-tertiary outline-none hover:bg-surface-2 hover:text-ink-subtle focus-visible:ring-2 focus-visible:ring-ring"
+            class="h-7 w-full rounded-md px-3 text-left text-[13px] text-ink-tertiary outline-none hover:bg-surface-2 hover:text-ink-subtle focus-visible:ring-2 focus-visible:ring-ring"
             @click="reply"
           >
             Reply…

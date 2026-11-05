@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { UpdateTeamInput } from '@linear/contract'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { computed, watchEffect } from 'vue'
+import { Plus } from '@lucide/vue'
+import { computed, ref, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
@@ -9,6 +10,7 @@ import OptionPicker from '@/components/common/OptionPicker.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import StatusPicker from '@/components/common/StatusPicker.vue'
+import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import {
   WEEKDAYS,
@@ -26,6 +28,10 @@ import { client, orpc } from '@/lib/orpc'
 import { scalePreview, type EstimateScale } from '@/lib/estimates'
 import { toPriority, type Priority } from '@/lib/priorities'
 import { useUiStore } from '@/stores/ui'
+import SettingsLayout, {
+  type SettingsNavItem,
+} from '@/features/settings/components/SettingsLayout.vue'
+import SettingsSection from '@/features/settings/components/SettingsSection.vue'
 import EstimateScalePicker from '../components/EstimateScalePicker.vue'
 
 const route = useRoute()
@@ -52,6 +58,15 @@ const assignees = computed(
     })) ?? [],
 )
 const isOwner = computed(() => workspace.value?.role === 'owner')
+
+const sections: SettingsNavItem[] = [
+  { id: 'issue-defaults', label: 'Issue defaults' },
+  { id: 'estimates', label: 'Estimates' },
+  { id: 'cycles', label: 'Cycles' },
+  { id: 'labels', label: 'Labels' },
+  { id: 'templates', label: 'Templates' },
+]
+const templates = ref<InstanceType<typeof TemplateSettings> | null>(null)
 
 watchEffect(() => {
   if (team.value) ui.breadcrumb = [team.value.name, 'Settings']
@@ -150,56 +165,42 @@ const preview = computed(() => {
 
 <template>
   <EmptyState v-if="errorCode(error) === 'NOT_FOUND'" title="Team not found" />
-  <div v-else-if="team" class="mx-auto grid w-full max-w-3xl gap-8 px-6 py-8">
-    <header class="grid gap-1">
-      <h1 class="text-lg font-semibold tracking-tight text-ink">{{ team.name }}</h1>
-      <p class="font-mono text-xs text-ink-subtle">{{ team.key }}</p>
-    </header>
-    <section aria-labelledby="issue-defaults-heading" class="grid gap-3">
-      <div class="grid gap-1">
-        <h2
-          id="issue-defaults-heading"
-          class="text-xs font-medium tracking-wide text-ink-subtle uppercase"
-        >
-          Issue defaults
-        </h2>
-        <p class="text-ink-subtle">
-          Used for new issues in this team when no value is picked.
-          <template v-if="workspace && !isOwner">Only workspace owners can change them.</template>
-        </p>
-      </div>
+  <SettingsLayout v-else-if="team" :title="`${team.name} settings`" :sections="sections">
+    <template #subtitle>
+      Issue identifiers start with <span class="font-mono text-xs">{{ team.key }}</span
+      >.<template v-if="workspace && !isOwner">
+        Only workspace owners can change issue defaults, estimates and cycles.</template
+      >
+    </template>
+    <SettingsSection
+      id="issue-defaults"
+      title="Issue defaults"
+      description="Used for new issues in this team when no value is picked."
+    >
       <div
         class="divide-y divide-hairline rounded-lg border border-hairline bg-surface-1"
         :class="{ 'pointer-events-none opacity-60': !isOwner }"
         :inert="!isOwner || undefined"
       >
         <div class="flex items-center justify-between gap-4 px-4 py-2">
-          <span class="text-ink-muted">Status</span>
+          <span class="min-w-0 text-ink-muted">Status</span>
           <StatusPicker v-model="defaultStatusId" :statuses="team.statuses" no-hotkey />
         </div>
         <div class="flex items-center justify-between gap-4 px-4 py-2">
-          <span class="text-ink-muted">Priority</span>
+          <span class="min-w-0 text-ink-muted">Priority</span>
           <PriorityPicker v-model="defaultPriority" no-hotkey />
         </div>
         <div class="flex items-center justify-between gap-4 px-4 py-2">
-          <span class="text-ink-muted">Assignee</span>
+          <span class="min-w-0 text-ink-muted">Assignee</span>
           <AssigneePicker v-model="defaultAssigneeId" :users="assignees" no-hotkey />
         </div>
       </div>
-    </section>
-    <section aria-labelledby="estimates-heading" class="grid gap-3">
-      <div class="grid gap-1">
-        <h2
-          id="estimates-heading"
-          class="text-xs font-medium tracking-wide text-ink-subtle uppercase"
-        >
-          Estimates
-        </h2>
-        <p class="text-ink-subtle">
-          How issues in this team are sized. Changing the scale keeps existing estimates.
-          <template v-if="workspace && !isOwner">Only workspace owners can change it.</template>
-        </p>
-      </div>
+    </SettingsSection>
+    <SettingsSection
+      id="estimates"
+      title="Estimates"
+      description="How issues in this team are sized. Changing the scale keeps existing estimates."
+    >
       <div
         class="divide-y divide-hairline rounded-lg border border-hairline bg-surface-1"
         :class="{ 'pointer-events-none opacity-60': !isOwner }"
@@ -207,7 +208,7 @@ const preview = computed(() => {
       >
         <div class="flex items-center justify-between gap-4 px-4 py-2">
           <div class="grid min-w-0">
-            <span class="text-ink-muted">Scale</span>
+            <span class="min-w-0 text-ink-muted">Scale</span>
             <span v-if="estimateScale !== 'off'" class="truncate text-xs text-ink-subtle">
               {{ scalePreview({ scale: estimateScale, allowZero: estimateAllowZero }) }}
             </span>
@@ -219,7 +220,7 @@ const preview = computed(() => {
           class="flex items-center justify-between gap-4 px-4 py-3"
           :class="{ 'opacity-60': estimateScale === 'off' }"
         >
-          <span class="text-ink-muted">Allow zero estimates</span>
+          <span class="min-w-0 text-ink-muted">Allow zero estimates</span>
           <Switch
             id="estimate-allow-zero"
             v-model="estimateAllowZero"
@@ -227,41 +228,36 @@ const preview = computed(() => {
           />
         </label>
       </div>
-    </section>
-    <section aria-labelledby="cycles-heading" class="grid gap-3">
-      <div class="grid gap-1">
-        <h2 id="cycles-heading" class="text-xs font-medium tracking-wide text-ink-subtle uppercase">
-          Cycles
-        </h2>
-        <p class="text-ink-subtle">
-          Time-boxed iterations, scheduled automatically. Dates follow UTC days.
-          <template v-if="workspace && !isOwner">Only workspace owners can change them.</template>
-        </p>
-      </div>
+    </SettingsSection>
+    <SettingsSection
+      id="cycles"
+      title="Cycles"
+      description="Time-boxed iterations, scheduled automatically. Dates follow UTC days."
+    >
       <div
         class="divide-y divide-hairline rounded-lg border border-hairline bg-surface-1"
         :class="{ 'pointer-events-none opacity-60': !isOwner }"
         :inert="!isOwner || undefined"
       >
         <label class="flex items-center justify-between gap-4 px-4 py-2.5">
-          <span class="text-ink-muted">Enable cycles</span>
+          <span class="min-w-0 text-ink-muted">Enable cycles</span>
           <Switch v-model="cyclesEnabled" />
         </label>
         <template v-if="team.cyclesEnabled">
           <div class="flex items-center justify-between gap-4 px-4 py-2">
-            <span class="text-ink-muted">Cycle length</span>
+            <span class="min-w-0 text-ink-muted">Cycle length</span>
             <OptionPicker v-model="duration" label="Cycle length" :options="DURATION_OPTIONS" />
           </div>
           <div class="flex items-center justify-between gap-4 px-4 py-2">
-            <span class="text-ink-muted">Starts on</span>
+            <span class="min-w-0 text-ink-muted">Starts on</span>
             <OptionPicker v-model="weekday" label="Start day" :options="WEEKDAY_OPTIONS" />
           </div>
           <div class="flex items-center justify-between gap-4 px-4 py-2">
-            <span class="text-ink-muted">Cooldown between cycles</span>
+            <span class="min-w-0 text-ink-muted">Cooldown between cycles</span>
             <OptionPicker v-model="cooldown" label="Cooldown" :options="COOLDOWN_OPTIONS" />
           </div>
           <div class="flex items-center justify-between gap-4 px-4 py-2">
-            <span class="text-ink-muted">Upcoming cycles</span>
+            <span class="min-w-0 text-ink-muted">Upcoming cycles</span>
             <OptionPicker
               v-model="upcomingCount"
               label="Upcoming cycles"
@@ -270,45 +266,46 @@ const preview = computed(() => {
           </div>
           <label class="flex items-center justify-between gap-4 px-4 py-2.5">
             <span class="grid">
-              <span class="text-ink-muted">Add started issues to the current cycle</span>
+              <span class="min-w-0 text-ink-muted">Add started issues to the current cycle</span>
               <span class="text-xs text-ink-subtle">When an issue moves to a started status</span>
             </span>
             <Switch v-model="autoAdd" />
           </label>
           <label class="flex items-center justify-between gap-4 px-4 py-2.5">
             <span class="grid">
-              <span class="text-ink-muted">Move unfinished issues to the next cycle</span>
+              <span class="min-w-0 text-ink-muted">Move unfinished issues to the next cycle</span>
               <span class="text-xs text-ink-subtle">When a cycle ends</span>
             </span>
             <Switch v-model="rollover" />
           </label>
         </template>
-        <p class="flex items-center justify-between gap-4 px-4 py-2.5 text-ink-subtle">
+        <p
+          class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2.5 text-ink-subtle"
+        >
           <span>{{ team.cyclesEnabled ? 'Current or next cycle' : 'First cycle' }}</span>
           <span class="text-ink-muted tabular-nums">{{ preview }}</span>
         </p>
       </div>
-    </section>
-    <section aria-labelledby="team-labels-heading" class="grid gap-3">
-      <div class="grid gap-1">
-        <h2
-          id="team-labels-heading"
-          class="text-xs font-medium tracking-wide text-ink-subtle uppercase"
-        >
-          Labels
-        </h2>
-        <p class="text-ink-subtle">Only issues in {{ team.name }} can use these labels.</p>
-      </div>
+    </SettingsSection>
+    <SettingsSection
+      id="labels"
+      title="Labels"
+      :description="`Only issues in ${team.name} can use these labels.`"
+    >
       <LabelsSettings :team-id="team.id" />
-    </section>
-    <section aria-labelledby="templates-heading" class="grid gap-3">
-      <h2
-        id="templates-heading"
-        class="text-xs font-medium tracking-wide text-ink-subtle uppercase"
-      >
-        Templates
-      </h2>
-      <TemplateSettings :team-id="team.id" />
-    </section>
-  </div>
+    </SettingsSection>
+    <SettingsSection
+      id="templates"
+      title="Templates"
+      description="Team templates are offered alongside workspace templates."
+    >
+      <template #actions>
+        <Button size="sm" @click="templates?.create()">
+          <Plus aria-hidden="true" />
+          New template
+        </Button>
+      </template>
+      <TemplateSettings ref="templates" :team-id="team.id" />
+    </SettingsSection>
+  </SettingsLayout>
 </template>

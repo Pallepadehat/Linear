@@ -1,10 +1,10 @@
-import { comments } from '@linear/db'
+import { commentAttachments, comments, uploads } from '@linear/db'
 import { addMember } from '@linear/db/testing'
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { rpcClient, setupTestApp, signUp } from './harness'
 
-const { app, db } = await setupTestApp()
+const { app, db, queues, objects } = await setupTestApp()
 
 async function issueInTip() {
   const owner = await signUp(app, 'Owner')
@@ -385,5 +385,140 @@ describe('comments', () => {
         }),
       ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
     })
+  })
+})
+
+describe('comment attachments', () => {
+  type Client = Awaited<ReturnType<typeof signUp>>['client']
+
+  /** Presigns, "uploads" and confirms a ready image attachment in the workspace. */
+  async function readyImage(client: Client, workspaceSlug = 'tip') {
+    const { uploadId } = await client.uploads.createPresignedUpload({
+      kind: 'attachment',
+      contentType: 'image/png',
+      size: 10,
+      workspaceSlug,
+    })
+    const [upload] = await db.select().from(uploads).where(eq(uploads.id, uploadId))
+    objects.set(upload!.objectKey, { body: new Uint8Array(10), contentType: upload!.contentType })
+    await client.uploads.confirm({ uploadId })
+    return uploadId
+  }
+
+  const image = (uploadId: string) => `![shot.png](attachment:${uploadId})`
+
+  async function linkedUploadIds(commentId: string) {
+    const rows = await db
+      .select({ uploadId: commentAttachments.uploadId })
+      .from(commentAttachments)
+      .where(eq(commentAttachments.commentId, commentId))
+    return rows.map((row) => row.uploadId).sort()
+  }
+
+  async function uploadStatus(uploadId: string) {
+    const [upload] = await db.select().from(uploads).where(eq(uploads.id, uploadId))
+    return upload!.status
+  }
+
+  async function deleteJobs() {
+    const jobs = await queues.maintenance.getJobs(['waiting', 'delayed'])
+    return jobs.filter((job) => job.name === 'delete-objects').map((job) => job.data.uploadId)
+  }
+
+  it('links images on create and edit, and deletes them with the comment', async () => {
+    const { member, issue } = await issueInTip()
+    const [a, b] = [await readyImage(member.client), await readyImage(member.client)]
+
+    const comment = await member.client.comments.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      body: `Before ${image(a)}`,
+    })
+    expect(await linkedUploadIds(comment.id)).toEqual([a])
+
+    await member.client.comments.update({
+      workspaceSlug: 'tip',
+      id: comment.id,
+      body: `After ${image(b)}`,
+    })
+    expect(await linkedUploadIds(comment.id)).toEqual([b])
+    // Unlinked but kept for the sweep's grace period.
+    expect(await uploadStatus(a)).toBe('ready')
+
+    await member.client.comments.delete({ workspaceSlug: 'tip', id: comment.id })
+    expect(await uploadStatus(b)).toBe('deleted')
+    expect(await deleteJobs()).toEqual([b])
+  })
+
+  it("releases replies' images with their root and the issue's comment images with the issue", async () => {
+    const { owner, issue } = await issueInTip()
+    const [a, b] = [await readyImage(owner.client), await readyImage(owner.client)]
+    const root = await owner.client.comments.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      body: 'Root',
+    })
+    await owner.client.comments.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      parentId: root.id,
+      body: image(a),
+    })
+    await owner.client.comments.delete({ workspaceSlug: 'tip', id: root.id })
+    expect(await uploadStatus(a)).toBe('deleted')
+
+    await owner.client.comments.create({ workspaceSlug: 'tip', issueId: issue.id, body: image(b) })
+    await owner.client.issues.delete({ workspaceSlug: 'tip', id: issue.id })
+    expect(await uploadStatus(b)).toBe('deleted')
+    expect((await deleteJobs()).sort()).toEqual([a, b].sort())
+  })
+
+  it('keeps an image another comment or the issue description still links', async () => {
+    const { owner, issue } = await issueInTip()
+    const a = await readyImage(owner.client)
+    const input = { workspaceSlug: 'tip', issueId: issue.id, body: image(a) }
+    const first = await owner.client.comments.create(input)
+    await owner.client.comments.create(input)
+
+    await owner.client.comments.delete({ workspaceSlug: 'tip', id: first.id })
+    expect(await uploadStatus(a)).toBe('ready')
+    expect(await deleteJobs()).toEqual([])
+  })
+
+  it('rejects images that are not ready attachments in the workspace', async () => {
+    const { owner, issue } = await issueInTip()
+    await owner.client.workspaces.create({ name: 'Other', slug: 'other' })
+    const foreign = await readyImage(owner.client, 'other')
+    const { uploadId: pending } = await owner.client.uploads.createPresignedUpload({
+      kind: 'attachment',
+      contentType: 'image/png',
+      size: 10,
+      workspaceSlug: 'tip',
+    })
+    const comment = await owner.client.comments.create({
+      workspaceSlug: 'tip',
+      issueId: issue.id,
+      body: 'Plain',
+    })
+
+    for (const uploadId of [foreign, pending, '01890a5d-ac96-774b-bcce-b302099a8057']) {
+      await expect(
+        owner.client.comments.create({
+          workspaceSlug: 'tip',
+          issueId: issue.id,
+          body: image(uploadId),
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      await expect(
+        owner.client.comments.update({
+          workspaceSlug: 'tip',
+          id: comment.id,
+          body: image(uploadId),
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+    }
+    const list = await owner.client.comments.list({ workspaceSlug: 'tip', issueId: issue.id })
+    expect(list.items.map((c) => c.body)).toEqual(['Plain'])
+    expect(await uploadStatus(foreign)).toBe('ready')
   })
 })

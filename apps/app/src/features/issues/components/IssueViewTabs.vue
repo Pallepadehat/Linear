@@ -31,7 +31,7 @@ function select(value: IssueView) {
 </script>
 
 <template>
-  <div role="tablist" aria-label="Issue views" class="flex items-center gap-1">
+  <div role="tablist" aria-label="Issue views" class="flex min-w-0 items-center gap-0.5 md:gap-1">
     <button
       v-for="tab in ISSUE_VIEWS"
       :id="`issue-view-tab-${tab.value}`"
@@ -42,7 +42,7 @@ function select(value: IssueView) {
       :aria-selected="tab.value === view"
       :aria-controls="panelId"
       :tabindex="tab.value === view ? 0 : -1"
-      class="h-7 rounded-full border px-3 font-medium outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+      class="h-7 shrink-0 rounded-full border px-2.5 font-medium whitespace-nowrap md:px-3 outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-ring"
       :class="
         tab.value === view
           ? 'border-hairline bg-surface-2 text-ink'

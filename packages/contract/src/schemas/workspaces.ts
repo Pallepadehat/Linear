@@ -33,7 +33,16 @@ export const memberSchema = z.object({
 
 export const getWorkspaceInputSchema = workspaceScopedSchema
 
+/** Normalized server-side (case, spaces and dashes don't matter), so only bound the length here. */
+export const joinWorkspaceInputSchema = z.object({
+  code: z.string().trim().min(1, 'Enter an invite code').max(40, 'That invite code is not valid'),
+})
+
+/** `code` is null while joining by code is turned off. */
+export const workspaceInviteSchema = z.object({ code: z.string().nullable() })
+
 export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>
 export type Workspace = z.infer<typeof workspaceSchema>
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceInputSchema>
 export type Member = z.infer<typeof memberSchema>
+export type WorkspaceInvite = z.infer<typeof workspaceInviteSchema>

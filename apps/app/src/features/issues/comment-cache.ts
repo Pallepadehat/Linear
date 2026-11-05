@@ -41,3 +41,40 @@ export function patchCommentInPages<P>(
     })),
   }
 }
+
+/**
+ * Adds a just-posted comment: a reply joins its thread (if loaded), a root becomes a new
+ * thread at the end of the last page (pages are oldest first).
+ */
+export function addCommentToPages<P>(
+  data: InfiniteData<CommentsPage, P> | undefined,
+  comment: Comment,
+): InfiniteData<CommentsPage, P> | undefined {
+  if (!data?.pages.length) return data
+  if (comment.parentId) {
+    return {
+      ...data,
+      pages: data.pages.map((page) => ({
+        ...page,
+        items: page.items.map((thread) =>
+          thread.id === comment.parentId
+            ? {
+                ...thread,
+                replies: [...thread.replies, comment],
+                replyCount: thread.replyCount + 1,
+              }
+            : thread,
+        ),
+      })),
+    }
+  }
+  const last = data.pages.length - 1
+  return {
+    ...data,
+    pages: data.pages.map((page, i) =>
+      i === last
+        ? { ...page, items: [...page.items, { ...comment, replies: [], replyCount: 0 }] }
+        : page,
+    ),
+  }
+}

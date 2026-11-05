@@ -38,7 +38,7 @@ async function onKeydown(event: KeyboardEvent) {
       :aria-selected="item.value === tab"
       :aria-controls="panelId"
       :tabindex="item.value === tab ? 0 : -1"
-      class="h-7 rounded-full border px-3 font-medium outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+      class="h-7 shrink-0 rounded-full border px-3 font-medium whitespace-nowrap outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-ring"
       :class="
         item.value === tab
           ? 'border-hairline bg-surface-2 text-ink'

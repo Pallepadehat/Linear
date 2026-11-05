@@ -64,9 +64,7 @@ const onSubmit = handleSubmit(async (form) => {
 <template>
   <form class="grid gap-6" novalidate @submit="onSubmit">
     <fieldset class="grid gap-4">
-      <legend class="mb-3 text-xs font-medium tracking-wide text-ink-subtle uppercase">
-        Workspace
-      </legend>
+      <legend class="mb-3 font-semibold text-ink">Workspace</legend>
       <FormField name="name" label="Workspace name" placeholder="Tip" autofocus />
       <FormField
         name="slug"
@@ -76,9 +74,7 @@ const onSubmit = handleSubmit(async (form) => {
       />
     </fieldset>
     <fieldset class="grid gap-4">
-      <legend class="mb-3 text-xs font-medium tracking-wide text-ink-subtle uppercase">
-        First team
-      </legend>
+      <legend class="mb-3 font-semibold text-ink">First team</legend>
       <FormField name="teamName" label="Team name" placeholder="Tip Development" />
       <FormField
         name="teamKey"

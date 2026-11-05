@@ -53,7 +53,7 @@ const summary = computed(() => {
   <figure class="grid gap-2">
     <svg
       :viewBox="`0 0 ${WIDTH} ${HEIGHT}`"
-      class="h-36 w-full max-w-xl"
+      class="h-28 w-full max-w-xl md:h-36"
       role="img"
       :aria-label="`Burn-up chart. ${summary}`"
     >

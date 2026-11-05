@@ -57,6 +57,14 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('view.updated'), viewId: z.uuid(), actorId: z.uuid().nullable() }),
   z.object({ type: z.literal('view.deleted'), viewId: z.uuid(), actorId: z.uuid().nullable() }),
   z.object({ type: z.literal('presence.changed'), userId: z.uuid() }),
+  // Ephemeral: a member started or stopped writing a comment on an issue. Never stored;
+  // clients drop a typing state after a few seconds without a refresh.
+  z.object({
+    type: z.literal('comment.typing'),
+    issueId: z.uuid(),
+    userId: z.uuid(),
+    typing: z.boolean(),
+  }),
   // Sent only to the recipient's sockets (docs/domain.md → Notifications); clients refetch the Inbox.
   z.object({ type: z.literal('notification.created'), notificationId: z.uuid() }),
 ])
@@ -76,6 +84,12 @@ export const presenceStateSchema = z.enum(['active', 'away'])
 export const presenceHeartbeatInputSchema = workspaceScopedSchema.extend({
   viewingIssueId: z.uuid().nullable(),
   state: presenceStateSchema,
+})
+
+/** Sent over the realtime WebSocket while composing a comment (throttled) and when done. */
+export const commentTypingInputSchema = workspaceScopedSchema.extend({
+  issueId: z.uuid(),
+  typing: z.boolean(),
 })
 
 export const presenceEntrySchema = z.object({

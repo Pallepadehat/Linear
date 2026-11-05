@@ -13,6 +13,7 @@ import { useRealtime } from '@/features/realtime/useRealtime'
 import { orpc } from '@/lib/orpc'
 import { useUiStore } from '@/stores/ui'
 import AppSidebar from './AppSidebar.vue'
+import SidebarDrawer from './SidebarDrawer.vue'
 import { PANEL_HEADER_ACTIONS } from './panel-header'
 
 const CreateIssueDialog = defineAsyncComponent(
@@ -55,6 +56,7 @@ watch(
   () => {
     ui.breadcrumb = null
     ui.favoriteTarget = null
+    ui.sidebarOpen = false
   },
 )
 
@@ -106,7 +108,13 @@ useHotkeys([
     },
   },
   { id: 'shortcuts-help', run: () => void (ui.shortcutsOpen = !ui.shortcutsOpen) },
-  { id: 'go-inbox', run: () => go('inbox') },
+  {
+    id: 'go-inbox',
+    run: () => {
+      ui.sidebarOpen = false
+      ui.notificationsOpen = !ui.notificationsOpen
+    },
+  },
   { id: 'go-my-issues', run: () => go('my-issues') },
   { id: 'go-projects', run: () => go('projects') },
   {
@@ -151,17 +159,22 @@ const createProjectOpen = computed({
 
 <template>
   <!-- Inset shell (design.md → App shell): sidebar on the base, content on a raised panel. -->
+  <!-- Phones (< md): the sidebar is a drawer and the panel fills the screen. -->
   <div class="flex h-svh bg-app-base text-ink">
-    <AppSidebar />
+    <AppSidebar class="w-56 shrink-0 max-md:hidden" />
+    <SidebarDrawer />
     <div
-      class="my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-hairline bg-panel shadow-panel"
+      class="flex min-w-0 flex-1 flex-col overflow-hidden bg-panel md:my-2 md:mr-2 md:rounded-lg md:border md:border-hairline md:shadow-panel"
     >
       <PageHeader :crumbs="crumbs">
         <template #favorite>
           <FavoriteButton />
         </template>
         <template #actions>
-          <div :id="PANEL_HEADER_ACTIONS.slice(1)" class="flex items-center gap-2" />
+          <div
+            :id="PANEL_HEADER_ACTIONS.slice(1)"
+            class="flex min-w-0 items-center gap-1 md:gap-2"
+          />
         </template>
       </PageHeader>
       <main class="flex min-h-0 flex-1 flex-col overflow-y-auto">

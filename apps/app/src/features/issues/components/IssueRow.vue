@@ -127,15 +127,15 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
   <!-- The title link stretches over the whole row; the pickers sit above it. Their
        hotkeys (⇧D, P, …) act on this row while focus is in it. -->
   <div
-    :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
+    :style="depth ? { paddingLeft: `${28 + depth * 24}px` } : undefined"
     data-hotkey-scope
-    class="group/row relative mx-2 flex h-full min-w-0 items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
+    class="group/row relative mx-2 flex h-full min-w-0 items-center gap-1 rounded-md pr-3 pl-7 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
     :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
     :data-focused="focused || undefined"
     :data-selected="selected || undefined"
   >
     <SelectionCheckbox
-      class="absolute! top-1/2 left-0 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+      class="absolute! top-1/2 left-1 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
       :class="{ 'opacity-100': selected }"
       :checked="!!selected"
       :label="`Select ${issue.identifier}`"
@@ -147,7 +147,10 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
       :model-value="toPriority(issue.priority)"
       @update:model-value="setPriority"
     />
-    <span v-if="shows('id')" class="ml-1 w-16 shrink-0 truncate font-mono text-xs text-ink-subtle">
+    <span
+      v-if="shows('id')"
+      class="ml-1 w-14 shrink-0 truncate font-mono text-xs text-ink-subtle md:w-16"
+    >
       {{ issue.identifier }}
     </span>
     <template v-if="!shows('status')" />
@@ -168,13 +171,16 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
          edge (justify-end + overflow-hidden), as in Linear. -->
     <RouterLink
       :to="issueRoute"
-      class="ml-1 min-w-32 flex-[1_1_0%] truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
+      class="ml-1 min-w-0 flex-[1_1_0%] truncate font-medium text-ink md:min-w-32 outline-hidden after:absolute after:inset-0 after:content-['']"
       @click="onLinkClick"
     >
       <span v-if="selected" class="sr-only">Selected,</span>
       {{ issue.title }}
     </RouterLink>
-    <div class="flex min-w-0 items-center justify-end gap-1 self-stretch overflow-hidden pl-2">
+    <!-- Secondary chips; phones keep only priority, ID, status, title and assignee. -->
+    <div
+      class="flex min-w-0 items-center justify-end gap-1 self-stretch overflow-hidden pl-2 max-md:hidden"
+    >
       <span
         v-if="issue.subIssueProgress?.total"
         class="flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-subtle tabular-nums"

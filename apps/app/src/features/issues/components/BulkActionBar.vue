@@ -122,7 +122,7 @@ function confirmDelete() {
   >
     <div
       v-if="count"
-      class="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-4"
+      class="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-2 md:px-4"
     >
       <!-- A hotkey scope, so the pickers' S/P/A/L only fire with focus in the bar. -->
       <div
@@ -134,7 +134,9 @@ function confirmDelete() {
         <div
           class="flex h-7 shrink-0 items-center gap-0.5 rounded-full border border-hairline pr-0.5 pl-2.5"
         >
-          <span class="text-ink tabular-nums" aria-live="polite">{{ count }} selected</span>
+          <span class="text-ink tabular-nums whitespace-nowrap" aria-live="polite">
+            {{ count }} selected
+          </span>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -179,9 +181,15 @@ function confirmDelete() {
           @update:model-value="(value) => apply({ projectId: value })"
         />
         <span class="mx-1 h-4 w-px shrink-0 bg-hairline" aria-hidden="true" />
-        <Button variant="ghost" size="sm" class="shrink-0 rounded-full text-ink" @click="askDelete">
+        <Button
+          variant="ghost"
+          size="sm"
+          class="shrink-0 rounded-full text-ink max-md:size-7 max-md:px-0"
+          :aria-label="`Delete ${count} ${count === 1 ? 'issue' : 'issues'}`"
+          @click="askDelete"
+        >
           <Trash2 class="text-ink-subtle" aria-hidden="true" />
-          Delete
+          <span class="max-md:hidden">Delete</span>
         </Button>
       </div>
     </div>

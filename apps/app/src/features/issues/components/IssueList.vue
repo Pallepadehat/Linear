@@ -7,6 +7,7 @@ import { computed, nextTick, ref, watch, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import EstimateIcon from '@/components/common/EstimateIcon.vue'
+import IconButton from '@/components/common/IconButton.vue'
 import { Button } from '@/components/ui/button'
 import { pointsText, sumEstimates } from '@/lib/estimates'
 import { useIssueNavStore } from '@/stores/issue-nav'
@@ -384,15 +385,13 @@ watchEffect(() => {
                 }}</span>
               </span>
             </button>
-            <Button
+            <IconButton
               v-if="teamId && !row.depth"
-              variant="ghost"
+              :icon="Plus"
               size="icon-xs"
-              :aria-label="`New issue in ${row.group.label}`"
+              :label="`New issue in ${row.group.label}`"
               @click="createInGroup(row.group)"
-            >
-              <Plus aria-hidden="true" />
-            </Button>
+            />
           </div>
           <IssueRow
             v-else

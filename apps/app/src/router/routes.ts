@@ -27,7 +27,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'setup',
         name: 'workspace-setup',
-        meta: { requiresAuth: true, title: 'Create workspace' },
+        meta: { requiresAuth: true, title: 'Set up workspace' },
         component: () => import('@/features/workspaces/pages/WorkspaceSetupPage.vue'),
       },
       {
@@ -85,8 +85,9 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'inbox',
         name: 'inbox',
-        meta: { title: 'Inbox' },
-        component: () => import('@/features/inbox/pages/InboxPage.vue'),
+        // Notifications live in the sidebar popover; old /inbox links open it.
+        meta: { title: 'Notifications' },
+        component: () => import('@/features/inbox/pages/InboxRedirectPage.vue'),
       },
       {
         path: 'views',

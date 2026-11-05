@@ -45,7 +45,7 @@ const rowClass =
 const anchorClass =
   'min-w-0 shrink truncate text-ink outline-hidden after:absolute after:inset-0 after:content-[""]'
 const actionsClass =
-  'relative z-10 ml-auto flex shrink-0 items-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+  'relative z-10 ml-auto flex shrink-0 items-center opacity-0 pointer-coarse:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100'
 const actionClass = 'size-6 [&_svg]:size-3.5'
 </script>
 

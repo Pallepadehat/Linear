@@ -59,6 +59,12 @@ export const useUiStore = defineStore('ui', () => {
   const commandMenuOpen = ref(false)
   const shortcutsOpen = ref(false)
 
+  /** The sidebar drawer on phone widths (the sidebar is always shown from `md` up). */
+  const sidebarOpen = ref(false)
+
+  /** The Notifications popover at the bottom of the sidebar (`G I` opens it too). */
+  const notificationsOpen = ref(false)
+
   /**
    * The issue keyboard actions apply to: the open issue on its page, or the
    * focused row in a list. The command menu's issue actions and ⌘⌫ use it.
@@ -81,6 +87,8 @@ export const useUiStore = defineStore('ui', () => {
     createProjectOpen,
     commandMenuOpen,
     shortcutsOpen,
+    sidebarOpen,
+    notificationsOpen,
     activeIssue,
     issueToDelete,
     favoriteTarget,

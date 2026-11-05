@@ -12,6 +12,7 @@ import {
 } from '@/features/projects/queries'
 import { orpc } from '@/lib/orpc'
 import { createRealtimeEventHandler } from './realtime-events'
+import { useTypingUsers } from './typing'
 import { backoffDelay } from './useRealtime'
 
 const status = (name: string, category: WorkflowStatus['category']): WorkflowStatus => ({
@@ -415,6 +416,23 @@ describe('realtime event handler', () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: orpc.comments.list.key({ input: { issueId: 'a' } }),
     })
+  })
+
+  it('tracks who is typing without refetching, and clears them once they comment', () => {
+    const handle = createRealtimeEventHandler({ queryClient, workspaceSlug: 'tip' })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    const userId = crypto.randomUUID()
+    const typing = useTypingUsers('typing-issue', undefined)
+    handle({ type: 'comment.typing', issueId: 'typing-issue', userId, typing: true })
+    expect(invalidate).not.toHaveBeenCalled()
+    expect(typing.value).toEqual([userId])
+    handle({
+      type: 'comment.created',
+      issueId: 'typing-issue',
+      commentId: crypto.randomUUID(),
+      actorId: userId,
+    })
+    expect(typing.value).toEqual([])
   })
 
   it('refetches template lists on a template event', () => {

@@ -12,6 +12,8 @@ import {
   Link,
   Link2,
   ListTree,
+  Settings2,
+  Sparkles,
   Star,
   StarOff,
   Trash2,
@@ -19,7 +21,7 @@ import {
   X,
 } from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { computed, ref, watchEffect } from 'vue'
+import { computed, ref, watchEffect, type Component } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { toast } from 'vue-sonner'
 import IconButton from '@/components/common/IconButton.vue'
@@ -42,7 +44,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
 import { useToggleFavorite } from '@/features/favorites/queries'
 import { errorMessage } from '@/lib/errors'
@@ -80,6 +81,12 @@ const queryClient = useQueryClient()
 const nav = useIssueNav(() => props.issue.identifier)
 const { copy } = useIssueCopy(() => props.issue)
 const copyKinds: CopyKind[] = ['url', 'id', 'branch', 'prompt']
+const COPY_ICONS: Record<CopyKind, Component> = {
+  url: Link,
+  id: Hash,
+  branch: GitBranch,
+  prompt: Sparkles,
+}
 
 // Coding tool integrations aren't built yet; the settings section says so.
 function configureCodingTools() {
@@ -178,211 +185,133 @@ const isFavorite = computed(() =>
 function toggleFavorite() {
   if (ui.favoriteTarget?.entityId === props.issue.id) favorites.toggle(ui.favoriteTarget)
 }
-
-const itemClass = 'h-8 rounded-md text-[13px]'
 </script>
 
 <template>
   <Teleport defer :to="PANEL_HEADER_ACTIONS">
-    <div class="flex items-center gap-0.5">
-      <IconButton
-        :icon="Link"
-        :label="COPY_LABELS.url"
-        :shortcut="copyShortcut('url')"
-        @click="copy('url')"
-      />
-      <IconButton
-        :icon="Hash"
-        :label="COPY_LABELS.id"
-        :shortcut="copyShortcut('id')"
-        @click="copy('id')"
-      />
-      <IconButton
-        :icon="GitBranch"
-        :label="COPY_LABELS.branch"
-        :shortcut="copyShortcut('branch')"
-        @click="copy('branch')"
-      />
-    </div>
-    <div class="flex items-center rounded-full border border-hairline">
-      <Tooltip>
-        <TooltipTrigger as-child>
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-[26px] rounded-r-none pr-2 pl-3"
-            :aria-keyshortcuts="copyShortcut('prompt')"
-            @click="copy('prompt')"
-          >
-            {{ COPY_LABELS.prompt }}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent class="flex items-center gap-2">
-          Copy issue as a prompt for a coding agent
-          <kbd class="font-sans text-ink-subtle">{{ copyShortcut('prompt') }}</kbd>
-        </TooltipContent>
-      </Tooltip>
-      <span class="h-3.5 w-px bg-hairline" aria-hidden="true" />
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Copy as prompt options"
-            class="h-[26px] w-6 rounded-l-none data-[state=open]:bg-surface-2"
-          >
-            <ChevronDown aria-hidden="true" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-56 rounded-lg border-hairline bg-floating p-1.5">
-          <DropdownMenuItem :class="itemClass" @select="copy('prompt')">
-            {{ COPY_LABELS.prompt }}
-            <DropdownMenuShortcut class="tracking-normal text-ink-subtle">
-              {{ copyShortcut('prompt') }}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem :class="itemClass" @select="configureCodingTools">
-            Configure coding tools…
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-    <div v-if="nav.position.value" class="flex items-center gap-0.5">
+    <!-- One Copy menu instead of a row of unlabeled copy icons; shortcuts still work directly. -->
+    <DropdownMenu>
+      <DropdownMenuTrigger as-child>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="text-ink-muted data-[state=open]:bg-surface-2 max-md:size-7 max-md:px-0"
+          aria-label="Copy"
+        >
+          <Copy aria-hidden="true" />
+          <span class="max-md:hidden">Copy</span>
+          <ChevronDown class="size-3 text-ink-subtle max-md:hidden" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" class="w-64">
+        <DropdownMenuItem v-for="kind in copyKinds" :key="kind" @select="copy(kind)">
+          <component :is="COPY_ICONS[kind]" aria-hidden="true" />
+          {{ COPY_LABELS[kind] }}
+          <DropdownMenuShortcut>{{ copyShortcut(kind) }}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem @select="configureCodingTools">
+          <Settings2 aria-hidden="true" />
+          Configure coding tools…
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    <div v-if="nav.position.value" class="flex items-center gap-0.5 max-md:hidden">
       <span class="px-1 text-xs text-ink-subtle tabular-nums" aria-live="polite">
         {{ nav.position.value.index }}
         <span class="text-ink-tertiary">/</span>
         {{ nav.position.value.total }}
       </span>
-      <Tooltip>
-        <TooltipTrigger as-child>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Next issue"
-            aria-keyshortcuts="J"
-            :disabled="!nav.hasNext.value"
-            @click="nav.next"
-          >
-            <ChevronDown aria-hidden="true" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Next issue <kbd class="ml-1 font-sans">J</kbd></TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger as-child>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Previous issue"
-            aria-keyshortcuts="K"
-            :disabled="!nav.hasPrevious.value"
-            @click="nav.previous"
-          >
-            <ChevronUp aria-hidden="true" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Previous issue <kbd class="ml-1 font-sans">K</kbd></TooltipContent>
-      </Tooltip>
+      <IconButton
+        :icon="ChevronDown"
+        label="Next issue"
+        shortcut="J"
+        :disabled="!nav.hasNext.value"
+        @click="nav.next"
+      />
+      <IconButton
+        :icon="ChevronUp"
+        label="Previous issue"
+        shortcut="K"
+        :disabled="!nav.hasPrevious.value"
+        @click="nav.previous"
+      />
     </div>
     <!-- Page-level toggles (the subscribe bell) sit just before the actions menu. -->
     <slot />
     <DropdownMenu>
       <DropdownMenuTrigger as-child>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Issue actions"
+        <IconButton
+          :icon="Ellipsis"
+          label="Issue actions"
+          aria-haspopup="menu"
           class="data-[state=open]:bg-surface-2"
-        >
-          <Ellipsis aria-hidden="true" />
-        </Button>
+        />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" class="w-56 rounded-lg border-hairline bg-floating p-1.5">
+      <DropdownMenuContent align="end" class="w-56">
         <DropdownMenuSub v-if="removable.length">
-          <DropdownMenuSubTrigger :class="itemClass">
-            <X class="text-ink-subtle" aria-hidden="true" />
-            Remove
+          <DropdownMenuSubTrigger>
+            <X aria-hidden="true" />
+            Clear property
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent class="w-44 rounded-lg border-hairline bg-floating p-1.5">
+          <DropdownMenuSubContent class="w-44">
             <DropdownMenuItem
               v-for="item in removable"
               :key="item.label"
-              :class="itemClass"
               @select="emit('change', item.patch)"
             >
               {{ item.label }}
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuItem :class="itemClass" @select="emit('setParent')">
-          <ListTree class="text-ink-subtle" aria-hidden="true" />
+        <DropdownMenuItem @select="emit('setParent')">
+          <ListTree aria-hidden="true" />
           Set parent issue…
-          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">⇧⌘P</DropdownMenuShortcut>
+          <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem
           v-if="issue.parentId"
-          :class="itemClass"
           @select="emit('change', { parentId: null, parent: null })"
         >
-          <Unlink class="text-ink-subtle" aria-hidden="true" />
+          <Unlink aria-hidden="true" />
           Remove parent
         </DropdownMenuItem>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger :class="itemClass">
-            <GitCompareArrows class="text-ink-subtle" aria-hidden="true" />
+          <DropdownMenuSubTrigger>
+            <GitCompareArrows aria-hidden="true" />
             Mark as
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent class="w-44 rounded-lg border-hairline bg-floating p-1.5">
+          <DropdownMenuSubContent class="w-44">
             <DropdownMenuItem
               v-for="option in RELATION_KINDS"
               :key="option.kind"
-              :class="itemClass"
               @select="emit('markAs', option.kind)"
             >
               {{ option.label }}
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuItem :class="itemClass" @select="emit('addLink')">
-          <Link2 class="text-ink-subtle" aria-hidden="true" />
+        <DropdownMenuItem @select="emit('addLink')">
+          <Link2 aria-hidden="true" />
           Add link…
-          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">
+          <DropdownMenuShortcut>
             {{ addLinkShortcut }}
           </DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuItem :class="itemClass" @select="toggleFavorite">
-          <component :is="isFavorite ? StarOff : Star" class="text-ink-subtle" aria-hidden="true" />
+        <DropdownMenuItem @select="toggleFavorite">
+          <component :is="isFavorite ? StarOff : Star" aria-hidden="true" />
           {{ isFavorite ? 'Remove from favorites' : 'Add to favorites' }}
-          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">⌥F</DropdownMenuShortcut>
+          <DropdownMenuShortcut>⌥F</DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger :class="itemClass">
-            <Copy class="text-ink-subtle" aria-hidden="true" />
-            Copy
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent class="w-60 rounded-lg border-hairline bg-floating p-1.5">
-            <DropdownMenuItem
-              v-for="kind in copyKinds"
-              :key="kind"
-              :class="itemClass"
-              @select="copy(kind)"
-            >
-              {{ COPY_LABELS[kind] }}
-              <DropdownMenuShortcut class="tracking-normal text-ink-subtle">
-                {{ copyShortcut(kind) }}
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuItem :class="itemClass" @select="makeCopy">
-          <CopyPlus class="text-ink-subtle" aria-hidden="true" />
+        <DropdownMenuItem @select="makeCopy">
+          <CopyPlus aria-hidden="true" />
           Make a copy…
         </DropdownMenuItem>
-        <DropdownMenuSeparator class="bg-hairline" />
-        <DropdownMenuItem :class="itemClass" @select="confirmingDelete = true">
-          <Trash2 class="text-ink-subtle" aria-hidden="true" />
+        <DropdownMenuSeparator />
+        <DropdownMenuItem @select="confirmingDelete = true">
+          <Trash2 aria-hidden="true" />
           Delete
-          <DropdownMenuShortcut class="tracking-normal text-ink-subtle">
+          <DropdownMenuShortcut>
             {{ deleteShortcut }}
           </DropdownMenuShortcut>
         </DropdownMenuItem>
