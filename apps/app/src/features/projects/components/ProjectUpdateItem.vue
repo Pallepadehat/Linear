@@ -87,7 +87,7 @@ async function remove() {
       </span>
       <DropdownMenu v-if="canEdit || canDelete">
         <DropdownMenuTrigger
-          class="ml-auto flex size-6 shrink-0 items-center justify-center rounded-full text-ink-subtle opacity-0 outline-hidden group-focus-within/update:opacity-100 group-hover/update:opacity-100 hover:bg-surface-3 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:opacity-100"
+          class="ml-auto flex size-6 shrink-0 items-center justify-center rounded-full text-ink-subtle opacity-0 outline-hidden pointer-coarse:opacity-100 group-focus-within/update:opacity-100 group-hover/update:opacity-100 hover:bg-surface-3 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:opacity-100"
           aria-label="Update options"
         >
           <Ellipsis class="size-4" aria-hidden="true" />

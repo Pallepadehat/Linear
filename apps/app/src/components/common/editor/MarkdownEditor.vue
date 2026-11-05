@@ -47,6 +47,11 @@ const props = withDefaults(
     attachments?: boolean
     /** Renders the markdown without editing (comment bodies). */
     readonly?: boolean
+    /**
+     * Chat-style keys (comments): Enter emits `submit`, Shift+Enter starts a new line.
+     * Enter still picks from an open @ or / menu and adds a line inside code blocks.
+     */
+    submitOnEnter?: boolean
   }>(),
   {
     placeholder: undefined,
@@ -54,8 +59,10 @@ const props = withDefaults(
     workspaceSlug: undefined,
     attachments: true,
     readonly: false,
+    submitOnEnter: false,
   },
 )
+const emit = defineEmits<{ submit: [] }>()
 const model = defineModel<string>({ default: '' })
 
 const root = useTemplateRef<HTMLElement>('root')
@@ -299,8 +306,28 @@ const SlashCommands = Extension.create({
 
 const EditorShortcuts = Extension.create({
   name: 'editorShortcuts',
+  // Ahead of the built-in Enter handling (paragraphs, lists) so chat-style Enter can win.
+  priority: 1000,
   addKeyboardShortcuts() {
     return {
+      Enter: ({ editor: ed }) => {
+        if (!props.submitOnEnter || slash.open || mentions.visible.value) return false
+        if (ed.isActive('codeBlock')) return false
+        emit('submit')
+        return true
+      },
+      // What plain Enter does in a normal editor: continue a list, else split the block.
+      'Shift-Enter': ({ editor: ed }) => {
+        if (!props.submitOnEnter) return false
+        return ed.commands.first(({ commands }) => [
+          () => commands.newlineInCode(),
+          () => commands.splitListItem('listItem'),
+          () => commands.splitListItem('taskItem'),
+          () => commands.createParagraphNear(),
+          () => commands.liftEmptyBlock(),
+          () => commands.splitBlock(),
+        ])
+      },
       // Leave Mod-Enter to the surrounding form (submit) instead of inserting a line break.
       'Mod-Enter': () => true,
       'Mod-Shift-u': () => {

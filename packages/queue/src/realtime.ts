@@ -67,6 +67,14 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
     actorId: base.actorId,
     originId: base.originId,
   }),
+  // Ephemeral "is writing a comment" signal; mirrors the contract's `comment.typing`.
+  z.object({
+    type: z.literal('comment.typing'),
+    issueId: z.uuid(),
+    userId: z.uuid(),
+    typing: z.boolean(),
+    originId: z.string().max(64).nullable(),
+  }),
   // A member's presence changed (online/away, viewed issue, went offline); clients refetch.
   z.object({
     type: z.literal('presence.changed'),

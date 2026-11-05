@@ -3,12 +3,14 @@ import {
   ChevronRight,
   CircleHelp,
   CircleUser,
+  Command,
+  Keyboard,
   FolderKanban,
-  Inbox,
   IterationCcw,
   Layers,
   Search,
   SquarePen,
+  Settings,
   SquareStack,
 } from '@lucide/vue'
 import { useQuery } from '@tanstack/vue-query'
@@ -18,9 +20,16 @@ import IconButton from '@/components/common/IconButton.vue'
 import SidebarItem from '@/components/common/SidebarItem.vue'
 import SidebarSection from '@/components/common/SidebarSection.vue'
 import TeamIcon from '@/components/common/TeamIcon.vue'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import SidebarFavorites from '@/features/favorites/components/SidebarFavorites.vue'
-import { unreadCountOptions } from '@/features/inbox/queries'
+import NotificationsPopover from '@/features/inbox/components/NotificationsPopover.vue'
 import WorkspaceMenu from '@/features/workspaces/components/WorkspaceMenu.vue'
 import { shortcutKeys } from '@/lib/hotkeys'
 import { orpc } from '@/lib/orpc'
@@ -35,10 +44,6 @@ const { slug } = useCurrentWorkspace()
 const { data: teams } = useQuery(
   computed(() => orpc.teams.list.queryOptions({ input: { workspaceSlug: slug.value } })),
 )
-
-// Refetched on `notification.created` (realtime) and after Inbox actions; hidden at 0.
-const { data: unread } = useQuery(computed(() => unreadCountOptions(slug.value)))
-const unreadCount = computed(() => unread.value?.count ?? 0)
 
 const at = (name: string, params: Record<string, string> = {}) => ({
   name,
@@ -57,10 +62,24 @@ watch(
 )
 
 const commandMenuKeys = shortcutKeys('command-menu').flat().join('')
+
+// In the phone drawer, an action that opens a dialog closes the drawer first.
+function openCommandMenu() {
+  ui.sidebarOpen = false
+  ui.commandMenuOpen = true
+}
+function openCreateIssue() {
+  ui.sidebarOpen = false
+  ui.openCreateIssue()
+}
+function openShortcuts() {
+  ui.sidebarOpen = false
+  ui.shortcutsOpen = true
+}
 </script>
 
 <template>
-  <aside class="flex w-56 shrink-0 flex-col gap-3 py-2.5 pr-1 pl-2" aria-label="Sidebar">
+  <aside class="flex flex-col gap-3 py-2.5 pr-1 pl-2" aria-label="Sidebar">
     <div class="flex items-center gap-1">
       <div class="flex min-w-0 flex-1">
         <WorkspaceMenu />
@@ -70,20 +89,19 @@ const commandMenuKeys = shortcutKeys('command-menu').flat().join('')
         label="Search"
         :shortcut="commandMenuKeys"
         aria-haspopup="dialog"
-        @click="ui.commandMenuOpen = true"
+        @click="openCommandMenu"
       />
       <IconButton
         :icon="SquarePen"
         label="New issue"
         shortcut="C"
         class="bg-panel shadow-panel text-ink-muted hover:bg-surface-3"
-        @click="ui.openCreateIssue()"
+        @click="openCreateIssue"
       />
     </div>
 
     <nav aria-label="Main" class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
       <div class="grid gap-px">
-        <SidebarItem :to="at('inbox')" label="Inbox" :icon="Inbox" :badge="unreadCount" />
         <SidebarItem :to="at('my-issues')" label="My issues" :icon="CircleUser" />
       </div>
 
@@ -151,6 +169,12 @@ const commandMenuKeys = shortcutKeys('command-menu').flat().join('')
               :icon="SquareStack"
               inset
             />
+            <SidebarItem
+              :to="at('team-settings', { teamKey: team.key })"
+              label="Settings"
+              :icon="Settings"
+              inset
+            />
           </div>
         </div>
         <p v-if="teams && teams.length === 0" class="px-2 text-xs text-ink-tertiary">
@@ -159,14 +183,28 @@ const commandMenuKeys = shortcutKeys('command-menu').flat().join('')
       </SidebarSection>
     </nav>
 
-    <div class="flex items-center">
-      <IconButton
-        :icon="CircleHelp"
-        label="Keyboard shortcuts"
-        shortcut="?"
-        aria-haspopup="dialog"
-        @click="ui.shortcutsOpen = true"
-      />
+    <div class="grid gap-px">
+      <NotificationsPopover />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-ink-muted outline-hidden hover:bg-surface-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-surface-3"
+        >
+          <CircleHelp class="size-4" aria-hidden="true" />
+          Help
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="start" class="w-60">
+          <DropdownMenuItem @select="openCommandMenu">
+            <Command class="size-4" aria-hidden="true" />
+            Search and commands
+            <DropdownMenuShortcut>{{ commandMenuKeys }}</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem @select="openShortcuts">
+            <Keyboard class="size-4" aria-hidden="true" />
+            Keyboard shortcuts
+            <DropdownMenuShortcut>?</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   </aside>
 </template>

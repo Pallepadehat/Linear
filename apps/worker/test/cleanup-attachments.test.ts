@@ -1,5 +1,5 @@
 import { createUpload } from '@linear/core'
-import { createDb, issueAttachments, uploads } from '@linear/db'
+import { commentAttachments, comments, createDb, issueAttachments, uploads } from '@linear/db'
 import {
   createIssue,
   createTeam,
@@ -59,7 +59,7 @@ async function arrange() {
     return upload
   }
 
-  return { workspace, issue, attachment }
+  return { user, workspace, issue, attachment }
 }
 
 async function statusOf(uploadId: string) {
@@ -90,5 +90,29 @@ describe('cleanup-attachments', () => {
     // Idempotent: a second run finds nothing new.
     await cleanupAttachments(deps)
     expect(await statusOf(recent.id)).toBe('ready')
+  })
+})
+
+describe('cleanup-attachments with comments', () => {
+  it('keeps attachments a comment links to', async () => {
+    const { user, workspace, issue, attachment } = await arrange()
+    const inComment = await attachment(ORPHANED_ATTACHMENT_TTL_MS + 60_000)
+    const [comment] = await db
+      .insert(comments)
+      .values({
+        workspaceId: workspace.id,
+        issueId: issue.id,
+        authorId: user.id,
+        body: `![shot](attachment:${inComment.id})`,
+      })
+      .returning()
+    await db
+      .insert(commentAttachments)
+      .values({ workspaceId: workspace.id, commentId: comment!.id, uploadId: inComment.id })
+
+    await cleanupAttachments(deps)
+
+    expect(await statusOf(inComment.id)).toBe('ready')
+    expect(objects.has(inComment.objectKey)).toBe(true)
   })
 })

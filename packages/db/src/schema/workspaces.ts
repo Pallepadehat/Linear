@@ -13,6 +13,8 @@ export const workspaces = pgTable('workspaces', {
     .notNull()
     .references(() => users.id),
   iconUploadId: uuid().references((): AnyPgColumn => uploads.id, { onDelete: 'set null' }),
+  /** Code people enter to join as a member; null while joining by code is turned off. */
+  inviteCode: text().unique('workspaces_invite_code_unique'),
   ...timestamps,
 })
 

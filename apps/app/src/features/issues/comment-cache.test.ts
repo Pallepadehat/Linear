@@ -1,7 +1,7 @@
 import type { CommentThread, CommentsPage } from '@linear/contract'
 import type { InfiniteData } from '@tanstack/vue-query'
 import { describe, expect, it } from 'vitest'
-import { patchCommentInPages, toggleReaction } from './comment-cache'
+import { addCommentToPages, patchCommentInPages, toggleReaction } from './comment-cache'
 
 describe('toggleReaction', () => {
   it('adds a new pill or joins an existing one', () => {
@@ -61,5 +61,33 @@ describe('patchCommentInPages', () => {
 
   it('passes through an empty cache', () => {
     expect(patchCommentInPages(undefined, 'a', rename)).toBeUndefined()
+  })
+})
+
+describe('addCommentToPages', () => {
+  const data: InfiniteData<CommentsPage> = {
+    pages: [
+      { items: [thread('a', ['a1'])], nextCursor: 'x' },
+      { items: [thread('b')], nextCursor: null },
+    ],
+    pageParams: [null, 'x'],
+  }
+
+  it('appends a new thread to the last page', () => {
+    const { replies: _, replyCount: __, ...root } = thread('c')
+    const next = addCommentToPages(data, root)
+    expect(next?.pages[1]?.items.map((t) => t.id)).toEqual(['b', 'c'])
+    expect(next?.pages[0]).toBe(data.pages[0])
+  })
+
+  it('adds a reply to its thread and bumps the count', () => {
+    const reply = { ...thread('a2'), parentId: 'a' }
+    const next = addCommentToPages(data, reply)
+    expect(next?.pages[0]?.items[0]?.replies.map((r) => r.id)).toEqual(['a1', 'a2'])
+    expect(next?.pages[0]?.items[0]?.replyCount).toBe(2)
+  })
+
+  it('leaves an unloaded list alone', () => {
+    expect(addCommentToPages(undefined, thread('c'))).toBeUndefined()
   })
 })

@@ -48,7 +48,7 @@ const deleteRelation = useDeleteRelation(() => props.workspaceSlug)
           </RouterLink>
           <button
             type="button"
-            class="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full text-ink-subtle opacity-0 group-hover:opacity-100 hover:bg-surface-3 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
+            class="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full text-ink-subtle opacity-0 group-hover:opacity-100 hover:bg-surface-3 pointer-coarse:opacity-100 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
             :aria-label="`Remove relation with ${related.identifier}`"
             @click="deleteRelation.mutate(related.relationId)"
           >

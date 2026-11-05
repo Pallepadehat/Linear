@@ -27,33 +27,27 @@ function setDirection(value: unknown) {
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger as-child>
-      <Button variant="ghost" size="sm" class="text-ink-muted data-[state=open]:bg-surface-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Display options"
+        class="text-ink-muted data-[state=open]:bg-surface-2"
+      >
         <SlidersHorizontal aria-hidden="true" />
         Display
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" class="w-48 rounded-lg border-hairline bg-floating p-1.5">
-      <DropdownMenuLabel class="px-2.5 text-xs font-normal text-ink-subtle">
-        Order by
-      </DropdownMenuLabel>
+    <DropdownMenuContent align="end" class="w-48">
+      <DropdownMenuLabel class="px-2.5 font-normal"> Order by </DropdownMenuLabel>
       <DropdownMenuRadioGroup :model-value="sort.key" @update:model-value="setKey">
-        <DropdownMenuRadioItem
-          v-for="key in PROJECT_SORT_KEYS"
-          :key="key"
-          :value="key"
-          class="h-8 rounded-md text-[13px]"
-        >
+        <DropdownMenuRadioItem v-for="key in PROJECT_SORT_KEYS" :key="key" :value="key">
           {{ PROJECT_COLUMN_LABELS[key] }}
         </DropdownMenuRadioItem>
       </DropdownMenuRadioGroup>
-      <DropdownMenuSeparator class="bg-hairline" />
+      <DropdownMenuSeparator />
       <DropdownMenuRadioGroup :model-value="sort.direction" @update:model-value="setDirection">
-        <DropdownMenuRadioItem value="asc" class="h-8 rounded-md text-[13px]">
-          Ascending
-        </DropdownMenuRadioItem>
-        <DropdownMenuRadioItem value="desc" class="h-8 rounded-md text-[13px]">
-          Descending
-        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="asc"> Ascending </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="desc"> Descending </DropdownMenuRadioItem>
       </DropdownMenuRadioGroup>
     </DropdownMenuContent>
   </DropdownMenu>

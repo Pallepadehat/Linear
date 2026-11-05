@@ -3,6 +3,7 @@ import type { Label } from '@linear/contract'
 import { useQuery } from '@tanstack/vue-query'
 import { Check, Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
+import IconButton from '@/components/common/IconButton.vue'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCurrentWorkspace } from '@/composables/useCurrentWorkspace'
 import { LABEL_PALETTE } from '../label-options'
 import { labelListOptions, useDeleteLabel, useUpdateLabel } from '../queries'
@@ -81,21 +83,26 @@ function confirmDelete() {
     >
       <li v-for="label in labels" :key="label.id" class="flex h-11 items-center gap-2 px-2">
         <Popover>
-          <PopoverTrigger as-child>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              :aria-label="`Change color of ${label.name}`"
-              class="data-[state=open]:bg-surface-2"
-            >
-              <!-- The label's own color is user data, not a design token. -->
-              <span
-                class="size-2.5 rounded-full"
-                :style="{ backgroundColor: label.color }"
-                aria-hidden="true"
-              />
-            </Button>
-          </PopoverTrigger>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <PopoverTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="`Change color of ${label.name}`"
+                  class="data-[state=open]:bg-surface-2"
+                >
+                  <!-- The label's own color is user data, not a design token. -->
+                  <span
+                    class="size-2.5 rounded-full"
+                    :style="{ backgroundColor: label.color }"
+                    aria-hidden="true"
+                  />
+                </Button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Change color</TooltipContent>
+          </Tooltip>
           <PopoverContent
             align="start"
             class="w-auto rounded-lg border-hairline bg-floating p-2 shadow-floating"
@@ -134,15 +141,12 @@ function confirmDelete() {
           @keydown.enter="($event.target as HTMLInputElement).blur()"
           @keydown.esc="revert(label, $event)"
         />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          class="text-ink-subtle hover:text-ink"
-          :aria-label="`Delete ${label.name}`"
+        <IconButton
+          :icon="Trash2"
+          :label="`Delete ${label.name}`"
+          class="hover:text-ink"
           @click="pendingDelete = label"
-        >
-          <Trash2 aria-hidden="true" />
-        </Button>
+        />
       </li>
     </ul>
 

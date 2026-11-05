@@ -5,7 +5,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref, useId, type ComponentPublicInstance } from 'vue'
 import type { AssigneeOption } from '@/components/common/AssigneePicker.vue'
 import EstimateIcon from '@/components/common/EstimateIcon.vue'
-import { Button } from '@/components/ui/button'
+import IconButton from '@/components/common/IconButton.vue'
 import { pointsText, sumEstimates, type EstimateSettings } from '@/lib/estimates'
 import type { BoardColumn } from '../board-columns'
 import type { IssuePatch } from '../issue-cache'
@@ -101,7 +101,7 @@ function onDrop(event: DragEvent) {
 <template>
   <section
     :aria-labelledby="headingId"
-    class="flex w-80 shrink-0 flex-col rounded-lg transition-colors"
+    class="flex w-72 shrink-0 snap-start flex-col rounded-lg transition-colors md:w-80"
     :class="highlighted ? 'bg-surface-3' : 'bg-surface-1'"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
@@ -131,16 +131,14 @@ function onDrop(event: DragEvent) {
         {{ estimateTotal }}
         <span class="sr-only">{{ estimateTotal === 1 ? 'point' : 'points' }}</span>
       </span>
-      <Button
+      <IconButton
         v-if="creatable"
-        variant="ghost"
+        :icon="Plus"
         size="icon-xs"
         class="ml-auto"
-        :aria-label="`New issue in ${column.label}`"
+        :label="`New issue in ${column.label}`"
         @click="emit('create')"
-      >
-        <Plus aria-hidden="true" />
-      </Button>
+      />
     </header>
     <div ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto px-1.5">
       <div

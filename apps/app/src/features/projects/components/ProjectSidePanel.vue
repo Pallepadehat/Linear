@@ -20,7 +20,7 @@ import ProjectProgress from './ProjectProgress.vue'
 import ProjectStatusPicker from './ProjectStatusPicker.vue'
 import ProjectTeamsPicker from './ProjectTeamsPicker.vue'
 
-// The project page's right panel: Properties, Milestones, Progress (slot for the M9-05 chart)
+// The project page's right panel (width and edge set by the page: docked or in a drawer): Properties, Milestones, Progress (slot for the M9-05 chart)
 // and Activity (slot for the M9-06 card). Open/closed lives in the preferences store.
 const props = defineProps<{
   workspaceSlug: string
@@ -97,7 +97,7 @@ const labelClass = 'w-24 shrink-0 text-ink-subtle'
   <aside
     id="project-panel"
     aria-label="Project details"
-    class="flex w-80 shrink-0 flex-col gap-3 overflow-y-auto border-l border-hairline bg-panel p-3"
+    class="flex shrink-0 flex-col gap-3 overflow-y-auto bg-panel p-3"
   >
     <PanelCard title="Properties">
       <div class="grid">

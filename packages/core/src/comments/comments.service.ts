@@ -3,6 +3,11 @@ import { and, asc, count, eq, gt, inArray, isNull, lte, min, sql, type SQL } fro
 import { assertCursor } from '../cursor'
 import { DomainError } from '../errors'
 import { assertReplyParent } from './threads'
+import {
+  listCommentAttachmentIds,
+  releaseAttachments,
+  syncCommentAttachments,
+} from '../issues/attachments'
 import { syncMentions, type MentionsResult } from '../mentions/mentions.service'
 import { subscribeUsers } from '../subscriptions/subscriptions.service'
 
@@ -289,6 +294,7 @@ export async function createComment(db: DbOrTx, input: CreateCommentInput) {
       })
       .returning({ id: comments.id })
     if (!comment) throw new Error('comment insert returned no row')
+    await syncCommentAttachments(tx, input.workspaceId, comment.id, body)
     await subscribeUsers(tx, input.issueId, [input.authorId])
     const mentions = await syncMentions(tx, {
       workspaceId: input.workspaceId,
@@ -316,6 +322,7 @@ export async function updateComment(db: DbOrTx, input: UpdateCommentInput) {
       .update(comments)
       .set({ body })
       .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.id)))
+    await syncCommentAttachments(tx, input.workspaceId, input.id, body)
     return syncMentions(tx, {
       workspaceId: input.workspaceId,
       issueId: existing.issueId,
@@ -330,16 +337,24 @@ export async function updateComment(db: DbOrTx, input: UpdateCommentInput) {
 
 const noMentions: MentionsResult = { userIds: [], mentionedIssueIds: [] }
 
-/** Deleting a thread root deletes its replies (FK cascade). */
+/**
+ * Deleting a thread root deletes its replies (FK cascade). Attachments no issue or
+ * comment links anymore are marked deleted; the caller enqueues `delete-objects` for
+ * each `deletedUploadIds` entry after the commit.
+ */
 export async function deleteComment(db: DbOrTx, input: DeleteCommentInput) {
   const existing = await getComment(db, input.workspaceId, input.id, input.userId)
   if (existing.authorId !== input.userId && !input.canDeleteOthers) {
     throw new DomainError('FORBIDDEN', "You can't delete other people's comments")
   }
-  await db
-    .delete(comments)
-    .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.id)))
-  return { id: existing.id, issueId: existing.issueId }
+  const deletedUploadIds = await db.transaction(async (tx) => {
+    const attachmentIds = await listCommentAttachmentIds(tx, input.workspaceId, input.id)
+    await tx
+      .delete(comments)
+      .where(and(eq(comments.workspaceId, input.workspaceId), eq(comments.id, input.id)))
+    return releaseAttachments(tx, input.workspaceId, attachmentIds)
+  })
+  return { id: existing.id, issueId: existing.issueId, deletedUploadIds }
 }
 
 /** Idempotent: reacting again with the same emoji changes nothing. */

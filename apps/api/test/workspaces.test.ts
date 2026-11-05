@@ -107,3 +107,93 @@ describe('workspace isolation', () => {
     expect(members).toEqual([expect.objectContaining({ email, role: 'owner', avatarUrl: null })])
   })
 })
+
+describe('workspace invites', () => {
+  async function ownerWithWorkspace() {
+    const owner = await signUp(app, 'Owner')
+    await owner.client.workspaces.create({ name: 'Tip', slug: 'tip' })
+    return owner
+  }
+
+  it('has no code until the owner creates one', async () => {
+    const owner = await ownerWithWorkspace()
+    expect(await owner.client.workspaces.getInvite({ workspaceSlug: 'tip' })).toEqual({
+      code: null,
+    })
+    const { code } = await owner.client.workspaces.resetInvite({ workspaceSlug: 'tip' })
+    expect(code).toMatch(/^[A-Z2-9]{10}$/)
+    expect(await owner.client.workspaces.getInvite({ workspaceSlug: 'tip' })).toEqual({ code })
+  })
+
+  it('lets anyone with the code join as a member, ignoring case and dashes', async () => {
+    const owner = await ownerWithWorkspace()
+    const { code } = await owner.client.workspaces.resetInvite({ workspaceSlug: 'tip' })
+    const tester = await signUp(app, 'Tester')
+
+    const typed = `${code!.slice(0, 5)}-${code!.slice(5)}`.toLowerCase()
+    expect(await tester.client.workspaces.join({ code: typed })).toMatchObject({
+      slug: 'tip',
+      role: 'member',
+    })
+    expect((await tester.client.me.listWorkspaces()).map((w) => w.slug)).toEqual(['tip'])
+    const members = await owner.client.workspaces.listMembers({ workspaceSlug: 'tip' })
+    expect(members.map((m) => [m.email, m.role]).sort()).toEqual(
+      [
+        [owner.email, 'owner'],
+        [tester.email, 'member'],
+      ].sort(),
+    )
+  })
+
+  it('keeps the role of someone who is already a member', async () => {
+    const owner = await ownerWithWorkspace()
+    const { code } = await owner.client.workspaces.resetInvite({ workspaceSlug: 'tip' })
+    expect(await owner.client.workspaces.join({ code: code! })).toMatchObject({ role: 'owner' })
+    expect(await owner.client.workspaces.listMembers({ workspaceSlug: 'tip' })).toHaveLength(1)
+  })
+
+  it('rejects unknown, reset and turned-off codes with NOT_FOUND', async () => {
+    const owner = await ownerWithWorkspace()
+    const tester = await signUp(app, 'Tester')
+    await expect(tester.client.workspaces.join({ code: 'ABCDEFGHJK' })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+
+    const first = await owner.client.workspaces.resetInvite({ workspaceSlug: 'tip' })
+    const second = await owner.client.workspaces.resetInvite({ workspaceSlug: 'tip' })
+    expect(second.code).not.toBe(first.code)
+    await expect(tester.client.workspaces.join({ code: first.code! })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+
+    await owner.client.workspaces.disableInvite({ workspaceSlug: 'tip' })
+    await expect(tester.client.workspaces.join({ code: second.code! })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    })
+    expect(await tester.client.me.listWorkspaces()).toEqual([])
+  })
+
+  it('lets only owners manage the code', async () => {
+    const owner = await ownerWithWorkspace()
+    const { code } = await owner.client.workspaces.resetInvite({ workspaceSlug: 'tip' })
+    const member = await signUp(app, 'Member')
+    await member.client.workspaces.join({ code: code! })
+    const stranger = await signUp(app, 'Stranger')
+
+    for (const call of ['getInvite', 'resetInvite', 'disableInvite'] as const) {
+      await expect(member.client.workspaces[call]({ workspaceSlug: 'tip' })).rejects.toMatchObject(
+        { code: 'FORBIDDEN' },
+      )
+      await expect(
+        stranger.client.workspaces[call]({ workspaceSlug: 'tip' }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    }
+    expect(await owner.client.workspaces.getInvite({ workspaceSlug: 'tip' })).toEqual({ code })
+  })
+
+  it('requires authentication to join', async () => {
+    await expect(rpcClient(app).workspaces.join({ code: 'ABCDEFGHJK' })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    })
+  })
+})

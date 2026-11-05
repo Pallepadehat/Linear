@@ -9,6 +9,7 @@ import {
 } from '@linear/contract'
 import { ChevronDown, Ellipsis } from '@lucide/vue'
 import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
+import IconButton from '@/components/common/IconButton.vue'
 import ImageUploadButton from '@/components/common/ImageUploadButton.vue'
 import PriorityPicker from '@/components/common/PriorityPicker.vue'
 import ProjectIcon from '@/components/common/ProjectIcon.vue'
@@ -150,7 +151,9 @@ const pickerRowClass =
 
 <template>
   <div class="flex min-h-0 flex-1 overflow-y-auto">
-    <div class="mx-auto grid w-full max-w-3xl content-start gap-8 px-8 pt-10 pb-16">
+    <div
+      class="mx-auto grid w-full max-w-3xl min-w-0 content-start gap-8 px-4 pt-6 pb-16 md:px-8 md:pt-10"
+    >
       <header class="grid gap-3">
         <div class="flex items-center gap-3">
           <span
@@ -236,15 +239,12 @@ const pickerRowClass =
               :workspace-slug="workspaceSlug"
             />
           </template>
-          <button
-            type="button"
-            class="flex size-7 items-center justify-center rounded-full text-ink-subtle outline-hidden hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
-            :aria-label="moreProperties ? 'Fewer properties' : 'More properties'"
+          <IconButton
+            :icon="Ellipsis"
+            :label="moreProperties ? 'Fewer properties' : 'More properties'"
             :aria-expanded="moreProperties"
             @click="moreProperties = !moreProperties"
-          >
-            <Ellipsis class="size-4" aria-hidden="true" />
-          </button>
+          />
         </div>
       </section>
 

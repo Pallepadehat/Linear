@@ -11,6 +11,7 @@ import {
   type CommentRecord,
 } from '@linear/core'
 import type { DbOrTx } from '@linear/db'
+import { enqueue } from '@linear/queue'
 import type { Storage } from '@linear/storage'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
@@ -108,12 +109,15 @@ export const commentsRouter = {
   delete: authed.comments.delete
     .use(inWorkspace, (input) => input.workspaceSlug)
     .handler(async ({ context, input }) => {
-      const { id, issueId } = await deleteComment(context.db, {
+      const { id, issueId, deletedUploadIds } = await deleteComment(context.db, {
         workspaceId: context.workspace.id,
         id: input.id,
         userId: context.user.id,
         canDeleteOthers: context.role === 'owner',
       })
+      for (const uploadId of deletedUploadIds) {
+        await enqueue(context.queues, 'maintenance', 'delete-objects', { uploadId })
+      }
       await publishChange(context, { type: 'comment.deleted', issueId, commentId: id })
       return { id }
     }),

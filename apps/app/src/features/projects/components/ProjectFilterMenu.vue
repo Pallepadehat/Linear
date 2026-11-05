@@ -38,15 +38,13 @@ function keepOpen(event: Event) {
         </span>
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" class="w-52 rounded-lg border-hairline bg-floating p-1.5">
-      <DropdownMenuLabel class="px-2.5 text-xs font-normal text-ink-subtle"
-        >Status</DropdownMenuLabel
-      >
+    <DropdownMenuContent align="end" class="w-52">
+      <DropdownMenuLabel class="px-2.5 font-normal">Status</DropdownMenuLabel>
       <DropdownMenuCheckboxItem
         v-for="status in PROJECT_STATUSES"
         :key="status.value"
         :model-value="statuses.includes(status.value)"
-        class="h-8 gap-2.5 rounded-md text-[13px]"
+        class="gap-2.5"
         @update:model-value="(checked) => toggle(status.value, checked)"
         @select="keepOpen"
       >
@@ -54,10 +52,8 @@ function keepOpen(event: Event) {
         {{ status.label }}
       </DropdownMenuCheckboxItem>
       <template v-if="statuses.length">
-        <DropdownMenuSeparator class="bg-hairline" />
-        <DropdownMenuItem class="h-8 rounded-md text-[13px]" @select="statuses = []">
-          Clear filter
-        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem @select="statuses = []"> Clear filter </DropdownMenuItem>
       </template>
     </DropdownMenuContent>
   </DropdownMenu>

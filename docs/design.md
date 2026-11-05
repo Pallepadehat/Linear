@@ -323,7 +323,7 @@ Lavender stays scarce on chrome, but the product uses a small semantic palette, 
 | Project health: Off track | `danger`               | Ring around a filled dot              |
 | Project health: none    | `ink-tertiary`           | Dashed empty ring ("No updates")      |
 
-Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon, selected/active states and the Inbox unread dot. Never as a section or card fill.
+Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon, selected/active states and the notifications unread dot and badge. Never as a section or card fill.
 
 ### Components
 
@@ -338,6 +338,10 @@ Lavender in the app is allowed for: primary actions, focus rings, the brand mark
 - Optional group headings (e.g. "Team members") in 13px `ink-subtle`, no divider.
 
 **Linked pull request row** (issue sidebar). Whole row is a link (`rounded.md`, `surface-2` on hover and focus, focus ring) that opens GitHub in a new tab. State icon (14px, colored per the table above), title in `ink` (truncated); second line 12px `ink-subtle`: `repo#number` in mono, "· Closes / References", and the state as a `status-badge` pill (`surface-2`, `ink-muted`) on the right; an `ink-tertiary` external-link arrow. Draft differs from Open by icon, color and label. GitHub activity entries use the GitHub mark in `ink-muted`.
+
+**Issue activity** (under the description). Header: "Activity" (medium `ink`) left, a ghost 24px filter button right ("All activity" / "Comments only" / "History only", plus a "Compact history" checkbox; both remembered per browser). History rows are one 24px line, 12px `ink-subtle`: 16px avatar (GitHub mark for automation), actor in medium `ink-muted`, the change (truncates, full sentence in the tooltip), then "· time". In compact mode (default) back-to-back changes of the same kind by the same actor within 5 minutes merge into their net change ("added labels A, B and C", only the final title), a run of more than 4 history rows between comments shows its first and last row around a "Show N more events" button, and all but the first and the latest 10 entries fold behind "Show N older activities" (opened automatically for a `#comment-…` link). Comment threads keep their `surface-1` card with 6px above and below.
+
+**Comment composer.** One line at rest (`surface-1`, hairline, `{rounded.lg}`), growing with its content; on the right a paperclip "Attach files" icon button (⌘⇧U; paste and drop work too) and the 28px primary send circle (tooltip "Comment ⌘↵"). Images and files upload as in the description editor, and sending waits for uploads ("Uploading N files…"). Drafts persist per issue and thread. Your comment appears at once (optimistic). Above it, a 20px `aria-live` line shows "Ada is typing…" / "Ada and Bob are typing…" with three pulsing 4px `ink-subtle` dots while teammates write (realtime, expires after 6 s without a refresh).
 
 **Avatar.** Always a circle (`{rounded.full}`), 16px in rows and chips, 20px in lists, 32px in member rows. Image when available, otherwise initials.
 
@@ -359,9 +363,9 @@ Lavender in the app is allowed for: primary actions, focus rings, the brand mark
 
 **Key caps.** 20px tall, min 20px wide, `{rounded.xs}`, `hairline-strong` border, 12px `ink-muted`; chords read "G then I" with "then" in `ink-tertiary`; ⌘ ⌥ ⇧ ⌫ on macOS, Ctrl/Alt/Shift/Backspace elsewhere.
 
-**Keyboard shortcuts sheet (?).** Right side sheet, 360px, `floating` surface with a hairline left edge. Title "Keyboard shortcuts" (15px semibold), a 28px search field, then groups per scope (General, Issue list, Inbox, Issue, Issue properties) with 12px `ink-subtle` headings and 32px rows: label left, key caps right ("or" between alternatives).
+**Keyboard shortcuts sheet (?).** Right side sheet, 360px, `floating` surface with a hairline left edge. Title "Keyboard shortcuts" (15px semibold), a 28px search field, then groups per scope (General, Issue list, Issue, Issue properties) with 12px `ink-subtle` headings and 32px rows: label left, key caps right ("or" between alternatives).
 
-**Inbox.** Two panes under the panel header: a 360px notification list with a hairline right edge, and the selected issue's detail page. The list header is 44px with a hairline below: All / Unread as 24px pill toggles (active on `surface-3`), then icon buttons Remind me (alarm clock), Archive and "…". Rows are 56px, inset 8px, `{rounded.md}`, hover `surface-2`, selected `surface-3`: 20px actor avatar (GitHub mark in `ink-muted` for automation); line 1 the identifier (JetBrains Mono 12px `ink-subtle`) and title (13px; medium `ink` while unread, `ink-muted` once read); line 2 a 12px status icon and the summary (12px `ink-subtle`); right column the short age (12px `ink-subtle`, tabular) over an 8px lavender unread dot. Remind me is a `floating` menu with each choice's resolved time as its shortcut text.
+**Notifications.** No Inbox page: a "Notifications" row (bell, label, unread count as a `primary` `{rounded.xs}` badge) sits in the sidebar footer above Help and opens a `floating` popover (380px, max 80svh, `{rounded.lg}`, hairline; right of the sidebar, above it in the phone drawer). `G I` and the command menu open it; old `/inbox` links land on My issues with it open. Header 44px: "Notifications", All / Unread 24px pill toggles (active on `surface-3`), and a "Mark all as read" icon button. Rows are compact (two lines, `{rounded.md}`, hover `floating-hover`): 20px actor avatar (GitHub mark for automation); line 1 a 12px status icon, the mono identifier and the title (medium `ink` while unread, `ink-muted` once read); line 2 the actor and summary (12px `ink-subtle`); right, the short age, swapped on hover/focus (always on touch) for Archive and a "…" menu (Mark as read/unread, Remind me ▸, Archive), then an 8px lavender unread dot. Clicking a row marks it read, closes the popover and opens the issue. Empty: "You're all caught up".
 
 **Focused list row.** J/K focus shows the row on `surface-2` (same as hover) and moves DOM focus to its link (focus ring when keyboard-driven); X-selected rows sit on `surface-3`.
 
@@ -375,6 +379,18 @@ Lavender in the app is allowed for: primary actions, focus rings, the brand mark
 - Controls 28px (`Button size="sm"`, property chips, sidebar rows); primary page CTAs 32px. Menu rows 32px. List rows 36px; group headers a 32px band in a 40px slot. Panel header 44px. Sidebar 224px.
 - Avatars 16px in rows and chips, 20px in member lists.
 - Icons 14–16px. Spacing on a 4px grid.
+
+### Phone layout (App)
+
+The app has one breakpoint: Tailwind's `md` (768px). Below it (`max-md:`, or `useIsMobile()` when the markup differs):
+
+- **Shell.** The sidebar leaves the canvas and opens as a left drawer (288px, max 85vw, `app-base`, hairline right edge) from a menu button at the start of the panel header; the button shows a 6px lavender dot while there are unread notifications. The drawer closes on navigation and before opening a dialog. The panel fills the screen: no inset, border, radius or shadow.
+- **Panel header.** Only the current breadcrumb crumb shows (an issue shows just its identifier). "New issue" becomes a 28px `+` icon button. Page actions keep at most two or three controls; the rest move into the page's "…" menu.
+- **Side panels** (issue properties, project details) stack with the content instead of sitting in a column. 
+- **Lists** keep the essentials per row (priority, status, title, assignee) and drop secondary chips; boards scroll horizontally with narrower columns.
+- **Dialogs and popovers** fit the viewport width minus a 16px gutter.
+
+**Menus.** The base `DropdownMenu` components carry the menu spec (`floating`, hairline, `{rounded.lg}`, 6px padding, 32px `{rounded.md}` rows, 13px, `floating-hover` highlight, shortcuts in 12px `ink-subtle`), so call sites set only width. Related actions are grouped in one labelled menu or submenu rather than a row of unlabeled icon buttons; every icon-only button has an aria-label and a tooltip (`IconButton`). The sidebar's footer holds the Notifications popover and a labelled "Help" menu (Search and commands, Keyboard shortcuts).
 
 ## Do's and Don'ts
 

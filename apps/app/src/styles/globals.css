@@ -38,6 +38,8 @@
   --floating: #fefefe;
   --floating-hover: #f0f0f2;
   --overlay: rgb(15 16 17 / 0.4);
+  /* Image lightbox backdrop: dark in both themes so photos read well. */
+  --lightbox: rgb(1 1 2 / 0.9);
   --floating-shadow: 0 4px 16px rgb(15 16 17 / 0.08);
   /* Inset app shell (design.md → App shell): the sidebar sits on the base, content on a raised panel. */
   --app-base: #f3f3f5;
@@ -74,6 +76,7 @@
   --floating: #1c1d1f;
   --floating-hover: #28292d;
   --overlay: rgb(0 0 0 / 0.6);
+  --lightbox: rgb(1 1 2 / 0.9);
   /* Dark relies on the surface ladder, not shadows. */
   --floating-shadow: none;
   --app-base: #010102;
@@ -144,6 +147,7 @@
   --color-floating-hover: var(--floating-hover);
   --color-priority-urgent: var(--priority-urgent);
   --color-overlay: var(--overlay);
+  --color-lightbox: var(--lightbox);
   --color-app-base: var(--app-base);
   --color-panel: var(--panel);
   --color-group-band: var(--group-band);

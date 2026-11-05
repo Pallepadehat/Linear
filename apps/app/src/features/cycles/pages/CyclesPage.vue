@@ -85,11 +85,11 @@ const sections = computed(() => {
           <li v-for="cycle in section.cycles" :key="cycle.id">
             <RouterLink
               :to="{ name: 'cycle', params: { teamKey: team.key, cycleId: cycle.id } }"
-              class="mx-2 flex h-9 items-center gap-3 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring"
+              class="mx-2 flex h-9 min-w-0 items-center gap-3 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring"
             >
               <CycleIcon :progress="cyclePercent(cycle.progress) / 100" />
               <span class="min-w-0 truncate font-medium text-ink">{{ cycleName(cycle) }}</span>
-              <span class="shrink-0 text-ink-subtle">{{ cycleRange(cycle) }}</span>
+              <span class="shrink-0 text-ink-subtle max-sm:hidden">{{ cycleRange(cycle) }}</span>
               <CycleProgress class="ml-auto" :progress="cycle.progress" />
             </RouterLink>
           </li>

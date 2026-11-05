@@ -157,7 +157,7 @@ describe('formatting', () => {
 
   it('groups every catalog shortcut by scope for the shortcuts sheet', () => {
     const groups = groupShortcuts(true)
-    expect(groups.map((g) => g.scope)).toEqual(['global', 'list', 'inbox', 'issue', 'picker'])
+    expect(groups.map((g) => g.scope)).toEqual(['global', 'list', 'issue', 'picker'])
     const listed = groups.flatMap((g) => g.shortcuts.map((s) => s.id))
     expect(listed.sort()).toEqual(Object.keys(SHORTCUTS).sort())
   })

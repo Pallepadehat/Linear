@@ -8,6 +8,7 @@ import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AssigneePicker from '@/components/common/AssigneePicker.vue'
 import CyclePicker from '@/components/common/CyclePicker.vue'
+import IconButton from '@/components/common/IconButton.vue'
 import EstimatePicker from '@/components/common/EstimatePicker.vue'
 import DueDatePicker from '@/components/common/DueDatePicker.vue'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
@@ -33,6 +34,7 @@ import { projectListOptions, invalidateProjects } from '@/features/projects/quer
 import TemplatePicker from '@/features/templates/components/TemplatePicker.vue'
 import { templateListOptions } from '@/features/templates/queries'
 import { errorMessage } from '@/lib/errors'
+import { isMacPlatform } from '@/lib/hotkeys'
 import { estimateValues } from '@/lib/estimates'
 import { toTypedSchema } from '@/lib/form-schema'
 import { orpc } from '@/lib/orpc'
@@ -42,6 +44,7 @@ import { prefillFrom, type IssuePrefill, type PrefillField, type PrefillValues }
 import { createIssueMutationOptions, issueFacetsKey, issueListKey } from '../queries'
 import TeamPicker from './TeamPicker.vue'
 
+const attachShortcut = isMacPlatform() ? '⌘⇧U' : 'Ctrl Shift U'
 const ui = useUiStore()
 const route = useRoute()
 const queryClient = useQueryClient()
@@ -420,20 +423,14 @@ function onKeydown(event: KeyboardEvent) {
             <div v-if="templates?.length" class="mr-1 [&_button]:border [&_button]:border-hairline">
               <TemplatePicker v-model="templateId" :templates="templates" />
             </div>
-            <Button
+            <IconButton
               type="button"
-              variant="ghost"
-              size="icon-sm"
-              :aria-label="expanded ? 'Collapse dialog' : 'Expand dialog'"
+              :icon="expanded ? Minimize2 : Maximize2"
+              :label="expanded ? 'Collapse dialog' : 'Expand dialog'"
               @click="expanded = !expanded"
-            >
-              <Minimize2 v-if="expanded" aria-hidden="true" />
-              <Maximize2 v-else aria-hidden="true" />
-            </Button>
+            />
             <DialogClose as-child>
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="Close">
-                <X aria-hidden="true" />
-              </Button>
+              <IconButton type="button" :icon="X" label="Close" shortcut="Esc" />
             </DialogClose>
           </div>
         </div>
@@ -497,18 +494,14 @@ function onKeydown(event: KeyboardEvent) {
           <DueDatePicker v-model="dueDate" />
         </div>
         <DialogFooter class="flex-row items-center gap-3 px-4 pt-1 pb-3.5">
-          <Button
+          <IconButton
             type="button"
-            variant="ghost"
-            size="icon-sm"
+            :icon="Paperclip"
+            label="Attach files"
+            :shortcut="attachShortcut"
             class="border border-hairline"
-            aria-label="Attach files"
-            aria-keyshortcuts="Meta+Shift+U"
-            title="Attach files (⌘⇧U)"
             @click="descriptionEditor?.pickFiles('files')"
-          >
-            <Paperclip aria-hidden="true" />
-          </Button>
+          />
           <p
             v-if="pendingUploads > 0 && !formError"
             class="flex items-center gap-1.5 text-[13px] text-ink-subtle"

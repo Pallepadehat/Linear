@@ -20,10 +20,3 @@ export function patchNotificationPages(
     })),
   }
 }
-
-/** The notification after `id` in the list, else the one before it (where selection moves on removal). */
-export function neighborAfterRemoval(items: readonly Notification[], id: string) {
-  const index = items.findIndex((n) => n.id === id)
-  if (index === -1) return null
-  return items[index + 1] ?? items[index - 1] ?? null
-}

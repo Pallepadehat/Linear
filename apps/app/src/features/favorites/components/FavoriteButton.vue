@@ -13,7 +13,7 @@ const { slug } = useCurrentWorkspace()
 const { isFavorite, toggle } = useToggleFavorite(slug)
 
 const active = computed(() => Boolean(ui.favoriteTarget && isFavorite(ui.favoriteTarget)))
-const label = computed(() => (active.value ? 'Unfavorite' : 'Favorite'))
+const label = computed(() => (active.value ? 'Remove from favorites' : 'Add to favorites'))
 </script>
 
 <template>

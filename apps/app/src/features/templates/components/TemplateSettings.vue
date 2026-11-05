@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import type { IssueTemplate } from '@linear/contract'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { LayoutTemplate, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { Ellipsis, LayoutTemplate, Pencil, Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
+import IconButton from '@/components/common/IconButton.vue'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +49,8 @@ function openForm(template: IssueTemplate | null) {
   editing.value = template
   formOpen.value = true
 }
+// The settings section header holds the "New template" button.
+defineExpose({ create: () => openForm(null) })
 
 const deleting = ref<IssueTemplate | null>(null)
 const confirmOpen = computed({
@@ -63,15 +73,6 @@ const remove = useMutation({
 
 <template>
   <div class="grid gap-3">
-    <div class="flex items-center justify-between gap-4">
-      <p class="text-ink-subtle">
-        Prefill title, description and properties when creating an issue.
-      </p>
-      <Button size="sm" @click="openForm(null)">
-        <Plus aria-hidden="true" />
-        New template
-      </Button>
-    </div>
     <ul
       v-if="templates?.length"
       class="divide-y divide-hairline rounded-lg border border-hairline bg-surface-1"
@@ -80,42 +81,53 @@ const remove = useMutation({
       <li
         v-for="template in templates"
         :key="template.id"
-        class="flex items-center gap-3 px-4 py-2"
+        class="flex items-center gap-3 py-1.5 pr-2 pl-4"
       >
         <LayoutTemplate class="size-4 shrink-0 text-ink-subtle" aria-hidden="true" />
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-ink">{{ template.name }}</p>
-          <p v-if="template.title" class="truncate text-xs text-ink-subtle">
-            {{ template.title }}
-          </p>
-        </div>
-        <span class="rounded-xs border border-hairline px-1.5 py-0.5 text-xs text-ink-subtle">
-          <span class="sr-only">Scope:</span>
-          {{ scopeName(template) }}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
+        <button
+          type="button"
+          class="min-w-0 flex-1 rounded-md text-left outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           :aria-label="`Edit ${template.name}`"
           @click="openForm(template)"
         >
-          <Pencil aria-hidden="true" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          :aria-label="`Delete ${template.name}`"
-          @click="deleting = template"
+          <span class="block truncate text-ink hover:underline">{{ template.name }}</span>
+          <span v-if="template.title" class="block truncate text-xs text-ink-subtle">
+            {{ template.title }}
+          </span>
+        </button>
+        <span
+          class="shrink-0 rounded-xs border border-hairline px-1.5 py-0.5 text-xs text-ink-subtle max-sm:hidden"
         >
-          <Trash2 aria-hidden="true" />
-        </Button>
+          <span class="sr-only">Scope:</span>
+          {{ scopeName(template) }}
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <IconButton
+              :icon="Ellipsis"
+              :label="`${template.name} actions`"
+              class="data-[state=open]:bg-surface-2"
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-44">
+            <DropdownMenuItem @select="openForm(template)">
+              <Pencil aria-hidden="true" />
+              Edit…
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" @select="deleting = template">
+              <Trash2 aria-hidden="true" />
+              Delete…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </li>
     </ul>
     <p
       v-else-if="!isPending"
       class="rounded-lg border border-dashed border-hairline px-4 py-6 text-center text-ink-subtle"
     >
-      No templates yet
+      No templates yet. Create one to prefill new issues.
     </p>
 
     <TemplateFormDialog v-model:open="formOpen" :template="editing" :team-id="teamId ?? null" />
@@ -135,7 +147,7 @@ const remove = useMutation({
             :disabled="remove.isPending.value"
             @click="deleting && remove.mutate(deleting)"
           >
-            Delete
+            Delete template
           </Button>
         </DialogFooter>
       </DialogContent>

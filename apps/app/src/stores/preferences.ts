@@ -6,6 +6,7 @@ import {
   type DisplayOptions,
   type DisplayViewKey,
 } from '@/features/issues/display-options'
+import { isActivityFilter, type ActivityFilter } from '@/features/issues/timeline-folding'
 import {
   DEFAULT_PROJECT_SORT,
   isProjectSort,
@@ -37,6 +38,17 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   /** The project page's right panel (properties, milestones, progress, activity); open by default. */
   const projectPanelOpen = useLocalStorage<boolean>('project-panel-open', true)
+
+  /** The issue page's Activity filter; a malformed stored value reads as "all". */
+  const storedActivityFilter = useLocalStorage<unknown>('activity-filter', 'all')
+  const activityFilter = computed<ActivityFilter>({
+    get: () => (isActivityFilter(storedActivityFilter.value) ? storedActivityFilter.value : 'all'),
+    set: (value) => {
+      storedActivityFilter.value = value
+    },
+  })
+  /** Merge back-to-back changes and fold long history in the Activity timeline. */
+  const activityCompact = useLocalStorage<boolean>('activity-compact', true)
 
   function isExpanded(key: string) {
     return isSectionExpanded(sidebarSections.value, key)
@@ -78,6 +90,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     toggleDetails,
     projectSort,
     projectPanelOpen,
+    activityFilter,
+    activityCompact,
     displayOptions,
     setDisplayOptions,
     resetDisplayOptions,

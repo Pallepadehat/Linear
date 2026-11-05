@@ -147,7 +147,10 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
       :model-value="toPriority(issue.priority)"
       @update:model-value="setPriority"
     />
-    <span v-if="shows('id')" class="ml-1 w-16 shrink-0 truncate font-mono text-xs text-ink-subtle">
+    <span
+      v-if="shows('id')"
+      class="ml-1 w-14 shrink-0 truncate font-mono text-xs text-ink-subtle md:w-16"
+    >
       {{ issue.identifier }}
     </span>
     <template v-if="!shows('status')" />
@@ -168,13 +171,16 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
          edge (justify-end + overflow-hidden), as in Linear. -->
     <RouterLink
       :to="issueRoute"
-      class="ml-1 min-w-32 flex-[1_1_0%] truncate font-medium text-ink outline-hidden after:absolute after:inset-0 after:content-['']"
+      class="ml-1 min-w-0 flex-[1_1_0%] truncate font-medium text-ink md:min-w-32 outline-hidden after:absolute after:inset-0 after:content-['']"
       @click="onLinkClick"
     >
       <span v-if="selected" class="sr-only">Selected,</span>
       {{ issue.title }}
     </RouterLink>
-    <div class="flex min-w-0 items-center justify-end gap-1 self-stretch overflow-hidden pl-2">
+    <!-- Secondary chips; phones keep only priority, ID, status, title and assignee. -->
+    <div
+      class="flex min-w-0 items-center justify-end gap-1 self-stretch overflow-hidden pl-2 max-md:hidden"
+    >
       <span
         v-if="issue.subIssueProgress?.total"
         class="flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-hairline px-2 text-xs text-ink-subtle tabular-nums"

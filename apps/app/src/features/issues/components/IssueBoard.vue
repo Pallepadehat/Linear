@@ -177,7 +177,7 @@ function createInColumn(column: Column) {
       <div
         v-for="i in 4"
         :key="i"
-        class="flex w-80 shrink-0 flex-col gap-1.5 rounded-lg bg-surface-1 p-1.5"
+        class="flex w-72 shrink-0 flex-col gap-1.5 rounded-lg bg-surface-1 p-1.5 md:w-80"
         aria-hidden="true"
       >
         <div class="flex h-8 items-center gap-2 pl-1.5">
@@ -216,7 +216,10 @@ function createInColumn(column: Column) {
         >New issue</Button
       >
     </EmptyState>
-    <div v-else class="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
+    <div
+      v-else
+      class="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3 max-md:snap-x max-md:scroll-px-3"
+    >
       <BoardColumn
         v-for="column in columns"
         :key="column.key"

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Layers, PanelRight } from '@lucide/vue'
+import { PanelRight, SquareStack } from '@lucide/vue'
 import { computed, defineAsyncComponent, ref } from 'vue'
 import IconButton from '@/components/common/IconButton.vue'
 import { useHotkeys } from '@/composables/useHotkeys'
+import { useIsMobile } from '@/composables/useIsMobile'
 import { isMacPlatform, shortcutKeys } from '@/lib/hotkeys'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useDisplayOptions } from '../composables/useDisplayOptions'
@@ -15,6 +16,7 @@ import IssueDetailsPanel from './IssueDetailsPanel.vue'
 import IssueDisplayOptions from './IssueDisplayOptions.vue'
 import IssueFilterMenu from './IssueFilterMenu.vue'
 import IssueList from './IssueList.vue'
+import IssueSearchField from './IssueSearchField.vue'
 import IssueViewTabs from './IssueViewTabs.vue'
 
 // Drag and drop is only needed once someone opens the board.
@@ -29,6 +31,7 @@ const props = defineProps<{ workspaceSlug: string; teamId?: string; savedViewId?
 const PANEL_ID = 'issue-view-panel'
 
 const preferences = usePreferencesStore()
+const isMobile = useIsMobile()
 const viewKey = computed(() => displayViewKey(props))
 const { options } = useDisplayOptions(viewKey)
 const { view: tabView, select } = useIssueView()
@@ -55,32 +58,36 @@ useHotkeys([
 </script>
 
 <template>
+  <!-- One toolbar for the view: tabs on the left; search, Filter, Display options, Save as view
+       and the Details panel on the right. Active filter chips get their own row below. -->
   <div
-    class="flex h-11 shrink-0 items-center gap-2 border-b border-hairline pr-2 pl-4"
+    class="relative flex h-11 shrink-0 items-center gap-2 border-b border-hairline pr-2 pl-2 md:pl-4"
     role="toolbar"
     aria-label="Issue view"
   >
-    <template v-if="!savedViewId">
-      <IssueViewTabs v-model="tab" :panel-id="PANEL_ID" />
-      <IconButton :icon="Layers" label="Save as view" @click="saveViewOpen = true" />
-      <SaveViewDialog
-        v-if="saveViewOpen"
-        v-model:open="saveViewOpen"
-        :team-id="teamId"
-        :filters="filters"
-        :display="options"
-      />
-    </template>
+    <IssueViewTabs v-if="!savedViewId" v-model="tab" :panel-id="PANEL_ID" />
     <slot name="toolbar" />
-    <div class="ml-auto flex items-center gap-1">
+    <div class="ml-auto flex shrink-0 items-center gap-1">
+      <IssueSearchField collapsible />
       <IssueFilterMenu v-model:open="filterOpen" :dimensions="dimensions" compact />
       <IssueDisplayOptions :view-key="viewKey" allow-board />
+      <template v-if="!savedViewId">
+        <IconButton :icon="SquareStack" label="Save as view" @click="saveViewOpen = true" />
+        <SaveViewDialog
+          v-if="saveViewOpen"
+          v-model:open="saveViewOpen"
+          :team-id="teamId"
+          :filters="filters"
+          :display="options"
+        />
+      </template>
       <IconButton
         :icon="PanelRight"
         :label="detailsOpen ? 'Close details' : 'Open details'"
         :shortcut="detailsShortcut"
         :aria-keyshortcuts="isMacPlatform() ? 'Meta+I' : 'Control+I'"
         :aria-pressed="detailsOpen"
+        class="max-md:hidden"
         :class="{ 'bg-surface-2 text-ink': detailsOpen }"
         @click="toggleDetails"
       />
@@ -109,7 +116,7 @@ useHotkeys([
       />
     </div>
     <IssueDetailsPanel
-      v-if="detailsOpen"
+      v-if="detailsOpen && !isMobile"
       :workspace-slug="workspaceSlug"
       :saved-view-id="savedViewId"
       :team-id="teamId"

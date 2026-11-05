@@ -22,9 +22,15 @@ export function backoffDelay(attempt: number, random = Math.random) {
  * refetches the active queries. `client` is the subscribed socket's client while
  * connected (presence heartbeats go over it), else null.
  */
+/**
+ * The connected socket's client, shared so components can send over it (presence,
+ * typing). One workspace is open at a time, so one socket.
+ */
+export const realtimeClient = shallowRef<ContractClient | null>(null)
+
 export function useRealtime(workspaceSlug: MaybeRefOrGetter<string>) {
   const queryClient = useQueryClient()
-  const client = shallowRef<ContractClient | null>(null)
+  const client = realtimeClient
 
   watch(
     () => toValue(workspaceSlug),

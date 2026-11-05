@@ -9,7 +9,7 @@ defineProps<{ workspaceSlug: string; projectId: string }>()
 
 <template>
   <div class="min-h-0 flex-1 overflow-y-auto">
-    <div class="mx-auto grid w-full max-w-3xl gap-10 px-8 py-6">
+    <div class="mx-auto grid w-full max-w-3xl min-w-0 gap-10 px-4 py-6 md:px-8">
       <ProjectUpdatesFeed
         :key="`updates-${projectId}`"
         :workspace-slug="workspaceSlug"

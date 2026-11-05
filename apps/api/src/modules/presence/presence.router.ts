@@ -1,4 +1,8 @@
-import type { PresenceEntry } from '@linear/contract'
+import {
+  REALTIME_CLIENT_ID_HEADER,
+  realtimeClientIdSchema,
+  type PresenceEntry,
+} from '@linear/contract'
 import { issueExistsInWorkspace, listMembers } from '@linear/core'
 import { authed } from '../../orpc/base'
 import { requireWorkspace } from '../../orpc/middleware/require-workspace'
@@ -39,6 +43,26 @@ export const presenceRouter = {
         viewingIssueId: input.viewingIssueId,
       })
       if (changed) await announce()
+    }),
+
+  // Ephemeral "is writing a comment" signal; same WebSocket-only rules as the heartbeat.
+  typing: authed.presence.typing
+    .use(inWorkspace, (input) => input.workspaceSlug)
+    .handler(async ({ context, input }) => {
+      const { connection, realtime, workspace, user } = context
+      if (!connection?.workspaces.has(workspace.id)) return
+      if (!(await issueExistsInWorkspace(context.db, workspace.id, input.issueId))) return
+      // The sender's own tab skips the echo; their other tabs ignore their own user id.
+      const clientId = realtimeClientIdSchema.safeParse(
+        context.headers.get(REALTIME_CLIENT_ID_HEADER),
+      )
+      await realtime.publish(workspace.id, {
+        type: 'comment.typing',
+        issueId: input.issueId,
+        userId: user.id,
+        typing: input.typing,
+        originId: clientId.success ? clientId.data : null,
+      })
     }),
 
   list: authed.presence.list

@@ -2,7 +2,6 @@
 import type { Project } from '@linear/contract'
 import { Ellipsis, Link, PanelRight, Star, StarOff, Trash2 } from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { storeToRefs } from 'pinia'
 import { computed, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -23,6 +22,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -30,18 +30,18 @@ import { favoriteListOptions, useToggleFavorite } from '@/features/favorites/que
 import { PANEL_HEADER_ACTIONS } from '@/layouts/panel-header'
 import { errorMessage } from '@/lib/errors'
 import { orpc } from '@/lib/orpc'
-import { usePreferencesStore } from '@/stores/preferences'
 import { useUiStore } from '@/stores/ui'
 import { invalidateProjects } from '../queries'
 
 // Breadcrumb "Projects › icon name", the star (layout, via `favoriteTarget`) and the page
-// actions in the panel header: copy link, the "…" menu and the right panel toggle.
-const props = defineProps<{ workspaceSlug: string; project: Project }>()
+// actions in the panel header: the "…" menu (favorite, copy link, delete) and the details
+// toggle. The page owns the details panel: docked on desktop, a drawer on phones.
+const props = defineProps<{ workspaceSlug: string; project: Project; detailsOpen: boolean }>()
+const emit = defineEmits<{ toggleDetails: [] }>()
 
 const ui = useUiStore()
 const router = useRouter()
 const queryClient = useQueryClient()
-const { projectPanelOpen } = storeToRefs(usePreferencesStore())
 
 watchEffect(
   () => {
@@ -105,13 +105,12 @@ async function confirmDelete() {
   })
 }
 
-const panelLabel = computed(() => (projectPanelOpen.value ? 'Hide details' : 'Show details'))
+const panelLabel = computed(() => (props.detailsOpen ? 'Hide details' : 'Show details'))
 </script>
 
 <template>
   <Teleport defer :to="PANEL_HEADER_ACTIONS">
     <div class="flex items-center gap-0.5">
-      <IconButton :icon="Link" label="Copy project link" @click="copyLink" />
       <DropdownMenu>
         <Tooltip>
           <TooltipTrigger as-child>
@@ -125,17 +124,18 @@ const panelLabel = computed(() => (projectPanelOpen.value ? 'Hide details' : 'Sh
           <TooltipContent>Project options</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" class="w-56">
-          <DropdownMenuItem class="h-8 rounded-md text-[13px]" @select="toggleFavorite">
-            <component :is="isFavorite ? StarOff : Star" class="size-4" aria-hidden="true" />
+          <DropdownMenuItem @select="toggleFavorite">
+            <component :is="isFavorite ? StarOff : Star" aria-hidden="true" />
             {{ isFavorite ? 'Remove from favorites' : 'Add to favorites' }}
+            <DropdownMenuShortcut>⌥F</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem class="h-8 rounded-md text-[13px]" @select="copyLink">
-            <Link class="size-4" aria-hidden="true" />
-            Copy link
+          <DropdownMenuItem @select="copyLink">
+            <Link aria-hidden="true" />
+            Copy project link
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem class="h-8 rounded-md text-[13px]" @select="confirmingDelete = true">
-            <Trash2 class="size-4" aria-hidden="true" />
+          <DropdownMenuItem @select="confirmingDelete = true">
+            <Trash2 aria-hidden="true" />
             Delete project…
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -143,10 +143,10 @@ const panelLabel = computed(() => (projectPanelOpen.value ? 'Hide details' : 'Sh
       <IconButton
         :icon="PanelRight"
         :label="panelLabel"
-        :aria-pressed="projectPanelOpen"
+        :aria-pressed="detailsOpen"
         aria-controls="project-panel"
-        :class="projectPanelOpen && 'text-ink'"
-        @click="projectPanelOpen = !projectPanelOpen"
+        :class="detailsOpen && 'text-ink'"
+        @click="emit('toggleDetails')"
       />
     </div>
   </Teleport>

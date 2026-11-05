@@ -12,6 +12,7 @@ import {
 import { users } from './auth'
 import { id, timestamps } from './columns'
 import { issues } from './issues'
+import { uploads } from './uploads'
 import { workspaces } from './workspaces'
 
 export const comments = pgTable(
@@ -68,5 +69,32 @@ export const commentReactions = pgTable(
     // Also serves loading the reactions of a page of comments.
     unique('comment_reactions_comment_id_user_id_emoji_unique').on(t.commentId, t.userId, t.emoji),
     index().on(t.workspaceId),
+  ],
+)
+
+/**
+ * `attachment` uploads referenced from a comment body (`attachment:<uploadId>`), kept in
+ * sync on every body write, like `issue_attachments`. An upload is deleted once no issue
+ * or comment links it (docs/domain.md → Uploads).
+ */
+export const commentAttachments = pgTable(
+  'comment_attachments',
+  {
+    id: id(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    commentId: uuid()
+      .notNull()
+      .references(() => comments.id, { onDelete: 'cascade' }),
+    uploadId: uuid()
+      .notNull()
+      .references(() => uploads.id, { onDelete: 'cascade' }),
+    ...timestamps,
+  },
+  (t) => [
+    unique('comment_attachments_comment_id_upload_id_unique').on(t.commentId, t.uploadId),
+    index().on(t.workspaceId),
+    index().on(t.uploadId),
   ],
 )

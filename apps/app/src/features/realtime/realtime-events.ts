@@ -19,6 +19,7 @@ import {
   writeIssueToCaches,
 } from '@/features/issues/queries'
 import { client, orpc } from '@/lib/orpc'
+import { setTyping } from './typing'
 
 // Fields that decide which lists an issue is in (My Issues, project, cycle); a status
 // change only regroups, which the patched copy already does.
@@ -202,7 +203,12 @@ export function createRealtimeEventHandler({
       case 'project.updated':
         // Project lists and pages refetch (coalesced); this tab's own edits never echo.
         return invalidateSoon('projects')
+      case 'comment.typing':
+        // Ephemeral: only the "is typing…" line under the timeline changes.
+        return setTyping(event.issueId, event.userId, event.typing)
       case 'comment.created':
+        // Their comment is in, so they're no longer typing it.
+        if (event.actorId) setTyping(event.issueId, event.actorId, false)
         // Commenting subscribes the author (and flips their `isSubscribed`).
         invalidateSubscribers(event.issueId)
         invalidateIssue(event.issueId)

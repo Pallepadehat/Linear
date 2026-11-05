@@ -92,7 +92,7 @@ function revertName(event: KeyboardEvent) {
   <div v-else-if="cycle && team" class="flex min-h-0 flex-1 flex-col">
     <section
       aria-label="Cycle details"
-      class="grid shrink-0 gap-3 border-b border-hairline px-8 pt-6 pb-5"
+      class="grid shrink-0 gap-3 border-b border-hairline px-4 pt-4 pb-4 md:px-8 md:pt-6 md:pb-5"
     >
       <div class="flex flex-wrap items-center gap-2 text-xs text-ink-subtle">
         <span

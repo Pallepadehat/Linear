@@ -131,7 +131,7 @@ const menuFor = ref<string | null>(null)
         @update:open="(open) => (menuFor = open ? favorite.id : null)"
       >
         <DropdownMenuTrigger
-          class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full text-ink-subtle opacity-0 outline-hidden group-focus-within/favorite:opacity-100 group-hover/favorite:opacity-100 hover:bg-surface-4 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:opacity-100"
+          class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full text-ink-subtle opacity-0 outline-hidden group-focus-within/favorite:opacity-100 group-hover/favorite:opacity-100 hover:bg-surface-4 [@media(hover:none)]:opacity-100 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:opacity-100"
           :aria-label="`${labelOf(favorite)} options`"
         >
           <Ellipsis class="size-3.5" aria-hidden="true" />

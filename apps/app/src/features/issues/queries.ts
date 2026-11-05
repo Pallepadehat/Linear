@@ -25,7 +25,7 @@ import { errorMessage } from '@/lib/errors'
 import { cyclesKey } from '@/features/cycles/queries'
 import { invalidateProjects } from '@/features/projects/queries'
 import { client, orpc } from '@/lib/orpc'
-import { patchCommentInPages, toggleReaction } from './comment-cache'
+import { addCommentToPages, patchCommentInPages, toggleReaction } from './comment-cache'
 import {
   applyBulkChange,
   applyIssuePatch,
@@ -549,6 +549,67 @@ export function useToggleReaction(
       // Quick successive toggles would flicker if the first settle refetched.
       if (queryClient.isMutating({ mutationKey }) > 1) return
       await queryClient.invalidateQueries({ queryKey: queryKey() })
+    },
+  })
+}
+
+export type CreateCommentVariables = { parentId?: string; body: string }
+
+/**
+ * Posts a comment, shown at once (teammates get it over the realtime socket) and taken
+ * back with a toast if the server rejects it. Commenting subscribes the author, so the
+ * bell and subscriber list refetch too.
+ */
+export function useCreateComment(
+  workspaceSlug: MaybeRefOrGetter<string>,
+  issueId: MaybeRefOrGetter<string>,
+) {
+  const queryClient = useQueryClient()
+  const queryKey = () => commentListOptions(toValue(workspaceSlug), toValue(issueId)).queryKey
+
+  return useMutation({
+    mutationKey: orpc.comments.create.mutationKey(),
+    mutationFn: ({ parentId, body }: CreateCommentVariables) =>
+      client.comments.create({
+        workspaceSlug: toValue(workspaceSlug),
+        issueId: toValue(issueId),
+        parentId,
+        body,
+      }),
+    onMutate: async ({ parentId, body }) => {
+      await queryClient.cancelQueries({ queryKey: queryKey() })
+      const previous = queryClient.getQueryData(queryKey())
+      const me = queryClient.getQueryData(orpc.me.get.queryKey())
+      if (me) {
+        const now = new Date()
+        queryClient.setQueryData(queryKey(), (data) =>
+          addCommentToPages(data, {
+            id: crypto.randomUUID(),
+            issueId: toValue(issueId),
+            parentId: parentId ?? null,
+            author: { id: me.id, name: me.name, avatarUrl: me.avatarUrl },
+            body,
+            reactions: [],
+            resolvedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          }),
+        )
+      }
+      return { previous }
+    },
+    onError: (error, _variables, context) => {
+      queryClient.setQueryData(queryKey(), context?.previous)
+      toast.error("Couldn't post the comment", { description: errorMessage(error) })
+    },
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKey() }),
+        queryClient.invalidateQueries({
+          queryKey: issueSubscribersOptions(toValue(workspaceSlug), toValue(issueId)).queryKey,
+        }),
+        ...issueDetailKeys().map((key) => queryClient.invalidateQueries({ queryKey: key })),
+      ])
     },
   })
 }

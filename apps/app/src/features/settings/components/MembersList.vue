@@ -35,7 +35,9 @@ const presenceOf = computed(() => {
         <p class="truncate text-ink">{{ member.name }}</p>
         <p class="truncate text-xs text-ink-subtle">{{ member.email }}</p>
       </div>
-      <span class="text-xs text-ink-subtle">{{ presenceLabel(presenceOf(member.userId)) }}</span>
+      <span class="text-xs text-ink-subtle max-sm:hidden">{{
+        presenceLabel(presenceOf(member.userId))
+      }}</span>
       <span class="w-14 text-right text-xs text-ink-subtle capitalize">{{ member.role }}</span>
     </li>
   </ul>

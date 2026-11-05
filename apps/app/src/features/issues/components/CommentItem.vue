@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { commentBodySchema, type Comment, type ReactionEmoji } from '@linear/contract'
-import { CircleCheck, Link, Pencil, Reply, RotateCcw, SmilePlus, Trash2 } from '@lucide/vue'
+import {
+  CircleCheck,
+  Ellipsis,
+  Link,
+  Pencil,
+  Reply,
+  RotateCcw,
+  SmilePlus,
+  Trash2,
+} from '@lucide/vue'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
 import MarkdownEditor from '@/components/common/editor/MarkdownEditor.vue'
@@ -17,6 +26,13 @@ import {
 import { fullDate, timeAgo } from '@/lib/relative-time'
 import { cn } from '@/lib/utils'
 import { useCommentActions, useToggleReaction } from '../queries'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import CommentToolbarButton from './CommentToolbarButton.vue'
 import EmojiPicker from './EmojiPicker.vue'
 
@@ -49,6 +65,7 @@ const actions = useCommentActions(
 )
 
 const pickerOpen = ref(false)
+const menuOpen = ref(false)
 const pillPickerOpen = ref(false)
 function react(emoji: ReactionEmoji) {
   const mine = props.comment.reactions.find((r) => r.emoji === emoji)?.reactedByMe ?? false
@@ -77,7 +94,13 @@ async function startEdit() {
   await nextTick()
   editor.value?.focus()
 }
+const editUploads = computed(() => editor.value?.pendingUploads ?? 0)
 async function saveEdit() {
+  // Placeholders aren't real attachment references until their uploads finish.
+  if (editUploads.value > 0) {
+    editError.value = 'Wait for attachments to finish uploading'
+    return
+  }
   const parsed = commentBodySchema.safeParse(draft.value)
   if (!parsed.success) {
     editError.value = parsed.error.issues[0]?.message ?? 'Invalid comment'
@@ -118,14 +141,14 @@ function toggleResolved() {
     :id="`comment-${comment.id}`"
     :class="
       cn(
-        'group/comment relative scroll-mt-16 rounded-md px-3 py-2.5 transition-colors duration-700',
+        'group/comment relative scroll-mt-16 rounded-md px-3 py-2 transition-colors duration-700',
         highlighted && 'bg-surface-2',
       )
     "
   >
-    <header class="flex items-center gap-2 pr-28 text-[13px]">
+    <header class="flex h-6 min-w-0 items-center gap-2 text-[13px]">
       <UserAvatar :name="comment.author.name" :src="comment.author.avatarUrl" size="sm" />
-      <span class="font-medium text-ink">{{ comment.author.name }}</span>
+      <span class="truncate font-medium text-ink">{{ comment.author.name }}</span>
       <a
         :href="`#comment-${comment.id}`"
         class="rounded-xs text-xs text-ink-subtle outline-none hover:text-ink-muted focus-visible:ring-2 focus-visible:ring-ring"
@@ -137,47 +160,64 @@ function toggleResolved() {
       <span v-if="edited" class="text-xs text-ink-subtle" :title="fullDate(comment.updatedAt)">
         (edited)
       </span>
-    </header>
-
-    <div
-      role="toolbar"
-      :aria-label="`Actions for ${comment.author.name}'s comment`"
-      :class="
-        cn(
-          'absolute top-1.5 right-2 flex items-center gap-0.5 rounded-full border border-hairline-strong bg-floating p-0.5 opacity-0 shadow-floating transition-opacity group-hover/comment:opacity-100 focus-within:opacity-100',
-          (pickerOpen || editing) && 'opacity-100',
-          editing && 'hidden',
-        )
-      "
-    >
-      <EmojiPicker v-model:open="pickerOpen" @pick="react">
-        <CommentToolbarButton label="Add reaction" @click="pickerOpen = !pickerOpen">
-          <SmilePlus aria-hidden="true" />
-        </CommentToolbarButton>
-      </EmojiPicker>
-      <CommentToolbarButton label="Reply" aria-keyshortcuts="R" @click="emit('reply')">
-        <Reply aria-hidden="true" />
-      </CommentToolbarButton>
-      <CommentToolbarButton
-        v-if="isRoot"
-        :label="comment.resolvedAt ? 'Reopen thread' : 'Resolve thread'"
-        @click="toggleResolved"
+      <!-- In the header row (not floating) so it never covers the text or the next box. -->
+      <div
+        role="toolbar"
+        :aria-label="`Actions for ${comment.author.name}'s comment`"
+        :class="
+          cn(
+            'ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/comment:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100',
+            (pickerOpen || menuOpen || editing) && 'opacity-100',
+            editing && 'hidden',
+          )
+        "
       >
-        <RotateCcw v-if="comment.resolvedAt" aria-hidden="true" />
-        <CircleCheck v-else aria-hidden="true" />
-      </CommentToolbarButton>
-      <CommentToolbarButton label="Copy link" @click="copyLink">
-        <Link aria-hidden="true" />
-      </CommentToolbarButton>
-      <template v-if="isAuthor">
-        <CommentToolbarButton label="Edit" @click="startEdit">
-          <Pencil aria-hidden="true" />
+        <EmojiPicker v-model:open="pickerOpen" @pick="react">
+          <CommentToolbarButton label="Add reaction" @click="pickerOpen = !pickerOpen">
+            <SmilePlus aria-hidden="true" />
+          </CommentToolbarButton>
+        </EmojiPicker>
+        <CommentToolbarButton label="Reply" aria-keyshortcuts="R" @click="emit('reply')">
+          <Reply aria-hidden="true" />
         </CommentToolbarButton>
-        <CommentToolbarButton label="Delete" @click="confirmDelete = true">
-          <Trash2 aria-hidden="true" />
+        <CommentToolbarButton
+          v-if="isRoot"
+          :label="comment.resolvedAt ? 'Reopen thread' : 'Resolve thread'"
+          @click="toggleResolved"
+        >
+          <RotateCcw v-if="comment.resolvedAt" aria-hidden="true" />
+          <CircleCheck v-else aria-hidden="true" />
         </CommentToolbarButton>
-      </template>
-    </div>
+        <DropdownMenu v-model:open="menuOpen">
+          <DropdownMenuTrigger as-child>
+            <CommentToolbarButton label="More actions" aria-haspopup="menu">
+              <Ellipsis aria-hidden="true" />
+            </CommentToolbarButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            class="w-44"
+            @close-auto-focus="(event: Event) => editing && event.preventDefault()"
+          >
+            <DropdownMenuItem @select="copyLink">
+              <Link aria-hidden="true" />
+              Copy link
+            </DropdownMenuItem>
+            <template v-if="isAuthor">
+              <DropdownMenuItem @select="startEdit">
+                <Pencil aria-hidden="true" />
+                Edit comment
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @select="confirmDelete = true">
+                <Trash2 aria-hidden="true" />
+                Delete comment…
+              </DropdownMenuItem>
+            </template>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </header>
 
     <form
       v-if="editing"
@@ -192,8 +232,9 @@ function toggleResolved() {
           v-model="draft"
           label="Edit comment"
           :workspace-slug="workspaceSlug"
-          :attachments="false"
+          submit-on-enter
           class="max-h-80 min-h-10 overflow-y-auto text-sm text-ink caret-primary"
+          @submit="saveEdit().catch(() => {})"
         />
       </div>
       <div class="flex items-center gap-2">
@@ -204,8 +245,8 @@ function toggleResolved() {
         <Button
           type="submit"
           size="sm"
-          :disabled="!draft.trim() || actions.update.isPending.value"
-          title="Save (⌘↵)"
+          :disabled="!draft.trim() || editUploads > 0 || actions.update.isPending.value"
+          title="Save (↵) · New line (⇧↵)"
         >
           Save
         </Button>
@@ -217,7 +258,7 @@ function toggleResolved() {
       readonly
       label="Comment"
       :workspace-slug="workspaceSlug"
-      class="mt-1.5 pl-7 text-sm break-words text-ink"
+      class="mt-1 pl-7 text-sm break-words text-ink"
     />
 
     <ul
