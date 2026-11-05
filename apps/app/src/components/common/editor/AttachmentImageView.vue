@@ -38,7 +38,9 @@ const alt = computed(() => String(props.node.attrs.alt ?? ''))
   <NodeViewWrapper
     as="figure"
     class="group/image relative my-2 w-fit max-w-full"
-    :class="{ 'ring-2 ring-primary/60 ring-offset-2 ring-offset-floating rounded-md': selected }"
+    :class="{
+      'ring-2 ring-primary/60 ring-offset-2 ring-offset-floating rounded-md': selected && !readonly,
+    }"
     data-drag-handle
   >
     <button

@@ -127,15 +127,15 @@ const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'long', t
   <!-- The title link stretches over the whole row; the pickers sit above it. Their
        hotkeys (⇧D, P, …) act on this row while focus is in it. -->
   <div
-    :style="depth ? { paddingLeft: `${14 + depth * 24}px` } : undefined"
+    :style="depth ? { paddingLeft: `${28 + depth * 24}px` } : undefined"
     data-hotkey-scope
-    class="group/row relative mx-2 flex h-full min-w-0 items-center gap-1 rounded-md pr-3 pl-3.5 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
+    class="group/row relative mx-2 flex h-full min-w-0 items-center gap-1 rounded-md pr-3 pl-7 outline-hidden hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring [&_button]:relative [&_button]:z-10"
     :class="{ 'bg-surface-2': focused && !selected, 'bg-surface-3': selected }"
     :data-focused="focused || undefined"
     :data-selected="selected || undefined"
   >
     <SelectionCheckbox
-      class="absolute! top-1/2 left-0 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+      class="absolute! top-1/2 left-1 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
       :class="{ 'opacity-100': selected }"
       :checked="!!selected"
       :label="`Select ${issue.identifier}`"
