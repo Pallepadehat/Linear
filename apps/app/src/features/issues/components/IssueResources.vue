@@ -49,7 +49,11 @@ const actionClass = 'size-6 [&_svg]:size-3.5'
 </script>
 
 <template>
-  <section v-if="hasItems" aria-labelledby="resources-heading" class="mt-6 grid min-w-0 grid-cols-1 gap-0.5">
+  <section
+    v-if="hasItems"
+    aria-labelledby="resources-heading"
+    class="mt-6 grid min-w-0 grid-cols-1 gap-0.5"
+  >
     <div class="flex h-7 items-center gap-2 px-2">
       <h2 id="resources-heading" class="text-xs font-medium text-ink-subtle">Resources</h2>
       <IconButton
