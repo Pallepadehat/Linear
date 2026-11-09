@@ -50,8 +50,8 @@ packages/tsconfig  Shared tsconfig bases
 Allowed imports:
 
 ```
-app    → contract
-api    → contract, core, db, queue, storage, env
+app    → contract   (vite.config.ts may also use @linear/env/app)
+api    → contract, core, db, queue, storage, env   (tests may also use @linear/worker/testing)
 worker → core, db, queue, storage, env
 core   → db
 ```
@@ -77,11 +77,18 @@ bun run test
 bun run db:generate       # drizzle-kit generate after schema changes
 bun run db:migrate
 bun run db:seed           # demo workspace "Tip", team "TIP"
+bun run db:seed:issues -- 1200   # bulk demo issues in TIP (list performance checks)
+bun run demo:github connect      # demo repo + signed PR webhooks: open|merge|close <branch> (README → Demo script)
+
+# Whole stack from production images, zero config (app on :8080); see README → Option A
+docker compose -f docker-compose.prod.yml up -d --build --wait
 ```
 
 Scope to one package with `bun run --filter <name> <script>` or `turbo run <task> --filter=<name>`.
 
-Ports: app 5173, api 3000, Postgres 5432, Redis 6379, MinIO 9000 (console 9001).
+Ports: app 5173, api 3000, Postgres 5432, Redis 6379, S3 storage 9000 (console 9001; RustFS locally, see ADR 0008). Docker host ports can be overridden in `.env` (`POSTGRES_PORT`, `REDIS_PORT`, `STORAGE_PORT`, `STORAGE_CONSOLE_PORT`); update the URLs to match.
+
+Demo login after `bun run db:seed`: `demo@tip.dev` / `password123` → `/tip`.
 
 ## Working on a task
 
@@ -115,9 +122,11 @@ Follow [`docs/workflow.md`](docs/workflow.md): pick a ready task from `docs/road
 - `buildApp()` has no side effects at import time (no listening, no eager connections) so tests can build it.
 - Throw typed `ORPCError`s (`UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `BAD_REQUEST`). Don't leak internal errors.
 - Issue numbers are allocated atomically in the create transaction (`issue_counter + 1 RETURNING`). Never compute `max(number) + 1`.
-- List procedures use cursor pagination.
+- List procedures over unbounded data (issues, comments, activity) use cursor pagination. Small bounded lists (a user's workspaces, teams, members, statuses) return plain arrays.
 - Request handlers must stay fast. Webhook processing, image processing, and cleanup go to BullMQ.
 - Use Drizzle's query builder; no raw SQL string concatenation.
+- Map expected failures in `packages/core` to `DomainError(code)`; the oRPC base middleware turns them into typed errors and logs anything unexpected.
+- Name composite unique constraints explicitly in snake_case (`unique('teams_workspace_id_key_unique')`) so `isUniqueViolation` can match them.
 - DB naming: tables `snake_case` plural, TS `camelCase`; every table has `id` (UUIDv7), `createdAt`, `updatedAt`. Express invariants as DB constraints. Never edit an applied migration.
 
 ### Worker / jobs
@@ -142,15 +151,17 @@ Follow [`docs/workflow.md`](docs/workflow.md): pick a ready task from `docs/road
 
 ### Design
 
+- The app must look like Linear's own product UI, in light and dark. Follow "Product UI (App)" in `docs/design.md` (it wins over the marketing-derived rules) and compare side by side with Linear before calling UI done.
 - Use tokens from `docs/design.md` via Tailwind theme classes (`bg-surface-1`, `border-hairline`, `text-ink-subtle`, …). No hard-coded hex values in components.
 - Dark and light themes are both first-class. Tokens are CSS variables (`:root` = light, `.dark` = dark); see "Themes (App)" in `docs/design.md`. Never use `dark:` overrides with raw colors — use tokens so both themes come for free.
 - Dark canvas `#010102` (never `#000000`); light canvas `#fcfcfd` (never pure `#ffffff`).
 - Check every new or changed UI in both themes.
-- Lavender `primary` (#5e6ad2) only for primary actions, focus rings, brand mark, and link emphasis — never as a fill for sections or cards.
-- Hierarchy through the surface ladder + 1px hairlines, not shadows.
-- Radii: buttons/inputs `rounded-md` (8px), cards `rounded-lg` (12px), badges `rounded-xs` (4px). Don't pill-round buttons.
+- Lavender `primary` (#5e6ad2) only for primary actions, focus rings, brand mark, link emphasis, and the in-app uses in `docs/design.md` → "Product UI (App)" (e.g. the Done status icon) — never as a fill for sections or cards.
+- Status, priority and label colors come from the semantic tokens (`status-*`, `priority-urgent`, label color); no other chromatic colors.
+- Hierarchy through the surface ladder + 1px hairlines, not shadows. Menus and popovers use the `floating` surface.
+- Radii: buttons, property chips and status pills `rounded-full` (icon-only buttons are circles); inputs and sidebar/list rows `rounded-md` (8px); cards, popovers and panels `rounded-lg` (12px); dialogs `rounded-xl` (16px); badges `rounded-xs` (4px); avatars `rounded-full`.
 - Fonts: Inter (UI), JetBrains Mono (issue identifiers, code).
-- Dense, compact layouts: 4px spacing base, 14px body in the app UI.
+- Dense, compact layouts: 4px spacing base, 13px body in the app UI, 28px controls (`size="sm"`), 36px list rows (see "Density" in `docs/design.md`).
 
 ### TypeScript & code style
 
@@ -177,7 +188,7 @@ Details in [`docs/testing.md`](docs/testing.md).
 - UI follows `docs/design.md` and looks right in both light and dark.
 - `.env.example` updated if new env vars were added.
 - Roadmap task marked `[x]` with a log line; `domain.md` / ADRs updated if rules or decisions changed.
-- PR targets `develop` (production is `main`; see branch rules in `docs/workflow.md`).
+- PR targets `develop` (production is `main`; see branch rules in `docs/workflow.md`) and references its Linear issue (`Fixes LIN-<n>`; see "Linear" in `docs/workflow.md`).
 - Commits follow Conventional Commits (`feat(api): …`); no AI attribution or co-author trailers.
 
 ## Don'ts

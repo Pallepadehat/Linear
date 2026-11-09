@@ -1,0 +1,2 @@
+ALTER TABLE "activity_log" ADD COLUMN "pull_request_id" uuid;--> statement-breakpoint
+ALTER TABLE "activity_log" ADD CONSTRAINT "activity_log_pull_request_id_pull_requests_id_fk" FOREIGN KEY ("pull_request_id") REFERENCES "public"."pull_requests"("id") ON DELETE set null ON UPDATE no action;

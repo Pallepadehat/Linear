@@ -1,0 +1,40 @@
+{
+  "name": "@linear/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun dist/index.js",
+    "build": "bun build src/index.ts --target=bun --outdir=dist --sourcemap=linked",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "@fastify/websocket": "^11.3.6",
+    "@linear/contract": "workspace:*",
+    "@linear/core": "workspace:*",
+    "@linear/db": "workspace:*",
+    "@linear/env": "workspace:*",
+    "@linear/queue": "workspace:*",
+    "@linear/storage": "workspace:*",
+    "@orpc/server": "^1.16.1",
+    "better-auth": "^1.7.14",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.7",
+    "ioredis": "^5.11.1",
+    "uuidv7": "^1.2.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@linear/tsconfig": "workspace:*",
+    "@linear/worker": "workspace:*",
+    "@orpc/client": "^1.16.1",
+    "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
+    "vitest": "^5.0.5",
+    "ws": "^8.22.1"
+  }
+}

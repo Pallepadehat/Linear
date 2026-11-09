@@ -5,6 +5,7 @@ How a task moves from "next up" to merged. Applies to humans and agents.
 ## 1. Pick
 
 - Take the first ready task in [`roadmap.md`](roadmap.md) (all dependencies done), or the task you were given.
+- Every roadmap task has a Linear issue in team `LIN` (title `M2-01 · …`). Assign it to yourself; it moves to In Progress when the PR opens (see [Linear](#linear)).
 - Mark it `[~]`.
 - One task per branch/PR. If a task is bigger than ~400 changed lines (excluding generated files), split it into new roadmap tasks first.
 
@@ -60,11 +61,11 @@ Report results honestly: if something fails or was skipped, say so.
 
 | Branch    | Purpose                     | Rules                                                        |
 | --------- | --------------------------- | ------------------------------------------------------------ |
-| `main`    | Production                  | Protected: changes only via PR, CI (`ci`) must pass, no force push, no deletion |
+| `main`    | Production                  | Protected: changes only via PR, checks `ci` and `docker` must pass, no force push, no deletion |
 | `develop` | Development (default branch) | Cannot be deleted                                           |
 | feature   | One roadmap task            | Branch off `develop`, PR back into `develop`                 |
 
-- Feature branches: `<type>/<roadmap-id>-<short-slug>`, e.g. `feat/m2-01-issue-identifiers`, `fix/m4-05-duplicate-links`.
+- Feature branches: `<type>/lin-<n>-<short-slug>`, e.g. `feat/lin-5-issue-schema`, `fix/lin-42-duplicate-links`. The `lin-<n>` part links the PR to the Linear issue.
 - Releases: open a PR from `develop` → `main` once `develop` is stable. Merging it is a production release.
 - Hotfixes: `hotfix/<slug>` off `main`, PR into `main`, then merge `main` back into `develop`.
 - Never commit directly to `main`.
@@ -82,7 +83,24 @@ Report results honestly: if something fails or was skipped, say so.
 
 ### Pull requests
 
-Use the template in `.github/pull_request_template.md`. Title follows the commit format. Link the roadmap ID. Target `develop` (only release and hotfix PRs target `main`). CI runs on every PR via `.github/workflows/ci.yml`.
+Use the template in `.github/pull_request_template.md`. Title follows the commit format. Put `Fixes LIN-<n>` in the description and link the roadmap ID. Target `develop` (only release and hotfix PRs target `main`). CI runs on every PR via `.github/workflows/ci.yml`; PRs into `main` also run `.github/workflows/release.yml` (check `docker`: build the production images and smoke-test the stack), and a push to `main` publishes them to GHCR as `:prod` and `:sha-<commit>`; `.github/workflows/linear.yml` fails a PR into `develop` that has no Linear issue ID in its branch, title, or description.
+
+### Linear
+
+The repo is connected to Linear through Linear's GitHub integration. A PR is linked to an issue when `LIN-<n>` appears in the branch name, the PR title, or the PR description:
+
+| Write in the PR description         | Effect                                                        |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `Fixes LIN-5` (also `Closes`, `Resolves`, `Implements`) | Linked; issue → In Progress on open, Done on merge |
+| `Part of LIN-5` (also `Refs`, `Contributes to`)        | Linked; moves through the workflow but never to Done |
+| `Related to LIN-5`                  | Linked only, no status change                                 |
+| `Fixes LIN-5, LIN-6`                | Links several issues to one PR                                |
+| `skip LIN-5`                        | Prevents a link (e.g. one coming from the branch name)        |
+
+- An issue split over several PRs moves to Done only when the last linked PR merges. Use `Part of` on all but the final PR.
+- Magic words in PR comments don't link anything; edit the title or description of an open PR instead.
+- Don't put closing magic words in commit messages: the PR is what drives status.
+- A GitHub autolink turns `LIN-<n>` in PRs and comments into a link to `https://linear.app/linearschoolclone/issue/LIN-<n>`.
 
 ## Writing an ADR
 

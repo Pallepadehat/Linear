@@ -1,0 +1,118 @@
+name: Release
+
+# Production images (Dockerfile targets `server` and `app`).
+# - PRs into main: build both images and smoke-test the full stack, so a release that
+#   would not boot in Docker fails before it merges.
+# - Pushes to main: same checks, then push to GHCR as `:prod` (what docker-compose.prod.yml
+#   pulls) and `:sha-<commit>` (to pin or roll back a release).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    name: docker
+    runs-on: ubuntu-latest
+    env:
+      # Image names must be lowercase; the owner (Pallepadehat) is not.
+      REGISTRY: ghcr.io/${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Also points every `docker compose` call below at the images built here.
+      - name: Lowercase registry
+        run: |
+          echo "REGISTRY=${REGISTRY,,}" >> "$GITHUB_ENV"
+          echo "IMAGE_REGISTRY=${REGISTRY,,}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=ci" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: server
+          load: true
+          tags: ${{ env.REGISTRY }}/linear-server:ci
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,scope=server,mode=max
+
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: app
+          load: true
+          tags: ${{ env.REGISTRY }}/linear-app:ci
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+
+      # Zero config, exactly as the README tells a newcomer (secrets are generated on start).
+      - name: Start the production stack
+        run: docker compose -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 180
+
+      - name: Smoke test
+        run: |
+          set -eu
+          base=http://localhost:8080
+          curl -fsS "$base/health" | tee /dev/stderr | grep -q '"status":"ok"'
+          # SPA fallback for a deep link.
+          curl -fsS "$base/tip/my-issues" | grep -q '<div id="app">'
+          # Seeded demo login and an authenticated oRPC call, through nginx.
+          curl -fsS -c jar -H 'content-type: application/json' -H "origin: $base" \
+            -d '{"email":"demo@tip.dev","password":"password123"}' "$base/api/auth/sign-in/email" >/dev/null
+          curl -fsS -b jar -H 'content-type: application/json' -H "origin: $base" \
+            -d '{}' "$base/rpc/me/get" | grep -q 'demo@tip.dev'
+          # Webhooks without a valid signature are rejected.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d '{}' "$base/webhooks/github")" = 401
+          # The demo tool reaches the api with the generated webhook secret (202, not 401).
+          docker compose -f docker-compose.prod.yml run --rm -q github-demo open tip-1-smoke-test
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --no-color
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Same build inputs as above, so these are cache hits that only push.
+      - name: Push server image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: server
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/linear-server:prod
+            ${{ env.REGISTRY }}/linear-server:sha-${{ github.sha }}
+          cache-from: type=gha,scope=server
+
+      - name: Push app image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: app
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/linear-app:prod
+            ${{ env.REGISTRY }}/linear-app:sha-${{ github.sha }}
+          cache-from: type=gha,scope=app

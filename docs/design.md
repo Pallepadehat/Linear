@@ -1,5 +1,7 @@
 ## Overview
 
+> **Scope.** This file starts from Linear's marketing site. Inside the product app (`apps/app`), **Linear's product UI is the reference**: where the two differ, "Product UI (App)" below wins. The goal is that the app looks like Linear itself, in light and dark.
+
 Linear's marketing canvas is the deepest dark surface in this collection — `{colors.canvas}` is #010102, essentially pure black with a faint blue tint. On top sits a four-step surface ladder (`{colors.surface-1}` through `{colors.surface-4}`) for cards, panels, and lifted tiles, with hairline borders running from `{colors.hairline}` (#23252a) up through `{colors.hairline-strong}` and `{colors.hairline-tertiary}`. Light gray text (`{colors.ink}` #f7f8f8) carries the body and headlines.
 
 The single chromatic accent is **Linear lavender-blue** `{colors.primary}` (#5e6ad2) — used on the brand mark, focus rings, and the primary CTA button. A lighter hover state (`{colors.primary-hover}` #828fff) and a focus-tinted variant (`{colors.primary-focus}` #5e69d1) extend the same hue. Linear avoids saturated greens, oranges, reds, etc. on the marketing canvas — the only semantic color is `{colors.semantic-success}` (#27a644) for status pills and the rare success indicator.
@@ -145,7 +147,7 @@ Linear's depth is carried by surface ladder + hairline borders. The brand resist
 | `{rounded.lg}`   | 12px   | Pricing cards, feature cards, testimonial cards |
 | `{rounded.xl}`   | 16px   | Product screenshot panels                       |
 | `{rounded.xxl}`  | 24px   | Oversized CTA banners (rare)                    |
-| `{rounded.pill}` | 9999px | Pricing tab toggles, status pills               |
+| `{rounded.pill}` | 9999px | Status pills, property chips in the app         |
 | `{rounded.full}` | 9999px | Avatar circles                                  |
 
 ### Photography & Illustration Geometry
@@ -263,41 +265,153 @@ The product app ships **dark and light themes**. Dark is the reference theme des
 | `{colors.hairline-tertiary}`   | #c8cad0   | Nested surfaces                              |
 | `{colors.ink}`                 | #0f1011   | Headlines, primary text                      |
 | `{colors.ink-muted}`           | #3c4149   | Secondary text                               |
-| `{colors.ink-subtle}`          | #6b6f76   | Tertiary text, meta                          |
+| `{colors.ink-subtle}`          | #686c73   | Tertiary text, meta (4.5:1 on `surface-2`)   |
 | `{colors.ink-tertiary}`        | #8a8f98   | Disabled, placeholders                       |
 | `{colors.primary}`             | #5e6ad2   | Same lavender in both themes                 |
 | `{colors.primary-hover}`       | #4c57c0   | Darker on light (dark theme lightens to #828fff) |
 | `{colors.primary-focus}`       | #5e69d1   | Focus ring, 2px at 50% opacity               |
+| `{colors.link}`               | #5e6ad2   | Text links (dark: #828fff for 4.5:1 on canvas) |
 | `{colors.on-primary}`          | #ffffff   |                                              |
 | `{colors.semantic-success}`    | #1f8a3a   | Slightly darker for contrast on light        |
 | `{colors.semantic-overlay}`    | rgba(15,16,17,0.4) | Modal scrim                         |
+| `{colors.status-neutral}`      | #959ba5   | Backlog / Todo / Canceled icons (dark: #8a8f98) |
+| `{colors.status-started}`      | #e8b10e   | In-progress status icon (dark: #f2c94c)      |
+| `{colors.status-completed}`    | #5e6ad2   | Done status icon (dark: #6c78e6)             |
+| `{colors.priority-urgent}`     | #d24a12   | Urgent priority icon (dark: #fc7840)         |
+| `{colors.floating}`            | #fefefe   | Popovers and menus (dark: #1c1d1f)           |
+| `{colors.floating-hover}`      | #f0f0f2   | Highlighted row inside a popover (dark: #28292d) |
+| `{colors.app-base}`            | #f3f3f5   | App shell base under the sidebar (dark: #010102) |
+| `{colors.panel}`               | #fcfcfd   | Raised content panel (dark: #0f1011)         |
+| `{colors.group-band}`          | #f1f1f3   | Group header band in lists (dark: #18191b)   |
+| `{colors.board-card}`          | #fefefe   | Board cards (= `floating`; dark: `surface-3`) |
+
+Status icons map by category: `backlog` dashed circle, `unstarted` empty circle and `canceled` filled cross in `status-neutral`; `started` half-filled circle in `status-started`; `completed` filled check in `status-completed`. Priority icons: Urgent is a filled square with `!` in `priority-urgent`; High / Medium / Low are 3 bars with 3 / 2 / 1 filled in `ink-muted`; No priority is three dashes in `ink-tertiary`.
+
 
 ### Theme Rules
 
+- Dialog scrims use `{colors.semantic-overlay}` (the `overlay` token), never a raw black.
 - Hierarchy works the same way in both themes: canvas → surface-1 → … → surface-4, separated by hairlines. In light mode a lift is a step *darker*.
-- Light mode may use a very soft shadow on floating layers only (menus, popovers, dialogs): `0 4px 16px rgba(15,16,17,0.08)`. Cards and panels stay shadow-free.
-- Status and priority colors keep their hue across themes but are tuned per theme to hold ≥ 4.5:1 text contrast (≥ 3:1 for icons).
+- Floating layers (menus, popovers, dialogs) sit on `{colors.floating}`, one step *lighter* than the page in light mode and lifted in dark, with a hairline border. Light mode adds a very soft shadow: `0 4px 16px rgba(15,16,17,0.08)`. Cards and panels stay shadow-free.
+- Status, priority and label colors use Linear's product hues and keep them across themes (tuned per theme). Text stays ≥ 4.5:1; a colored icon may fall below 3:1 (e.g. yellow In Progress on light) as long as its text label sits next to it.
 - Every component must be checked in both themes before it is considered done.
+
+## Product UI (App)
+
+The app copies Linear's product UI. When building a screen, compare it side by side with Linear in both themes; when this section and the marketing rules above disagree, this section wins.
+
+### Color in the product
+
+Lavender stays scarce on chrome, but the product uses a small semantic palette, exactly like Linear:
+
+| Use                     | Token                    | Look                                  |
+| ----------------------- | ------------------------ | ------------------------------------- |
+| Backlog / Todo / Canceled | `status-neutral`       | Gray dashed ring / ring / filled ×    |
+| In Progress             | `status-started`         | Yellow half-filled ring               |
+| Done                    | `status-completed`       | Lavender filled check                 |
+| Urgent                  | `priority-urgent`        | Orange filled square with `!`         |
+| High / Medium / Low     | `ink-muted`              | 3 bars, 3 / 2 / 1 filled              |
+| No priority             | `ink-tertiary`           | Three dashes                          |
+| Labels                  | the label's own color    | 8px dot before the name               |
+| PR open                 | `status-started`         | Pull request icon                     |
+| PR draft                | `status-neutral`         | Draft pull request icon               |
+| PR merged               | `status-completed`       | Merge icon                            |
+| PR closed (not merged)  | `priority-urgent`        | Closed pull request icon              |
+| Favorited star          | `status-started`         | Filled star in the page header        |
+| Project health: On track | `success`               | Ring around a filled dot              |
+| Project health: At risk | `status-started`         | Ring around a filled dot              |
+| Project health: Off track | `danger`               | Ring around a filled dot              |
+| Project health: none    | `ink-tertiary`           | Dashed empty ring ("No updates")      |
+
+Lavender in the app is allowed for: primary actions, focus rings, the brand mark, link emphasis, the text caret, the Done status icon, selected/active states and the notifications unread dot and badge. Never as a section or card fill.
+
+### Components
+
+**Property chip** (issue properties: status, priority, assignee, labels, project). Icon + value in `ink`, 13px, `h-7`, `px-2`, `{rounded.pill}`. Transparent at rest; `surface-2` on hover and while its menu is open. Empty values read in `ink-subtle` ("Unassigned", "Labels").
+
+**Picker popover** (opened from a property chip).
+
+- `floating` surface, `{rounded.lg}`, 1px `hairline` border, light-mode floating shadow. Width 240px, opens aligned to the chip's start edge.
+- Header: plain filter input (no search icon), 40px tall, `px-3.5`, placeholder in `ink-tertiary` ending in "..." ("Change status...", "Assign to..."), lavender caret, and the picker's hotkey on the right as a 20px `{rounded.xs}` key cap with a `hairline-strong` border. A hairline divides header and list.
+- Rows: 32px, `px-2.5`, `{rounded.md}`, 13px `ink`, 16px icon or avatar, 10px gap. Highlighted row on `floating-hover`. On the right: a check on the current value, then the row's number shortcut in `ink-subtle`.
+- Keyboard: arrows move, Enter picks, Escape closes and returns focus to the chip. A number key picks that row while the filter is empty (`0` = "No priority" / "No assignee", then `1…9`). The current value is highlighted when the menu opens. Multi-select pickers (labels) stay open while toggling.
+- Optional group headings (e.g. "Team members") in 13px `ink-subtle`, no divider.
+
+**Linked pull request row** (issue sidebar). Whole row is a link (`rounded.md`, `surface-2` on hover and focus, focus ring) that opens GitHub in a new tab. State icon (14px, colored per the table above), title in `ink` (truncated); second line 12px `ink-subtle`: `repo#number` in mono, "· Closes / References", and the state as a `status-badge` pill (`surface-2`, `ink-muted`) on the right; an `ink-tertiary` external-link arrow. Draft differs from Open by icon, color and label. GitHub activity entries use the GitHub mark in `ink-muted`.
+
+**Issue activity** (under the description). Header: "Activity" (medium `ink`) left, a ghost 24px filter button right ("All activity" / "Comments only" / "History only", plus a "Compact history" checkbox; both remembered per browser). History rows are one 24px line, 12px `ink-subtle`: 16px avatar (GitHub mark for automation), actor in medium `ink-muted`, the change (truncates, full sentence in the tooltip), then "· time". In compact mode (default) back-to-back changes of the same kind by the same actor within 5 minutes merge into their net change ("added labels A, B and C", only the final title), a run of more than 4 history rows between comments shows its first and last row around a "Show N more events" button, and all but the first and the latest 10 entries fold behind "Show N older activities" (opened automatically for a `#comment-…` link). Comment threads keep their `surface-1` card with 6px above and below.
+
+**Comment composer.** One line at rest (`surface-1`, hairline, `{rounded.lg}`), growing with its content; on the right a paperclip "Attach files" icon button (⌘⇧U; paste and drop work too) and the 28px primary send circle (tooltip "Comment ⌘↵"). Images and files upload as in the description editor, and sending waits for uploads ("Uploading N files…"). Drafts persist per issue and thread. Your comment appears at once (optimistic). Above it, a 20px `aria-live` line shows "Ada is typing…" / "Ada and Bob are typing…" with three pulsing 4px `ink-subtle` dots while teammates write (realtime, expires after 6 s without a refresh).
+
+**Avatar.** Always a circle (`{rounded.full}`), 16px in rows and chips, 20px in lists, 32px in member rows. Image when available, otherwise initials.
+
+**Menus** (dropdowns, context menus) use the same `floating` surface, row height and highlight as the picker popover.
+
+**App shell (inset).** Like Linear, the window is a `app-base` canvas: the 224px sidebar sits directly on it (no border, no fill), and the content is a raised `panel` inset 8px from the top, right and bottom, `{rounded.lg}`, 1px `hairline` border, light-mode `panel` shadow (`0 1px 2px rgba(15,16,17,0.04)`; none in dark). The panel header is 44px with a hairline below: breadcrumb on the left (parents in `ink-muted`, `›` separators in `ink-tertiary`, current page in `ink`) and a ghost "New issue" button on the right. Sidebar rows hover on `surface-3` and the active row is `surface-4`. The compose button beside the workspace menu is a 28px circle on `panel`.
+
+**Issue list.** Rows 36px, inset 8px from the panel edges with `{rounded.md}` hover on `surface-2`; left padding 20px. Order: priority icon, identifier (JetBrains Mono 12px `ink-subtle`, fixed 64px column), status icon, title (13px medium `ink`, truncates, at least 128px), then a right-aligned chip group that clips from its start edge when the row is narrow: label chips (22px, `{rounded.pill}`, hairline border, 8px color dot, 12px `ink-muted`), project, milestone (outline diamond), PR (`#n` with the open / draft / merged / closed icon in `status-started` / `status-neutral` / `status-completed` / `priority-urgent`), links (link icon + count) and due date chips (24px, `{rounded.pill}`, hairline border, 12px `ink-muted`), the estimate; then the assignee avatar (16px; dashed unassigned icon) and created date (12px `ink-subtle`, tabular, full date on hover). Blocked-by counts are `priority-urgent`. Group headers are a 32px `group-band` band, `{rounded.md}`, inset like rows: collapse chevron, the group's icon (status icon, priority icon, 16px avatar, project icon or label dot), its name (medium), count in `ink-subtle`, and a ghost `+` on team lists that opens the create dialog in that status. Loading shows pulsing skeleton rows; empty shows the empty state with a primary "New issue" button.
+
+**Display options popover** (sliders icon button in the view toolbar, or at the end of the filter bar on pages without one). `floating` surface, `{rounded.lg}`, 320px, hairline border, aligned to the button's end edge. Top: List | Board segmented control (28px, hairline-bordered `{rounded.md}` track, active segment on `surface-3`, arrow keys switch; team and All issues pages only). Then hairline-divided sections of 32px rows, label in `ink-muted` left, control right: Grouping (direction icon button + 144px select), Sub-grouping, Ordering (direction + select), Order completed by recency (switch); Completed issues (select), Show sub-issues (switch); "List options" / "Board options" heading (12px `ink-subtle`) with Show empty groups / columns; "Display properties" as 24px `{rounded.pill}` toggle chips (on: `surface-3`, `hairline-strong`, `ink`; off: hairline, `ink-subtle`); a ghost "Reset" bottom right, disabled at the defaults. Selects are 28px `{rounded.md}` `surface-1` with a hairline.
+
+**Issue board.** The board scrolls horizontally with 12px padding and 12px gaps. Columns are 320px `surface-1` lanes, `{rounded.lg}` (the lane turns `surface-3` while a card it accepts is dragged over it); 40px header with the group's icon and name (medium), count in `ink-subtle`, and a ghost `+` on team boards. Cards are `board-card` with a 1px `hairline` border (`hairline-strong` on hover), `{rounded.lg}`, light `panel` shadow, 6px apart: identifier (12px mono `ink-subtle`) with the assignee avatar on the right, title (13px medium `ink`, two lines max), then compact status, priority and label chips. The dragged card fades to 40%.
+
+**Filter bar.** A 44px row under the panel header with a hairline below, `pl-4 pr-2`. Left: ghost "Filter" button (filter icon, `ink-muted`) opening a `floating` menu of dimensions (Status, Priority, Assignee, Project, Labels; selected count on the right) whose submenus are checkbox lists with the same icons as the pickers and stay open while toggling. Each active filter is a 28px `{rounded.pill}` chip with hairline border and dividers: dimension icon + name in `ink-muted`, selected values in `ink` (truncates), and an × to remove it; a ghost "Clear" follows. Right: a 208px search field (28px, `{rounded.md}`, `surface-1`, hairline, search icon, placeholder "Search title or ID...", Esc clears); ordering lives in the Display options popover. No results with filters shows "No matching issues" with a "Clear filters" button.
+
+**Create issue dialog.** `floating` surface, `{rounded.xl}`, 768px wide, 12% from the top. Expand grows it vertically (88vh, same width): the description fills the space and the property chips and footer stay pinned to the bottom. Header: team chip (property chip with hairline border, JetBrains Mono key) `›` "New issue", expand and close icon buttons on the right. Title input 18px semibold, no border; description is the markdown editor (14px), placeholder "Add description...". Property chips (status, priority, assignee, labels) sit in a row with hairline borders. Footer (no divider): "Create more" switch and the primary 28px "Create issue" button. Validation errors ("Required" under the title) appear only after pressing Create issue and clear as soon as the field is fixed. Keys: `C` opens it anywhere outside a text field; `S` / `P` / `A` / `L` open the status, priority, assignee and labels pickers when focus isn't in a text field (only the topmost dialog's pickers respond); Enter in the title moves to the description, ⌘/Ctrl+Enter submits, Esc closes.
+
+**Command menu (⌘K).** `floating` surface, `{rounded.xl}`, 672px wide, 12% from the top, `floating` shadow. Header: when an issue is focused or open, a 24px `surface-2` `{rounded.xs}` context chip ("TIP-12 – Title", 12px `ink-muted`), then a borderless 15px input ("Type a command or search...", lavender caret); a hairline divides it from the list. Rows 40px, `px-3`, `{rounded.md}`, 16px `ink-muted` icon, 13px `ink` label, the shortcut as key caps on the right; highlighted row on `floating-hover`. Group headings 12px `ink-subtle`: Issues (search results: status icon, mono identifier, title), the issue's identifier (its actions), Create, Navigation, General. "…" items open a nested page in place (status, priority, assignee, labels, theme) with picker rows (check + number shortcut); Esc or Backspace on an empty field goes back, Esc on the root closes.
+
+**Key caps.** 20px tall, min 20px wide, `{rounded.xs}`, `hairline-strong` border, 12px `ink-muted`; chords read "G then I" with "then" in `ink-tertiary`; ⌘ ⌥ ⇧ ⌫ on macOS, Ctrl/Alt/Shift/Backspace elsewhere.
+
+**Keyboard shortcuts sheet (?).** Right side sheet, 360px, `floating` surface with a hairline left edge. Title "Keyboard shortcuts" (15px semibold), a 28px search field, then groups per scope (General, Issue list, Issue, Issue properties) with 12px `ink-subtle` headings and 32px rows: label left, key caps right ("or" between alternatives).
+
+**Notifications.** No Inbox page: a "Notifications" row (bell, label, unread count as a `primary` `{rounded.xs}` badge) sits in the sidebar footer above Help and opens a `floating` popover (380px, max 80svh, `{rounded.lg}`, hairline; right of the sidebar, above it in the phone drawer). `G I` and the command menu open it; old `/inbox` links land on My issues with it open. Header 44px: "Notifications", All / Unread 24px pill toggles (active on `surface-3`), and a "Mark all as read" icon button. Rows are compact (two lines, `{rounded.md}`, hover `floating-hover`): 20px actor avatar (GitHub mark for automation); line 1 a 12px status icon, the mono identifier and the title (medium `ink` while unread, `ink-muted` once read); line 2 the actor and summary (12px `ink-subtle`); right, the short age, swapped on hover/focus (always on touch) for Archive and a "…" menu (Mark as read/unread, Remind me ▸, Archive), then an 8px lavender unread dot. Clicking a row marks it read, closes the popover and opens the issue. Empty: "You're all caught up".
+
+**Focused list row.** J/K focus shows the row on `surface-2` (same as hover) and moves DOM focus to its link (focus ring when keyboard-driven); X-selected rows sit on `surface-3`.
+
+**Bulk selection.** A 14px `{rounded.xs}` checkbox (`hairline-strong` border on `surface-1`, `primary` fill with a check when on, a dash for a partly selected group) appears at the left edge of a row, at the start of a card's top line and before a group or column name on hover, and stays while selected. Selected rows sit on `surface-3`; selected cards on `surface-3` with a `hairline-strong` border. The bulk action bar floats 16px above the bottom of the list or board, centred: `floating` surface, `hairline-strong` border, `{rounded.lg}`, 4px padding. It holds an "N selected" pill with an ×, a hairline divider, the Status, Priority, Assignee, Labels and Project picker buttons (28px ghost pills), another divider and a ghost Delete button that opens a confirmation dialog.
+
+**Markdown editor** (`components/common/editor`). Markdown shortcuts as you type (`#`–`###`, `-`, `1.`, `[]`, `>`, ```` ``` ````, `---`, `**bold**`, `` `code` ``). Typing `/` at the start of a word opens the block menu, with Linear's items, order and shortcuts, grouped by hairlines: Heading 1–3 (⌘⌥1–3) · Bulleted list (⌘⇧8), Numbered list (⌘⇧9), Checklist (⌘⇧7) · Insert media…, Attach files… (⌘⇧U) · Code block (⌘⇧\\), Diagram, LaTeX math block, Collapsible section (⌘⇧6), Blockquote (⌥⇧.). Look: `floating`, `hairline-strong` border, 256px wide, 32px rows with a 16px `ink-muted` icon, 13px label and the shortcut in 12px `ink-subtle` (⌘ ⌥ ⇧ on macOS, Ctrl/Alt/Shift elsewhere); arrows/Enter/Tab/Esc. Every listed shortcut also works directly in the editor. Selecting text shows a 32px pill toolbar on `floating` with a `hairline-strong` border and 24px circular buttons: bold, italic, strikethrough, inline code, quote, link (inline URL field). Blocks: code blocks on `surface-1`; diagrams (```` ```mermaid ````) show the rendered chart on `surface-1` above their source, re-rendered as you type; LaTeX blocks show the typeset formula and, while selected, a mono source field (Esc or ⌘↵ returns to the text); collapsible sections have a chevron toggle (rotates when open), a medium-weight title (placeholder "Section title"), Enter in the title continues in the body and Enter on an empty last line leaves the section. Attachments: the round paperclip button bottom-left of the dialog footer, ⌘⇧U, paste or drop upload into the description; dragging files over the editor shows a dashed `primary` drop zone ("Drop files to attach"). Images appear inline at once (local preview at 60% with an "Uploading…" pill, max 384px tall, `{rounded.md}`, hairline border); other files become a chip (paperclip, name, `surface-1`, hairline, `{rounded.md}`) that opens the file in a new tab. The footer shows "Uploading N files…" with a spinner, and Create issue waits for uploads to finish. Content styles: headings 20/17/15px semibold, list markers `ink-subtle`, checkboxes 14px `{rounded.xs}` turning `primary` when checked (checked text struck through in `ink-subtle`), blockquote 2px `hairline-strong` left rule in `ink-muted`, inline code mono on `surface-2` with a hairline, code blocks on `surface-1` `{rounded.md}`, links `primary`, selection `primary` at 25%.
+
+### Density
+
+- 13px body (UI text, menus, inputs, buttons), 12px meta (identifiers, dates, label chips, captions), 14px editor text, 18px dialog titles. Linear's app is a step smaller than its marketing site; don't use the 14–16px marketing sizes in the app.
+- Controls 28px (`Button size="sm"`, property chips, sidebar rows); primary page CTAs 32px. Menu rows 32px. List rows 36px; group headers a 32px band in a 40px slot. Panel header 44px. Sidebar 224px.
+- Avatars 16px in rows and chips, 20px in member lists.
+- Icons 14–16px. Spacing on a 4px grid.
+
+### Phone layout (App)
+
+The app has one breakpoint: Tailwind's `md` (768px). Below it (`max-md:`, or `useIsMobile()` when the markup differs):
+
+- **Shell.** The sidebar leaves the canvas and opens as a left drawer (288px, max 85vw, `app-base`, hairline right edge) from a menu button at the start of the panel header; the button shows a 6px lavender dot while there are unread notifications. The drawer closes on navigation and before opening a dialog. The panel fills the screen: no inset, border, radius or shadow.
+- **Panel header.** Only the current breadcrumb crumb shows (an issue shows just its identifier). "New issue" becomes a 28px `+` icon button. Page actions keep at most two or three controls; the rest move into the page's "…" menu.
+- **Side panels** (issue properties, project details) stack with the content instead of sitting in a column. 
+- **Lists** keep the essentials per row (priority, status, title, assignee) and drop secondary chips; boards scroll horizontally with narrower columns.
+- **Dialogs and popovers** fit the viewport width minus a 16px gutter.
+
+**Menus.** The base `DropdownMenu` components carry the menu spec (`floating`, hairline, `{rounded.lg}`, 6px padding, 32px `{rounded.md}` rows, 13px, `floating-hover` highlight, shortcuts in 12px `ink-subtle`), so call sites set only width. Related actions are grouped in one labelled menu or submenu rather than a row of unlabeled icon buttons; every icon-only button has an aria-label and a tooltip (`IconButton`). The sidebar's footer holds the Notifications popover and a labelled "Help" menu (Search and commands, Keyboard shortcuts).
 
 ## Do's and Don'ts
 
 ### Do
 
 - Reserve `{colors.canvas}` (#010102) as the system's anchor surface — the faint blue tint is intentional.
-- Use `{colors.primary}` lavender ONLY for: brand mark, primary CTA, focus ring, link emphasis.
+- Use `{colors.primary}` lavender ONLY for: brand mark, primary CTA, focus ring, link emphasis (plus the in-app uses listed under "Product UI (App)").
 - Use the four-step surface ladder for hierarchy. Avoid skipping levels.
 - Pair display weight 600 with body weight 400 — Linear resists 700+ display weights.
 - Apply negative letter-spacing aggressively on display.
 - Use product UI screenshots as the protagonist of every section.
 - Compose CTAs as `{rounded.md}` 8px corners.
+- In the app, match Linear's product UI side by side in light and dark before calling a screen done.
 
 ### Don't
 
 - Don't hard-code colors; always use tokens so both themes work.
 - Don't use lavender as a section background or card fill.
-- Don't introduce a second chromatic accent (orange, pink, green for marketing).
+- Don't introduce a second chromatic accent on marketing or app chrome. The product's semantic palette (status, priority, labels) is the only exception.
 - Don't add atmospheric gradients or spotlight cards.
-- Don't pill-round CTAs.
+- In the app, buttons are pills (`{rounded.pill}`) and icon-only buttons are circles, like Linear's product UI; inputs stay `{rounded.md}`. The `{rounded.md}` button specs above describe the marketing site only.
 - Don't use `#000000` true black as the canvas.
 - Don't combine multiple bright accents in product screenshot mockups.
 
@@ -338,7 +452,7 @@ The product app ships **dark and light themes**. Dark is the reference theme des
 3. Default body to `{typography.body}` at weight 400.
 4. Run `npx @google/design.md lint DESIGN.md` after edits.
 5. Add new variants as separate component entries.
-6. Treat lavender as scarce: brand mark, primary CTA, focus, link emphasis.
+6. Treat lavender as scarce: brand mark, primary CTA, focus, link emphasis (and the in-app exceptions under "Product UI (App)").
 7. Lead every section with a product UI screenshot.
 
 ## Known Gaps
@@ -346,5 +460,6 @@ The product app ships **dark and light themes**. Dark is the reference theme des
 - The four-step surface ladder values are extracted directly from Linear's `--color-bg-level-3`, `--color-line-tint`, etc. CSS variables; they are Linear's canonical surface spec.
 - Form-field error and validation styling is not visible on the inspected pages.
 - The light theme (see "Themes (App)") is derived for the product app; Linear's marketing site itself is dark-only.
+- "Product UI (App)" is taken from Linear's app (light and dark) by side-by-side comparison, not from a published spec. Values are approximations; when in doubt, compare with Linear again.
 - Linear's actual product UI uses a richer color-tag palette (red, orange, yellow, green, blue, purple) for issue priorities and project labels — those colors live in the in-product surfaces shown in mockups.
 - The custom display, text, and mono families are proprietary; an open-source substitute is acceptable.

@@ -1,0 +1,160 @@
+import type { RouteRecordRaw } from 'vue-router'
+
+// Every page is lazy-loaded.
+export const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    name: 'home',
+    meta: { requiresAuth: true },
+    component: () => import('@/features/workspaces/pages/HomeRedirectPage.vue'),
+  },
+  {
+    path: '/',
+    component: () => import('@/layouts/AuthLayout.vue'),
+    children: [
+      {
+        path: 'login',
+        name: 'login',
+        meta: { guestOnly: true, title: 'Log in' },
+        component: () => import('@/features/auth/pages/LoginPage.vue'),
+      },
+      {
+        path: 'register',
+        name: 'register',
+        meta: { guestOnly: true, title: 'Create account' },
+        component: () => import('@/features/auth/pages/RegisterPage.vue'),
+      },
+      {
+        path: 'setup',
+        name: 'workspace-setup',
+        meta: { requiresAuth: true, title: 'Set up workspace' },
+        component: () => import('@/features/workspaces/pages/WorkspaceSetupPage.vue'),
+      },
+      {
+        // GitHub App callback URL. Under the reserved `setup` slug so it can't shadow a workspace.
+        path: 'setup/github',
+        name: 'github-callback',
+        meta: { requiresAuth: true, title: 'Connect GitHub' },
+        component: () => import('@/features/github/pages/GitHubCallbackPage.vue'),
+      },
+    ],
+  },
+  {
+    path: '/:workspaceSlug',
+    component: () => import('@/layouts/WorkspaceLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', name: 'workspace', redirect: { name: 'my-issues' } },
+      {
+        path: 'my-issues',
+        name: 'my-issues',
+        meta: { title: 'My issues' },
+        component: () => import('@/features/issues/pages/MyIssuesPage.vue'),
+      },
+      {
+        path: 'issues',
+        name: 'issues',
+        meta: { title: 'All issues' },
+        component: () => import('@/features/issues/pages/IssuesPage.vue'),
+      },
+      {
+        // Identifiers are case-insensitive (`tip-200` opens TIP-200).
+        path: 'issue/:identifier',
+        name: 'issue',
+        meta: { title: 'Issue' },
+        component: () => import('@/features/issues/pages/IssueDetailPage.vue'),
+      },
+      {
+        path: 'projects',
+        name: 'projects',
+        meta: { title: 'Projects' },
+        component: () => import('@/features/projects/pages/ProjectsPage.vue'),
+      },
+      {
+        path: 'project/:projectId',
+        name: 'project',
+        meta: { title: 'Project' },
+        component: () => import('@/features/projects/pages/ProjectDetailPage.vue'),
+      },
+      {
+        path: 'teams',
+        name: 'teams',
+        meta: { title: 'Teams' },
+        component: () => import('@/features/teams/pages/TeamsPage.vue'),
+      },
+      {
+        path: 'inbox',
+        name: 'inbox',
+        // Notifications live in the sidebar popover; old /inbox links open it.
+        meta: { title: 'Notifications' },
+        component: () => import('@/features/inbox/pages/InboxRedirectPage.vue'),
+      },
+      {
+        path: 'views',
+        name: 'views',
+        meta: { title: 'Views' },
+        component: () => import('@/features/views/pages/ViewsPage.vue'),
+      },
+      {
+        path: 'view/:viewId',
+        name: 'view',
+        meta: { title: 'View' },
+        component: () => import('@/features/views/pages/ViewPage.vue'),
+      },
+      {
+        // A team opens on its issues, like Linear.
+        path: 'team/:teamKey',
+        name: 'team',
+        redirect: (to) => ({ name: 'team-issues', params: to.params }),
+      },
+      {
+        path: 'team/:teamKey/issues',
+        name: 'team-issues',
+        meta: { title: 'Issues' },
+        component: () => import('@/features/teams/pages/TeamPage.vue'),
+      },
+      {
+        path: 'team/:teamKey/cycles',
+        name: 'cycles',
+        meta: { title: 'Cycles' },
+        component: () => import('@/features/cycles/pages/CyclesPage.vue'),
+      },
+      {
+        path: 'team/:teamKey/cycle/:cycleId',
+        name: 'cycle',
+        meta: { title: 'Cycle' },
+        component: () => import('@/features/cycles/pages/CycleDetailPage.vue'),
+      },
+      {
+        path: 'team/:teamKey/projects',
+        name: 'team-projects',
+        meta: { title: 'Projects' },
+        component: () => import('@/features/projects/pages/ProjectsPage.vue'),
+      },
+      {
+        path: 'team/:teamKey/views',
+        name: 'team-views',
+        meta: { title: 'Views' },
+        component: () => import('@/features/views/pages/ViewsPage.vue'),
+      },
+      {
+        path: 'team/:teamKey/settings',
+        name: 'team-settings',
+        meta: { title: 'Team settings' },
+        component: () => import('@/features/teams/pages/TeamSettingsPage.vue'),
+      },
+      {
+        path: 'settings',
+        name: 'settings',
+        meta: { title: 'Settings' },
+        component: () => import('@/features/settings/pages/SettingsPage.vue'),
+      },
+    ],
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    meta: { title: 'Not found' },
+    component: () => import('@/components/common/NotFoundPage.vue'),
+  },
+]

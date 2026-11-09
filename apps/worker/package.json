@@ -1,0 +1,34 @@
+{
+  "name": "@linear/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun dist/index.js",
+    "build": "bun build src/index.ts --target=bun --outdir=dist --sourcemap=linked --external sharp",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@linear/core": "workspace:*",
+    "@linear/db": "workspace:*",
+    "@linear/env": "workspace:*",
+    "@linear/queue": "workspace:*",
+    "@linear/storage": "workspace:*",
+    "bullmq": "^6.5.1",
+    "ioredis": "^5.11.1",
+    "pino": "^10.4.0",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@linear/tsconfig": "workspace:*",
+    "@types/node": "^26.6.6",
+    "drizzle-orm": "^0.45.4",
+    "vitest": "^5.0.5"
+  }
+}

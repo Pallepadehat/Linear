@@ -1078,7 +1078,7 @@ All procedures live in `packages/contract`, grouped by router:
 | `comments`   | `create`, `list`, `update`, `delete`                                       |
 | `labels`     | `create`, `list`, `update`, `delete`                                       |
 | `uploads`    | `createPresignedUpload`, `confirm`, `getUrl`, `delete`                     |
-| `github`     | `connectInstallation`, `listRepositories`, `connectRepository`, `disconnectRepository`, `listPullRequestsForIssue` |
+| `github`     | `installUrl`, `completeInstall`, `repositories.list`, `repositories.connect`, `repositories.disconnect`, `listPullRequestsForIssue` |
 
 Non-oRPC HTTP routes:
 
@@ -1100,13 +1100,18 @@ List procedures use cursor pagination. Errors use oRPC typed errors (`UNAUTHORIZ
 | `BETTER_AUTH_URL`           | api           | `http://localhost:5173`                   |
 | `APP_URL`                   | api           | `http://localhost:5173` (CORS, trusted origins) |
 | `S3_ENDPOINT`               | api, worker   | `http://localhost:9000`                   |
+| `S3_PUBLIC_ENDPOINT`        | api, worker   | optional; browser-facing storage URL for presigned links (defaults to `S3_ENDPOINT`) |
 | `S3_REGION`                 | api, worker   | `us-east-1`                               |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | api, worker | MinIO credentials                     |
 | `S3_BUCKET`                 | api, worker   | `linear-uploads`                          |
 | `GITHUB_APP_ID`             | api, worker   |                                           |
 | `GITHUB_APP_PRIVATE_KEY`    | api, worker   | PEM                                       |
+| `GITHUB_APP_SLUG`           | api           | App URL name, for the install link        |
+| `GITHUB_APP_CLIENT_ID` / `GITHUB_APP_CLIENT_SECRET` | api | OAuth during install (verifies installation access) |
 | `GITHUB_WEBHOOK_SECRET`     | api           |                                           |
 | `VITE_API_URL`              | app           | empty in dev (uses proxy)                 |
+| `TEST_DATABASE_URL`         | tests         | defaults to `DATABASE_URL` with db `linear_test` |
+| `PORT`, `LOG_LEVEL`         | api (+ worker log level) | `3000`, `info`                 |
 
 All server env is validated with Zod at startup (`packages/env`); the process exits on invalid configuration. Only `VITE_`-prefixed variables reach the browser.
 
@@ -1115,7 +1120,8 @@ All server env is validated with Zod at startup (`packages/env`); the process ex
 - `docker compose up -d` starts PostgreSQL, Redis, and MinIO (with a one-shot job that creates the bucket).
 - `bun install` at the root; `bun run dev` runs app, api, and worker in parallel through Turborepo.
 - `bun run db:migrate` applies Drizzle migrations; `bun run db:seed` creates the demo workspace `Tip` with team `TIP`.
-- GitHub webhooks are forwarded locally with smee.io or the GitHub CLI (`gh webhook forward`).
+- GitHub webhooks reach a local API through a tunnel (cloudflared, ngrok); `bun run demo:github` simulates signed deliveries without GitHub (README → Demo script).
+- `docker-compose.prod.yml` runs the whole stack from the production images (`Dockerfile` targets `server` and `app`).
 
 Default ports: app `5173`, api `3000`, Postgres `5432`, Redis `6379`, MinIO API `9000`, MinIO console `9001`.
 
