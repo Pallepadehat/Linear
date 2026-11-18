@@ -56,5 +56,6 @@ CMD ["bun", "apps/api/dist/index.js"]
 
 FROM nginx:1.27-alpine AS app
 COPY docker/app/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/app/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /repo/apps/app/dist /usr/share/nginx/html
 EXPOSE 80
