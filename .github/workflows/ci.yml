@@ -145,7 +145,6 @@ jobs:
     env:
       DATABASE_URL: postgres://linear:linear@localhost:5432/linear
       REDIS_URL: redis://localhost:6379
-      PERF_DOCKER_CONTAINER: ${{ job.services.postgres.id }}
     steps:
       - uses: actions/checkout@v4
 
@@ -158,6 +157,9 @@ jobs:
 
       - name: Load test
         run: bun run --filter @linear/api perf
+        env:
+          # The job context is only available in steps: the service container to sample.
+          PERF_DOCKER_CONTAINER: ${{ job.services.postgres.id }}
 
       - name: Upload results
         if: always()
