@@ -22,7 +22,14 @@ export const TEST_AUTH_SECRET = 'test-secret-test-secret-test-secret'
  * Truncates all tables before each test in the calling file. GitHub is off unless a
  * (fake) client is passed.
  */
-export async function setupTestApp(options: { github?: GitHubAppClient } = {}) {
+export async function setupTestApp(
+  options: {
+    github?: GitHubAppClient
+    /** APP_URL and BETTER_AUTH_URL, e.g. an https URL for TLS tests. */
+    appUrl?: string
+  } = {},
+) {
+  const appUrl = options.appUrl ?? APP_URL
   const { db, close } = createDb(testDatabaseUrl(), { max: 5 })
   const redis = createRedisConnection(process.env.REDIS_URL ?? 'redis://localhost:6379')
   const queues = createQueues(redis, { prefix: 'test' })
@@ -31,8 +38,8 @@ export async function setupTestApp(options: { github?: GitHubAppClient } = {}) {
     env: {
       LOG_LEVEL: 'silent',
       GITHUB_WEBHOOK_SECRET: 'test-webhook-secret',
-      APP_URL,
-      BETTER_AUTH_URL: APP_URL,
+      APP_URL: appUrl,
+      BETTER_AUTH_URL: appUrl,
       BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
     },
     db,

@@ -12,3 +12,6 @@ coverage/
 
 playwright-report/
 test-results/
+
+# Load test output (apps/api/perf)
+perf/results/

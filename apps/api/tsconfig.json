@@ -1,4 +1,4 @@
 {
   "extends": "@linear/tsconfig/node.json",
-  "include": ["src", "test", "vitest.config.ts"]
+  "include": ["src", "test", "perf", "vitest.config.ts"]
 }
