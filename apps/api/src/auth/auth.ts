@@ -33,6 +33,9 @@ export function createAuth(config: AuthConfig) {
     },
     advanced: {
       database: { generateId: () => uuidv7() },
+      // Better Auth skips its Origin/CSRF checks when it detects a test run. Pinned on so
+      // tests exercise the same protection production has (test/security/authentication.test.ts).
+      disableOriginCheck: false,
     },
   })
 }

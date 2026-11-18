@@ -13,6 +13,7 @@ import { createRealtimeHub } from './modules/realtime/realtime.hub'
 import { registerAuth } from './plugins/auth'
 import { registerCors } from './plugins/cors'
 import { registerORPC } from './plugins/orpc'
+import { registerSecurityHeaders } from './plugins/security-headers'
 
 export type AppDeps = {
   env: Pick<
@@ -51,6 +52,8 @@ export async function buildApp(deps: AppDeps) {
     baseURL: deps.env.BETTER_AUTH_URL,
     trustedOrigins: [deps.env.APP_URL],
   })
+
+  registerSecurityHeaders(app)
 
   const realtime = createRealtimeHub(deps.redis, app.log)
   app.addHook('onClose', async () => realtime.close())
