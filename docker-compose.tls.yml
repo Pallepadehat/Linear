@@ -1,0 +1,32 @@
+# HTTPS/TLS demo: the production stack behind Caddy with a local certificate authority.
+#
+#   PUBLIC_URL=https://localhost:8443 STORAGE_PUBLIC_URL=https://localhost:8091 \
+#     docker compose -f docker-compose.prod.yml -f docker-compose.tls.yml up -d --build --wait
+#
+# Open https://localhost:8443 (the browser warns once: the CA is local; trust it with
+# `docker compose -f docker-compose.prod.yml -f docker-compose.tls.yml cp \
+#   tls:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt`), or inspect the handshake:
+#
+#   openssl s_client -connect localhost:8443 -servername localhost </dev/null | head -20
+#   curl -kI https://localhost:8443/      # HSTS + the app's security headers
+#   curl -I  http://localhost:8081/       # 301 → https
+#
+# PUBLIC_URL must be the https URL: Better Auth then issues `__Secure-` cookies with the
+# Secure flag, so the browser never sends the session over plain HTTP.
+services:
+  tls:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    ports:
+      - '8443:8443'
+      - '8091:8091'
+      - '8081:8081'
+    volumes:
+      - ./docker/tls/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  caddy-data:
