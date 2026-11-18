@@ -1,0 +1,100 @@
+name: Security
+
+# Security checks next to CI (docs/testing.md → Security):
+# - audit:  known vulnerabilities (CVEs/GHSAs) in dependencies, from bun.lock.
+# - codeql: static analysis (SAST) of our own TypeScript for injection, XSS and similar flaws.
+# - zap:    OWASP ZAP baseline scan (DAST) of the production stack, nginx + api, as shipped.
+# The application-level security tests (auth, access control, injection, headers) run in
+# ci.yml with the rest of the test suite.
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  schedule:
+    # New advisories appear without code changes: re-check every Monday.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # Fails on high/critical advisories. Accepted risks, each with a reason:
+      # - GHSA-fc5q-39xc-vjpf picomatch ReDoS: only build tooling (vite, eslint, vue-tsc)
+      #   matches our own fixed globs; nothing user-controlled reaches it, and no fixed
+      #   release exists yet (4.0.7 is the latest).
+      - name: Audit (high and critical)
+        run: bun audit --audit-level=high --ignore=GHSA-fc5q-39xc-vjpf
+
+      - name: Full report (all severities, informational)
+        if: always()
+        run: bun audit || true
+
+  codeql:
+    name: codeql
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - uses: github/codeql-action/analyze@v3
+
+  zap:
+    name: owasp zap baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the production stack
+        run: docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 300
+
+      # Passive baseline scan: spiders the app and checks every response (headers, cookies,
+      # information leaks) without attacking it. Rules ZAP should treat differently are in
+      # .zap/rules.tsv: regressions of what we fixed are FAIL (they fail the job), accepted
+      # risks stay visible as WARN. -I: warnings alone don't fail the job.
+      - name: ZAP baseline scan
+        run: |
+          mkdir -p zap && cp .zap/rules.tsv zap/ && chmod -R 777 zap
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://localhost:8080 -c rules.tsv -I \
+            -r report.html -J report.json -w report.md
+          cat zap/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: zap/
+          retention-days: 14
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --no-color

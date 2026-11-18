@@ -1,0 +1,9 @@
+name: linear
+# Scan the code we ship. Tests and the load test are left out: the security tests contain
+# deliberately insecure code (MD5 password hashing, injection payloads) as the thing they
+# demonstrate and test against, which CodeQL would otherwise report as vulnerabilities.
+paths-ignore:
+  - '**/test/**'
+  - '**/*.test.ts'
+  - '**/e2e/**'
+  - 'apps/api/perf/**'

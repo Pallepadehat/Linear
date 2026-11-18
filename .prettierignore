@@ -8,3 +8,4 @@ apps/app/src/components/ui
 playwright-report
 test-results
 *.md
+apps/api/perf/results/

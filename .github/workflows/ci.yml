@@ -119,3 +119,52 @@ jobs:
             apps/app/playwright-report/
             apps/app/test-results/
           retention-days: 7
+
+  perf:
+    name: load test
+    runs-on: ubuntu-latest
+    # 1 → 5 → 10 → 20 concurrent users against the api in production mode (apps/api/perf).
+    # Fails when p95 at 20 users is 500 ms or more, or more than 1 % of requests fail.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: linear
+          POSTGRES_PASSWORD: linear
+          POSTGRES_DB: linear
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U linear -d linear"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://linear:linear@localhost:5432/linear
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Load test
+        run: bun run --filter @linear/api perf
+        env:
+          # The job context is only available in steps: the service container to sample.
+          PERF_DOCKER_CONTAINER: ${{ job.services.postgres.id }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test
+          path: apps/api/perf/results/
+          retention-days: 30

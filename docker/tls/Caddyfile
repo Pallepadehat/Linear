@@ -1,0 +1,20 @@
+# HTTPS in front of the production stack (docker-compose.tls.yml). Caddy terminates TLS with a
+# certificate from its own local CA (`tls internal`) and forwards plain HTTP inside the Docker
+# network, the same shape as a real load balancer or reverse proxy.
+
+https://localhost:8443 {
+	tls internal
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	reverse_proxy app:80
+}
+
+# Presigned upload/download URLs must be https too, or the browser blocks them as mixed content.
+https://localhost:8091 {
+	tls internal
+	reverse_proxy storage:9000
+}
+
+# Plain HTTP only redirects.
+http://localhost:8081 {
+	redir https://localhost:8443{uri} permanent
+}
