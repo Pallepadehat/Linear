@@ -7,6 +7,7 @@ import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
 import { authClient } from '@/lib/auth-client'
 import { toTypedSchema } from '@/lib/form-schema'
+import { safeRedirect } from '@/lib/safe-redirect'
 import { loginSchema } from '../schemas'
 
 const router = useRouter()
@@ -28,11 +29,7 @@ const onSubmit = handleSubmit(async (values) => {
     return
   }
   queryClient.clear()
-  const redirect =
-    typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
-      ? route.query.redirect
-      : '/'
-  await router.replace(redirect)
+  await router.replace(safeRedirect(route.query.redirect))
 })
 </script>
 
